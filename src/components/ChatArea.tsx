@@ -95,9 +95,16 @@ export const ChatArea = () => {
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 flex flex-col bg-wa-chat-bg relative border-r border-wa-border">
-        {/* Background Overlay */}
-        <div className="absolute inset-0 opacity-[0.4] pointer-events-none z-0" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', filter: 'invert(0.1)' }}></div>
+      <div className="flex-1 flex flex-col bg-wa-chat-bg relative border-r border-wa-border overflow-hidden">
+        {/* Background Overlay Dinámico */}
+        <div 
+          className="absolute inset-0 opacity-[0.4] pointer-events-none z-0 animate-bg-dynamic"
+          style={{ 
+            backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")',
+            filter: 'invert(0.1)',
+            backgroundSize: '400px'
+          }}
+        ></div>
 
         {/* Chat Header - Glass Effect */}
         <div className="h-[60px] glass flex items-center px-4 py-2 border-b border-wa-border justify-between z-20 shadow-sm relative">
