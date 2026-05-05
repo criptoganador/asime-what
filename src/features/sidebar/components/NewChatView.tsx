@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Search, UserPlus, MessageSquare, Check, Users, User } from 'lucide-react';
+import { ArrowLeft, Search, UserPlus, MessageSquare, Check, Users, X } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { AddContactView } from './AddContactView';
 import { clsx, type ClassValue } from 'clsx';
@@ -11,13 +11,21 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const NewChatView = () => {
-  const { setView, currentUser, fetchChats, setActiveChat, contacts, fetchContacts, startChat } = useChatStore();
+  const { setView, currentUser, contacts, fetchContacts, startChat, createGroup } = useChatStore();
   const [tab, setTab] = useState<'contacts' | 'search'>('contacts');
   const [showAddForm, setShowAddForm] = useState(false);
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  
+  // Estados para el flujo interno de creación de grupo
+  const [step, setStep] = useState<'list' | 'group-name'>('list');
+  const [groupName, setGroupName] = useState('');
+  const [groupDescription, setGroupDescription] = useState('');
+  const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Cargar contactos al abrir
   useEffect(() => {
@@ -61,6 +69,28 @@ export const NewChatView = () => {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=007bfc&color=fff&size=128`;
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch('http://localhost:3001/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      setGroupAvatar(data.imageUrl);
+    } catch (error) {
+      console.error('Error uploading image:', error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const addContact = async (user: any) => {
     try {
       await fetch('http://localhost:3001/api/contacts', {
@@ -78,6 +108,12 @@ export const NewChatView = () => {
     }
   };
 
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) return;
+    // El grupo se crea con nombre, avatar, descripción y el creador
+    await createGroup(groupName, groupAvatar || '', groupDescription, []);
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -86,166 +122,236 @@ export const NewChatView = () => {
       transition={{ duration: 0.2 }}
       className="absolute inset-0 z-50 bg-wa-sidebar flex flex-col"
     >
-      {/* Header */}
+      {/* Header Dinámico */}
       <div className="bg-[#007bfc] text-white shadow-md">
         <div className="h-[60px] flex items-center px-6 gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
-            onClick={() => setView('chats')} 
+            onClick={() => step === 'list' ? setView('chats') : setStep('list')} 
           />
-          <h2 className="text-[19px] font-medium">Nuevo chat</h2>
+          <h2 className="text-[19px] font-medium">
+            {step === 'list' ? 'Nuevo chat' : 'Nuevo grupo'}
+          </h2>
         </div>
-        {/* Tabs */}
-        <div className="flex">
-          <button 
-            onClick={() => { setTab('contacts'); setQuery(''); }}
-            className={cn(
-              "flex-1 py-3 text-[14px] font-medium transition-all border-b-2",
-              tab === 'contacts' ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"
-            )}
-          >
-            <Users size={16} className="inline mr-2" />
-            Mis Contactos
-          </button>
-          <button 
-            onClick={() => setTab('search')}
-            className={cn(
-              "flex-1 py-3 text-[14px] font-medium transition-all border-b-2",
-              tab === 'search' ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"
-            )}
-          >
-            <UserPlus size={16} className="inline mr-2" />
-            Global
-          </button>
-        </div>
+        
+        {step === 'list' && (
+          <div className="flex">
+            <button 
+              onClick={() => { setTab('contacts'); setQuery(''); }}
+              className={cn(
+                "flex-1 py-3 text-[14px] font-medium transition-all border-b-2",
+                tab === 'contacts' ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"
+              )}
+            >
+              Mis Contactos
+            </button>
+            <button 
+              onClick={() => setTab('search')}
+              className={cn(
+                "flex-1 py-3 text-[14px] font-medium transition-all border-b-2",
+                tab === 'search' ? "border-white text-white" : "border-transparent text-white/60 hover:text-white/80"
+              )}
+            >
+              Global
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Buscador (solo en tab search) */}
-      {tab === 'search' && (
-        <div className="p-4 bg-wa-sidebar border-b border-wa-border">
-          <div className="relative flex items-center bg-wa-bg rounded-xl px-3 py-2 focus-within:shadow-md transition-all">
-            <Search size={20} className={cn("text-wa-text-secondary", query && "text-[#007bfc]")} />
-            <input 
-              type="text" 
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Busca por nombre o teléfono"
-              className="ml-4 bg-transparent outline-none text-[15px] w-full text-wa-text-primary placeholder:text-wa-text-secondary"
-              autoFocus
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Contenido */}
-      <div className="flex-1 overflow-y-auto bg-wa-sidebar">
-        {tab === 'contacts' ? (
-          /* --- Pestaña: Mis Contactos --- */
-          <div className="flex flex-col">
-            {/* Botón para abrir formulario manual */}
-            <div 
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center px-6 py-4 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border group"
+      {/* Contenido Principal con Animaciones de Cambio de Paso */}
+      <div className="flex-1 overflow-y-auto bg-wa-sidebar relative overflow-x-hidden">
+        <AnimatePresence mode="wait">
+          {step === 'list' ? (
+            <motion.div 
+              key="list-step"
+              initial={{ x: -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col"
             >
-              <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
-                <UserPlus size={20} />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo contacto</h3>
-              </div>
-            </div>
-
-            {contacts.length > 0 ? (
-              <>
-                <div className="px-8 py-4 text-[#007bfc] text-[13px] font-medium uppercase tracking-wider bg-wa-bg/50">
-                  Contactos en Asicme · {contacts.length}
-                </div>
-                {contacts.map((contact: any) => (
-                  <div 
-                    key={contact.id}
-                    onClick={() => startChat(contact.contactId)}
-                    className="flex items-center px-6 py-3 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border group"
-                  >
-                    <img src={getAvatar(contact.user)} alt={contact.user?.name} className="w-12 h-12 rounded-full object-cover shadow-sm border border-wa-border" />
-                    <div className="ml-4 flex-1">
-                      <h3 className="text-[16px] font-medium text-wa-text-primary">{contact.nickname || contact.user?.name}</h3>
-                      <p className="text-[13px] text-wa-text-secondary truncate">{contact.user?.about || '¡Hola! Estoy usando Asicme Web.'}</p>
-                    </div>
-                    <MessageSquare size={18} className="text-wa-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+              {tab === 'search' && (
+                <div className="p-4 border-b border-wa-border">
+                  <div className="relative flex items-center bg-wa-bg rounded-xl px-3 py-2">
+                    <Search size={20} className="text-wa-text-secondary" />
+                    <input 
+                      type="text" 
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Busca por nombre o teléfono"
+                      className="ml-4 bg-transparent outline-none text-[15px] w-full"
+                    />
                   </div>
-                ))}
-              </>
-            ) : (
-              <div className="p-12 text-center text-wa-text-secondary flex flex-col items-center gap-4">
-                <div className="w-20 h-20 bg-wa-bg rounded-full flex items-center justify-center">
-                  <Users size={36} className="text-[#007bfc]/30" />
                 </div>
-                <p className="text-lg font-medium text-wa-text-primary">No tienes contactos guardados</p>
-                <p className="max-w-[240px] text-sm">Usa el botón de arriba para agregar a alguien por su número.</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* --- Pestaña: Global --- */
-          <AnimatePresence>
-            {isLoading ? (
-              <div className="p-8 text-center text-wa-text-secondary animate-pulse flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#007bfc] border-t-transparent rounded-full animate-spin"></div>
-                <span>Buscando en Asicme...</span>
-              </div>
-            ) : searchResults.length > 0 ? (
+              )}
+
               <div className="flex flex-col">
-                <div className="px-8 py-4 text-[#007bfc] text-[13px] font-medium uppercase tracking-wider bg-wa-bg/50">
-                  Usuarios en la red
-                </div>
-                {searchResults.map((user) => {
-                  const isAdded = addedIds.has(user.id);
-                  return (
+                {tab === 'contacts' && (
+                  <>
+                    {/* Botón para iniciar creación de grupo */}
                     <div 
-                      key={user.id}
-                      className="flex items-center px-6 py-3 hover:bg-wa-hover transition-colors border-b border-wa-border group"
+                      onClick={() => setStep('group-name')}
+                      className="flex items-center px-6 py-4 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border group"
                     >
-                      <img src={getAvatar(user)} alt={user.name} className="w-12 h-12 rounded-full object-cover shadow-sm border border-wa-border" />
+                      <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
+                        <Users size={20} />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo grupo</h3>
+                      </div>
+                    </div>
+
+                    <div 
+                      onClick={() => setShowAddForm(true)}
+                      className="flex items-center px-6 py-4 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border group"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
+                        <UserPlus size={20} />
+                      </div>
+                      <div className="ml-4">
+                        <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo contacto</h3>
+                      </div>
+                    </div>
+
+                    <div className="px-8 py-4 text-[#007bfc] text-[13px] font-medium uppercase tracking-wider bg-wa-bg/30">
+                      Tus contactos · {contacts.length}
+                    </div>
+
+                    {contacts.map((contact: any) => (
+                      <div 
+                        key={contact.id}
+                        onClick={() => startChat(contact.contactId)}
+                        className="flex items-center px-6 py-3 hover:bg-wa-hover cursor-pointer border-b border-wa-border group"
+                      >
+                        <img src={getAvatar(contact.user)} className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                        <div className="ml-4 flex-1">
+                          <h3 className="text-[16px] font-medium text-wa-text-primary">{contact.nickname || contact.user?.name}</h3>
+                          <p className="text-[13px] text-wa-text-secondary truncate">{contact.user?.about || '¡Hola! Estoy usando Asicme Web.'}</p>
+                        </div>
+                        <MessageSquare size={18} className="text-wa-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    ))}
+                  </>
+                )}
+                
+                {tab === 'search' && searchResults.map((user) => {
+                   const isAdded = addedIds.has(user.id);
+                   return (
+                    <div key={user.id} className="flex items-center px-6 py-3 border-b border-wa-border group">
+                      <img src={getAvatar(user)} className="w-12 h-12 rounded-full object-cover shadow-sm" />
                       <div className="ml-4 flex-1">
                         <h3 className="text-[16px] font-medium text-wa-text-primary">{user.name}</h3>
-                        <p className="text-[13px] text-wa-text-secondary truncate">{user.about || '¡Hola! Estoy usando Asicme Web.'}</p>
                       </div>
                       {isAdded ? (
-                        <div className="flex items-center gap-1 text-wa-green text-[13px] font-medium">
-                          <Check size={16} />
-                          Agregado
-                        </div>
+                        <Check className="text-wa-green" size={20} />
                       ) : (
                         <button 
                           onClick={() => addContact(user)}
-                          className="flex items-center gap-1 bg-[#007bfc] text-white px-3 py-1.5 rounded-lg text-[13px] font-medium hover:bg-[#0066d4] transition-colors"
+                          className="bg-[#007bfc] text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#0066d4]"
                         >
-                          <UserPlus size={14} />
                           Agregar
                         </button>
                       )}
                     </div>
-                  );
+                   );
                 })}
               </div>
-            ) : query ? (
-              <div className="p-12 text-center text-wa-text-secondary">
-                <p className="text-lg mb-2">No se encontraron usuarios</p>
-                <p className="text-sm">Intenta con otro nombre o número completo.</p>
-              </div>
-            ) : (
-              <div className="p-12 text-center text-wa-text-secondary flex flex-col items-center gap-4">
-                <div className="w-16 h-16 bg-wa-bg rounded-full flex items-center justify-center text-[#007bfc]/30">
-                  <Search size={32} />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="name-step"
+              initial={{ x: 30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1 p-8 flex flex-col items-center gap-10 bg-wa-bg/10 h-full overflow-y-auto"
+            >
+              <div 
+                className="relative group cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleImageUpload} 
+                />
+                <div className="w-44 h-44 rounded-full bg-wa-bg flex items-center justify-center text-wa-text-secondary border-2 border-dashed border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner overflow-hidden">
+                  {isUploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007bfc]"></div>
+                  ) : groupAvatar ? (
+                    <img src={groupAvatar} alt="Avatar grupo" className="w-full h-full object-cover" />
+                  ) : (
+                    <Users size={64} />
+                  )}
                 </div>
-                <p className="max-w-[220px]">Busca usuarios globales para agregarlos a tu lista de contactos.</p>
+                <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
+                   <div className="text-white opacity-0 group-hover:opacity-100 font-medium text-sm text-center px-4 uppercase tracking-tighter">Cambiar icono del grupo</div>
+                </div>
               </div>
-            )}
-          </AnimatePresence>
-        )}
+
+              <div className="w-full max-w-sm space-y-8">
+                <div className="space-y-3">
+                  <label className="text-[14px] text-[#007bfc] font-medium px-1 uppercase tracking-wider">Asunto del grupo</label>
+                  <div className="relative flex items-center">
+                    <input 
+                      type="text" 
+                      placeholder="Ej: Familia, Trabajo..." 
+                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#007bfc] outline-none py-3 text-xl transition-all font-medium"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      autoFocus
+                    />
+                    {groupName && (
+                      <X 
+                        size={20} 
+                        className="absolute right-0 text-wa-text-secondary cursor-pointer hover:text-wa-text-primary" 
+                        onClick={() => setGroupName('')}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[14px] text-[#007bfc] font-medium px-1 uppercase tracking-wider">Descripción (Opcional)</label>
+                  <div className="relative flex items-center">
+                    <textarea 
+                      placeholder="¿De qué trata este grupo?" 
+                      rows={2}
+                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#007bfc] outline-none py-2 text-[16px] transition-all resize-none scrollbar-none"
+                      value={groupDescription}
+                      onChange={(e) => setGroupDescription(e.target.value)}
+                    />
+                    {groupDescription && (
+                      <X 
+                        size={18} 
+                        className="absolute right-0 top-2 text-wa-text-secondary cursor-pointer hover:text-wa-text-primary" 
+                        onClick={() => setGroupDescription('')}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-auto pb-12 w-full flex justify-center">
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleCreateGroup}
+                  disabled={!groupName.trim() || isUploading}
+                  className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-xl transition-all ${
+                    groupName.trim() && !isUploading ? "bg-wa-green hover:bg-[#008f6f]" : "bg-gray-300 cursor-not-allowed opacity-50"
+                  }`}
+                >
+                  <Check size={32} />
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Pantalla de Formulario (Overlay) */}
       <AnimatePresence>
         {showAddForm && (
           <AddContactView onBack={() => setShowAddForm(false)} />

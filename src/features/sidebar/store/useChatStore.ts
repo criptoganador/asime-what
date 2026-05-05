@@ -6,7 +6,7 @@ const socket: Socket = io('http://localhost:3001');
 export interface Message {
   id: string;
   text?: string;
-  type: 'text' | 'image';
+  type: 'text' | 'image' | 'system';
   imageUrl?: string;
   senderId: string;
   sender?: 'me' | 'other';
@@ -24,6 +24,7 @@ export interface Chat {
   isOnline?: boolean;
   isFavorite?: boolean;
   isGroup?: boolean;
+  description?: string;
   isContact?: boolean;
   userId?: string;
   otherUserId?: string;
@@ -47,7 +48,8 @@ interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>;
   activeChatId: string | null;
-  view: 'chats' | 'status' | 'communities' | 'settings' | 'profile' | 'new-chat' | 'add-contact';
+  view: 'chats' | 'status' | 'communities' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info';
+  viewingGroup: Chat | null;
   isAuthenticated: boolean;
   currentUser: {
     id: string;
@@ -57,8 +59,14 @@ interface ChatState {
     about: string;
   } | null;
   isDarkMode: boolean;
+  participants: any[];
+  fetchParticipants: (chatId: string) => Promise<void>;
+  addParticipant: (chatId: string, userId: string) => Promise<void>;
+  removeParticipant: (chatId: string, userId: string, isSelf?: boolean) => Promise<void>;
+  leaveGroup: (chatId: string) => Promise<void>;
   toggleDarkMode: () => void;
-  setView: (view: 'chats' | 'status' | 'communities' | 'settings' | 'profile' | 'new-chat' | 'add-contact') => void;
+  setView: (view: 'chats' | 'status' | 'communities' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info') => void;
+  setViewingGroup: (group: Chat | null) => void;
   setActiveChat: (id: string | null) => void;
   setChats: (chats: Chat[]) => void;
   contacts: Contact[];
@@ -75,6 +83,9 @@ interface ChatState {
   fetchMessages: (chatId: string) => Promise<void>;
   sendMessage: (chatId: string, text?: string, type?: 'text' | 'image', imageUrl?: string) => void;
   markMessagesRead: (chatId: string) => void;
+  createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
+  deleteChat: (chatId: string) => Promise<void>;
+  updateGroup: (chatId: string, data: { name?: string; avatar?: string; description?: string }) => Promise<void>;
 }
 
 // Restaurar sesión guardada
@@ -86,9 +97,57 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: {},
   activeChatId: null,
   view: 'chats',
+  viewingGroup: null,
   isAuthenticated: !!restoredUser,
   currentUser: restoredUser,
   isDarkMode: false,
+  participants: [],
+  fetchParticipants: async (chatId) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`);
+      const data = await response.json();
+      set({ participants: data });
+    } catch (error) {
+      console.error('Error fetching participants:', error);
+    }
+  },
+  addParticipant: async (chatId, userId) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (response.ok) {
+        get().fetchParticipants(chatId);
+      }
+    } catch (error) {
+      console.error('Error adding participant:', error);
+    }
+  },
+  removeParticipant: async (chatId, userId, isSelf = false) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants/${userId}?isSelf=${isSelf}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        get().fetchParticipants(chatId);
+      }
+    } catch (error) {
+      console.error('Error removing participant:', error);
+    }
+  },
+  leaveGroup: async (chatId) => {
+    const { currentUser, removeParticipant, closeChat, fetchChats } = get();
+    if (!currentUser) return;
+    try {
+      await removeParticipant(chatId, currentUser.id, true);
+      closeChat();
+      await fetchChats(currentUser.id);
+    } catch (error) {
+      console.error('Error leaving group:', error);
+    }
+  },
   toggleDarkMode: () => {
     const newMode = !get().isDarkMode;
     set({ isDarkMode: newMode });
@@ -96,6 +155,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     else document.documentElement.classList.remove('dark');
   },
   setView: (view) => set({ view }),
+  setViewingGroup: (group) => set({ viewingGroup: group }),
   setActiveChat: (id) => {
     set({ activeChatId: id });
     if (id) {
@@ -269,6 +329,61 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chat.id === chatId ? { ...chat, isFavorite: !chat.isFavorite } : chat
     )
   })),
+  createGroup: async (name, avatar, description, participantIds) => {
+    const { currentUser, fetchChats, setActiveChat, setView } = get();
+    if (!currentUser) return;
+    try {
+      const response = await fetch('http://localhost:3001/api/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          avatar,
+          description,
+          participantIds: [...participantIds, currentUser.id] // Siempre incluir al creador
+        })
+      });
+      const newGroup = await response.json();
+      await fetchChats(currentUser.id);
+      setActiveChat(newGroup.id);
+      setView('chats');
+    } catch (error) {
+      console.error('Error creating group:', error);
+    }
+  },
+  deleteChat: async (chatId) => {
+    const { currentUser, fetchChats, activeChatId, setActiveChat } = get();
+    if (!currentUser) return;
+    try {
+      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        await fetchChats(currentUser.id);
+        if (activeChatId === chatId) {
+          setActiveChat(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error);
+    }
+  },
+  updateGroup: async (chatId, data) => {
+    const { currentUser, fetchChats } = get();
+    if (!currentUser) return;
+    try {
+      const response = await fetch(`http://localhost:3001/api/groups/${chatId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+        await fetchChats(currentUser.id);
+      }
+    } catch (error) {
+      console.error('Error updating group:', error);
+    }
+  },
 }));
 
 // Escuchar mensajes en tiempo real

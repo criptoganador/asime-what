@@ -11,7 +11,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const ChatArea = () => {
-  const { activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, contacts, fetchContacts, markMessagesRead } = useChatStore();
+  const { activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, contacts, fetchContacts, markMessagesRead, setViewingGroup } = useChatStore();
   const activeChat = Array.isArray(chats) ? chats.find(c => c.id === activeChatId) : null;
   const [inputText, setInputText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -152,7 +152,16 @@ export const ChatArea = () => {
         ></div>
 
         <div className="h-[60px] glass flex items-center px-4 py-2 border-b border-wa-border justify-between z-20 shadow-sm relative">
-          <div className="flex items-center cursor-pointer min-w-0" onClick={() => setView('profile')}>
+          <div className="flex items-center cursor-pointer min-w-0" onClick={() => {
+            if (activeChat.isGroup) {
+              // Primero asignamos el grupo de forma explícita
+              setViewingGroup(activeChat);
+              // Pequeño delay para asegurar que el store ha procesado el objeto antes del cambio de vista
+              setTimeout(() => setView('group-info'), 0);
+            } else {
+              setView('profile');
+            }
+          }}>
             <ArrowLeft size={24} className="md:hidden mr-2 text-wa-text-secondary cursor-pointer hover:bg-wa-hover rounded-full p-0.5" onClick={(e) => { e.stopPropagation(); closeChat(); }} />
             <motion.img layoutId={`avatar-${activeChat.id}`} src={activeChat.avatar} className="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="" />
             <div className="ml-3 truncate">
@@ -170,8 +179,21 @@ export const ChatArea = () => {
                 {showChatMenu && (
                   <motion.div initial={{ opacity: 0, scale: 0.95, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} className="absolute right-0 top-10 w-[240px] bg-white/95 backdrop-blur-md shadow-2xl rounded-xl py-2 z-50 border border-wa-border origin-top-right">
                     <ul className="text-[14.5px] text-wa-text-primary">
-                      <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors">Información del contacto</li>
-                      <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors border-t border-wa-border text-red-500 hover:bg-red-50">Cerrar chat</li>
+                      <li 
+                        className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors"
+                        onClick={() => {
+                          if (activeChat.isGroup) {
+                            setViewingGroup(activeChat);
+                            setView('group-info');
+                          } else {
+                            setView('profile');
+                          }
+                          setShowChatMenu(false);
+                        }}
+                      >
+                        {activeChat.isGroup ? 'Información del grupo' : 'Información del contacto'}
+                      </li>
+                      <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors border-t border-wa-border text-red-500 hover:bg-red-50" onClick={closeChat}>Cerrar chat</li>
                     </ul>
                   </motion.div>
                 )}
@@ -225,14 +247,34 @@ export const ChatArea = () => {
           <AnimatePresence initial={false}>
             {displayMessages.map((msg) => {
               const isMe = msg.senderId === currentUser?.id;
+              const isSystem = msg.type === 'system';
               const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+              if (isSystem) {
+                return (
+                  <motion.div 
+                    key={msg.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex justify-center my-3"
+                  >
+                    <div className="bg-[#fff9c4] dark:bg-[#1e2a30] text-[#54656f] dark:text-[#8696a0] text-[12.5px] px-4 py-1.5 rounded-lg shadow-sm border border-[#e1d9a5] dark:border-blue-900/20 font-medium">
+                      {msg.text}
+                    </div>
+                  </motion.div>
+                );
+              }
+
               return (
                 <motion.div 
-                  key={msg.id}
+                  key={msg.id} 
                   initial={{ opacity: 0, y: 10, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.2 }}
-                  className={cn("flex flex-col max-w-[65%] relative group", isMe ? "self-end items-end" : "self-start items-start")}
+                  className={cn(
+                    "flex flex-col max-w-[65%] relative group",
+                    isMe ? "self-end items-end" : "self-start items-start"
+                  )}
                 >
                   <div className={cn("rounded-lg shadow-sm text-[14.2px] relative overflow-hidden", isMe ? "bg-wa-bubble-sent rounded-tr-none" : "bg-wa-bubble-received rounded-tl-none", msg.type === 'image' ? "p-1 pb-1.5" : "px-3 py-1.5")}>
                     <div className={cn("absolute top-0 w-3 h-3", isMe ? "-right-2 bg-wa-bubble-sent [clip-path:polygon(0_0,0_100%,100%_0)]" : "-left-2 bg-wa-bubble-received [clip-path:polygon(100%_0,100%_100%,0_0)]")}></div>

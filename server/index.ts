@@ -218,13 +218,14 @@ app.get('/api/chats/:userId', async (req, res) => {
           id: conv.id,
           name: conv.isGroup ? conv.name : otherUser?.name || 'Usuario desconocido',
           avatar: conv.isGroup 
-            ? `https://ui-avatars.com/api/?name=${conv.name}` 
-            : otherUser?.avatar || `https://ui-avatars.com/api/?name=${otherUser?.name || '?'}&background=random`,
+            ? conv.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.name || 'G')}` 
+            : otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(otherUser?.name || '?')}&background=random`,
           lastMessage: lastMsg?.type === 'image' ? '📷 Imagen' : (lastMsg?.text || 'Empieza a chatear'),
           timestamp: lastMsg?.timestamp ? new Date(lastMsg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
           unreadCount: unreadCount.length,
           isOnline: activeUsers.has(otherParticipantId || ''),
           isGroup: conv.isGroup,
+          description: conv.description,
           otherUserId: otherParticipantId
         };
       } catch (innerError) {
@@ -348,7 +349,74 @@ app.post('/api/conversations', async (req, res) => {
   }
 });
 
+// Crear nuevo grupo
+app.post('/api/groups', async (req, res) => {
+  const { name, avatar, description, participantIds } = req.body; // participantIds debe incluir al creador
+
+  try {
+    // 1. Crear la conversación de tipo grupo
+    const [newGroup] = await db.insert(conversations).values({
+      name,
+      avatar,
+      description,
+      isGroup: true
+    }).returning();
+
+    // 2. Añadir a todos los participantes
+    if (participantIds && participantIds.length > 0) {
+      await db.insert(conversationParticipants).values(
+        participantIds.map((uid: string, index: number) => ({
+          conversationId: newGroup.id,
+          userId: uid,
+          role: index === 0 ? 'admin' : 'member' // El creador es el primero
+        }))
+      );
+    }
+
+    res.json(newGroup);
+  } catch (error) {
+    console.error('Error al crear grupo:', error);
+    res.status(500).json({ error: 'Error al crear grupo' });
+  }
+});
+
+// Actualizar un grupo
+app.patch('/api/groups/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, avatar, description } = req.body;
+
+  try {
+    const [updatedGroup] = await db.update(conversations)
+      .set({ name, avatar, description })
+      .where(eq(conversations.id, id))
+      .returning();
+    
+    res.json(updatedGroup);
+  } catch (error) {
+    console.error('Error al actualizar grupo:', error);
+    res.status(500).json({ error: 'Error al actualizar grupo' });
+  }
+});
+
 // --- Endpoints de Contactos ---
+
+// Eliminar una conversación (y sus mensajes/participantes)
+app.delete('/api/conversations/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // 1. Borrar mensajes
+    await db.delete(messages).where(eq(messages.conversationId, id));
+    // 2. Borrar participantes
+    await db.delete(conversationParticipants).where(eq(conversationParticipants.conversationId, id));
+    // 3. Borrar la conversación
+    await db.delete(conversations).where(eq(conversations.id, id));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error al eliminar conversación:', error);
+    res.status(500).json({ error: 'Error al eliminar conversación' });
+  }
+});
 
 // Obtener contactos del usuario
 app.get('/api/contacts/:userId', async (req, res) => {
@@ -415,6 +483,111 @@ app.post('/api/contacts', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al agregar contacto' });
+  }
+});
+
+// Obtener participantes de una conversación
+app.get('/api/conversations/:id/participants', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const groupParticipants = await db.select({
+      id: users.id,
+      name: users.name,
+      avatar: users.avatar,
+      about: users.about,
+      phone: users.phone,
+      role: conversationParticipants.role
+    })
+    .from(conversationParticipants)
+    .innerJoin(users, eq(conversationParticipants.userId, users.id))
+    .where(eq(conversationParticipants.conversationId, id));
+    
+    res.json(groupParticipants);
+  } catch (error) {
+    console.error('Error al obtener participantes:', error);
+    res.status(500).json({ error: 'Error al obtener participantes' });
+  }
+});
+
+// Añadir participante a una conversación
+app.post('/api/conversations/:id/participants', async (req, res) => {
+  const { id } = req.params;
+  const { userId } = req.body;
+
+  try {
+    // Obtener nombre del usuario para el mensaje de sistema
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Verificar si ya es participante
+    const existing = await db.select()
+      .from(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.conversationId, id),
+        eq(conversationParticipants.userId, userId)
+      ));
+
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'El usuario ya es participante' });
+    }
+
+    await db.insert(conversationParticipants).values({
+      conversationId: id,
+      userId
+    });
+
+    // Crear mensaje de sistema
+    const [systemMsg] = await db.insert(messages).values({
+      conversationId: id,
+      senderId: userId, // Usamos el ID del usuario afectado
+      text: `${user.name} ha sido añadido al grupo`,
+      type: 'system'
+    }).returning();
+
+    // Notificar vía socket
+    io.to(id).emit('receive_message', systemMsg);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error al añadir participante:', error);
+    res.status(500).json({ error: 'Error al añadir participante' });
+  }
+});
+
+// Eliminar participante de una conversación
+app.delete('/api/conversations/:id/participants/:userId', async (req, res) => {
+  const { id, userId } = req.params;
+  const { isSelf } = req.query; // Recibimos si el usuario se está yendo por su cuenta
+
+  try {
+    // Obtener nombre del usuario antes de borrarlo
+    const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+    
+    await db.delete(conversationParticipants)
+      .where(and(
+        eq(conversationParticipants.conversationId, id),
+        eq(conversationParticipants.userId, userId)
+      ));
+
+    if (user) {
+      // Mensaje dinámico: "ha salido" o "ha sido eliminado"
+      const actionText = isSelf === 'true' ? 'ha salido del grupo' : 'ha sido eliminado del grupo';
+      
+      const [systemMsg] = await db.insert(messages).values({
+        conversationId: id,
+        senderId: userId,
+        text: `${user.name} ${actionText}`,
+        type: 'system'
+      }).returning();
+
+      // Notificar vía socket
+      io.to(id).emit('receive_message', systemMsg);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error al eliminar participante:', error);
+    res.status(500).json({ error: 'Error al eliminar participante' });
   }
 });
 

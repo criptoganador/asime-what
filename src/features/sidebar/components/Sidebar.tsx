@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { List, RowComponentProps } from 'react-window';
-import { Search, Filter, Plus, ChevronDown, Star, MoreVertical, Moon, Sun } from 'lucide-react';
+import { Search, Filter, Plus, ChevronDown, Star, MoreVertical, Moon, Sun, Trash2 } from 'lucide-react';
 import { useChatStore, Chat } from '../store/useChatStore';
 import { ProfileView } from './ProfileView';
 import { NewChatView } from './NewChatView';
 import { AddContactView } from './AddContactView';
+import { GroupInfoView } from './GroupInfoView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -21,7 +22,7 @@ interface RowProps {
 // Componente de Fila sin memo directo para evitar conflictos de tipos
 const ChatItem = ({ index, style, items, ariaAttributes }: RowComponentProps<RowProps>) => {
   const chat = items[index];
-  const { activeChatId, setActiveChat, toggleFavorite, startChat } = useChatStore();
+  const { activeChatId, setActiveChat, toggleFavorite, startChat, deleteChat } = useChatStore();
   const isActive = activeChatId === chat?.id;
 
   // En la v2 de react-window, es mejor devolver un div vacío que null para mantener la consistencia
@@ -65,6 +66,17 @@ const ChatItem = ({ index, style, items, ariaAttributes }: RowComponentProps<Row
               onClick={(e) => { e.stopPropagation(); toggleFavorite(chat.id); }}
               className={cn("transition-all duration-200", chat.isFavorite ? "fill-yellow-400 text-yellow-400 opacity-100" : "text-wa-text-secondary opacity-0 group-hover:opacity-40 hover:opacity-100 hover:text-yellow-400")}
             />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm(`¿Seguro que quieres eliminar el chat con "${chat.name}"?`)) {
+                  deleteChat(chat.id);
+                }
+              }}
+              className="text-red-500 opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity p-1"
+            >
+              <Trash2 size={16} />
+            </button>
             <AnimatePresence mode="popLayout">
               {chat.unreadCount > 0 && (
                 <motion.span 
@@ -232,8 +244,14 @@ export const Sidebar = () => {
             <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 bg-white">
               {Array.from({ length: 12 }).map((_, i) => <SkeletonChatItem key={i} />)}
             </motion.div>
-          ) : (
-            <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full">
+          ) : view === 'chats' ? (
+            <motion.div 
+              key="list" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="h-full"
+            >
               <List
                 rowCount={filteredChats.length}
                 rowHeight={72}
@@ -241,6 +259,15 @@ export const Sidebar = () => {
                 rowProps={{ items: filteredChats }}
                 style={{ height: window.innerHeight - 180, width: '100%' }}
               />
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="view-placeholder"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              className="absolute inset-0 bg-wa-bg flex items-center justify-center"
+            >
+              <div className="animate-pulse text-wa-text-secondary text-sm">Cargando vista...</div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -256,10 +283,13 @@ export const Sidebar = () => {
         <Plus size={24} />
       </motion.button>
 
-      {/* Vistas Deslizables */}
-      {view === 'profile' && <ProfileView />}
-      {view === 'new-chat' && <NewChatView />}
-      {view === 'add-contact' && <AddContactView onBack={() => setView('chats')} />}
+      {/* Vistas Deslizables con AnimatePresence para evitar bloqueos de renderizado */}
+      <AnimatePresence>
+        {view === 'profile' && <ProfileView key="profile" />}
+        {view === 'new-chat' && <NewChatView key="new-chat" />}
+        {view === 'add-contact' && <AddContactView key="add-contact" onBack={() => setView('chats')} />}
+        {view === 'group-info' && <GroupInfoView key="group-info" />}
+      </AnimatePresence>
     </div>
   );
 };

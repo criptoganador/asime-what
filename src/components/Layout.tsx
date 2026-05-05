@@ -25,7 +25,7 @@ export const Layout = () => {
         "h-full border-r border-wa-border",
         activeChatId ? "hidden md:block w-[400px]" : "w-full md:w-[400px]"
       )}>
-        {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile') && <Sidebar />}
+        {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info') && <Sidebar />}
         {view === 'status' && <StatusSidebar />}
         {view === 'communities' && (
           <div className="w-full h-full bg-wa-sidebar flex flex-col items-center justify-center p-8 text-center">

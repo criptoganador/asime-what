@@ -12,6 +12,9 @@ export const users = pgTable('users', {
 export const conversations = pgTable('conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name'), // Null for 1v1
+  avatar: text('avatar'),
+  description: text('description'),
+  communityId: uuid('community_id'), // Para grupos vinculados a comunidades
   isGroup: boolean('is_group').default(false),
   createdAt: timestamp('created_at').defaultNow(),
 });
@@ -20,6 +23,7 @@ export const conversationParticipants = pgTable('conversation_participants', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: uuid('conversation_id').references(() => conversations.id).notNull(),
   userId: uuid('user_id').references(() => users.id).notNull(),
+  role: text('role').default('member'), // 'admin' o 'member'
 });
 
 export const messages = pgTable('messages', {
