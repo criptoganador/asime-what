@@ -1,5 +1,5 @@
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
-import { Phone, Video, Search, MoreVertical, Plus, Smile, Mic, Check, CheckCheck, X, ChevronDown, FileText, Image, Camera, User, BarChart2, Calendar, Sticker, ArrowLeft } from 'lucide-react';
+import { Phone, Video, Search, MoreVertical, Plus, Smile, Mic, Check, CheckCheck, X, ChevronDown, FileText, Image, Camera, User, BarChart2, Calendar, Sticker, ArrowLeft, ShieldCheck, UserPlus } from 'lucide-react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,21 +11,22 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const ChatArea = () => {
-  const { activeChatId, chats, messages, addMessage, closeChat, setView } = useChatStore();
-  const activeChat = chats.find(c => c.id === activeChatId);
+  const { activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, contacts, fetchContacts, markMessagesRead } = useChatStore();
+  const activeChat = Array.isArray(chats) ? chats.find(c => c.id === activeChatId) : null;
   const [inputText, setInputText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showChatMenu, setShowChatMenu] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [messageSearchQuery, setMessageSearchQuery] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Cerrar pickers y menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) setShowEmojiPicker(false);
@@ -42,53 +43,98 @@ export const ChatArea = () => {
 
   const currentMessages = useMemo(() => {
     if (!activeChatId) return [];
-    const chatMessages = messages[activeChatId] || [];
-    if (chatMessages.length === 0 && activeChatId) {
-      return [
-        { id: '1', text: '¡Hola! ¿Cómo vas con el proyecto?', sender: 'other', timestamp: '12:40 PM', status: 'read' },
-        { id: '2', text: 'Todo va excelente, acabo de terminar la virtualización del sidebar.', sender: 'me', timestamp: '12:41 PM', status: 'read' },
-      ] as Message[];
-    }
-    return chatMessages;
+    return messages[activeChatId] || [];
   }, [activeChatId, messages]);
 
   const displayMessages = useMemo(() => {
     if (!messageSearchQuery.trim()) return currentMessages;
-    return currentMessages.filter(msg => msg.text.toLowerCase().includes(messageSearchQuery.toLowerCase()));
+    return currentMessages.filter(msg => msg.text?.toLowerCase().includes(messageSearchQuery.toLowerCase()));
   }, [currentMessages, messageSearchQuery]);
 
   useEffect(() => {
     if (scrollRef.current && !showSearch) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [currentMessages, showSearch]);
+    // Marcar como leído si el chat está activo y recibimos mensajes
+    if (activeChatId && currentMessages.length > 0) {
+      const lastMsg = currentMessages[currentMessages.length - 1];
+      if (lastMsg.senderId !== currentUser?.id && lastMsg.status !== 'read') {
+        markMessagesRead(activeChatId);
+      }
+    }
+  }, [currentMessages, showSearch, activeChatId, markMessagesRead, currentUser?.id]);
 
   const handleSendMessage = () => {
     if (!inputText.trim() || !activeChatId) return;
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      sender: 'me',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'sent'
-    };
-    addMessage(activeChatId, newMessage);
+    sendMessage(activeChatId, inputText.trim());
     setInputText('');
     setShowEmojiPicker(false);
+  };
+
+  const isContact = useMemo(() => {
+    if (!activeChat || !activeChat.otherUserId) return true; // Si es grupo o no hay ID, no mostramos el banner
+    return contacts.some(c => c.contactId === activeChat.otherUserId);
+  }, [activeChat, contacts]);
+
+  const handleAddContact = async () => {
+    if (!activeChat || !activeChat.otherUserId || !currentUser) return;
+    try {
+      await fetch('http://localhost:3001/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ownerId: currentUser.id,
+          contactId: activeChat.otherUserId,
+          nickname: activeChat.name // Usamos el nombre que ya viene en el chat
+        })
+      });
+      await fetchContacts(currentUser.id);
+    } catch (error) {
+      console.error('Error adding contact from chat:', error);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSendMessage();
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChatId) return;
+
+    setIsUploading(true);
+    setShowAttachMenu(false);
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch('http://localhost:3001/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Error al subir imagen');
+
+      const { imageUrl } = await response.json();
+      sendMessage(activeChatId, undefined, 'image', imageUrl);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Error al subir la imagen');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   if (!activeChat) {
     return (
-      <div className="flex-1 bg-wa-bg flex flex-col items-center justify-center text-center p-8 border-b-4 border-wa-green animate-in fade-in duration-700">
+      <div className="flex-1 bg-wa-bg flex flex-col items-center justify-center text-center p-8 border-b-4 border-[#007bfc] animate-in fade-in duration-700">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-64 h-64 mb-8">
-          <img src="https://static.whatsapp.net/rsrc.php/v3/y6/r/wa669ae5z2_.png" alt="WhatsApp Web" className="w-full h-full object-contain opacity-50" />
+          <img src="/favicon.png" alt="Asicme Web" className="w-full h-full object-contain opacity-20" />
         </motion.div>
-        <h1 className="text-3xl font-light text-wa-text-primary mb-4">WhatsApp Web</h1>
-        <p className="text-wa-text-secondary text-[14px] max-w-md">Envía y recibe mensajes sin necesidad de tener tu teléfono conectado.</p>
+        <h1 className="text-3xl font-light text-wa-text-primary mb-4">Asicme Web</h1>
+        <p className="text-wa-text-secondary text-[14px] max-w-md">Conéctate con tu mundo de forma segura y profesional. Envía y recibe mensajes en tiempo real.</p>
       </div>
     );
   }
@@ -96,7 +142,6 @@ export const ChatArea = () => {
   return (
     <div className="flex-1 flex overflow-hidden">
       <div className="flex-1 flex flex-col bg-wa-chat-bg relative border-r border-wa-border overflow-hidden">
-        {/* Background Overlay Dinámico */}
         <div 
           className="absolute inset-0 opacity-[0.4] pointer-events-none z-0 animate-bg-dynamic"
           style={{ 
@@ -106,25 +151,19 @@ export const ChatArea = () => {
           }}
         ></div>
 
-        {/* Chat Header - Glass Effect */}
         <div className="h-[60px] glass flex items-center px-4 py-2 border-b border-wa-border justify-between z-20 shadow-sm relative">
           <div className="flex items-center cursor-pointer min-w-0" onClick={() => setView('profile')}>
             <ArrowLeft size={24} className="md:hidden mr-2 text-wa-text-secondary cursor-pointer hover:bg-wa-hover rounded-full p-0.5" onClick={(e) => { e.stopPropagation(); closeChat(); }} />
             <motion.img layoutId={`avatar-${activeChat.id}`} src={activeChat.avatar} className="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="" />
             <div className="ml-3 truncate">
               <h2 className="text-[16px] font-medium text-wa-text-primary leading-tight truncate">{activeChat.name}</h2>
-              <p className="text-[13px] text-wa-text-secondary truncate">{activeChat.isOnline ? 'en línea' : 'visto por última vez hoy a las 12:00'}</p>
+              <p className="text-[13px] text-wa-text-secondary truncate">{activeChat.isOnline ? 'en línea' : 'conectado'}</p>
             </div>
           </div>
           <div className="flex items-center gap-5 text-wa-text-secondary">
-            <div className="flex items-center gap-1 border border-wa-border rounded-full px-3 py-1.5 text-[13px] hover:bg-wa-hover cursor-pointer transition-colors bg-white/50">
-              <Video size={18} />
-              <ChevronDown size={14} />
-            </div>
+            <Video size={20} className="cursor-pointer hover:text-wa-text-primary transition-colors" />
             <Phone size={20} className="cursor-pointer hover:text-wa-text-primary transition-colors" />
-            <div className="h-6 w-[1px] bg-wa-border mx-1"></div>
             <Search size={20} className={cn("cursor-pointer hover:text-wa-text-primary transition-colors", showSearch && "text-wa-teal")} onClick={() => setShowSearch(!showSearch)} />
-            
             <div ref={chatMenuRef} className="relative">
               <MoreVertical size={20} className={cn("cursor-pointer hover:text-wa-text-primary transition-colors", showChatMenu && "text-wa-teal")} onClick={() => setShowChatMenu(!showChatMenu)} />
               <AnimatePresence>
@@ -132,7 +171,7 @@ export const ChatArea = () => {
                   <motion.div initial={{ opacity: 0, scale: 0.95, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -10 }} className="absolute right-0 top-10 w-[240px] bg-white/95 backdrop-blur-md shadow-2xl rounded-xl py-2 z-50 border border-wa-border origin-top-right">
                     <ul className="text-[14.5px] text-wa-text-primary">
                       <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors">Información del contacto</li>
-                      <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors border-t border-wa-border text-red-500 hover:bg-red-50">Eliminar chat</li>
+                      <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors border-t border-wa-border text-red-500 hover:bg-red-50">Cerrar chat</li>
                     </ul>
                   </motion.div>
                 )}
@@ -141,11 +180,52 @@ export const ChatArea = () => {
           </div>
         </div>
 
-        {/* Messages Area */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-[5%] py-6 flex flex-col gap-3 relative z-10 scrollbar-thin">
+          {/* Aviso de Cifrado */}
+          <div className="flex justify-center mb-4">
+            <div className="bg-[#fff9c4] dark:bg-[#182229] px-4 py-2 rounded-lg shadow-sm border border-[#e1d9a5] dark:border-[#222d34] flex items-center gap-2 max-w-[85%] text-center">
+              <ShieldCheck size={14} className="text-[#8696a0]" />
+              <p className="text-[12.5px] text-[#54656f] dark:text-[#8696a0] leading-tight">
+                Los mensajes están cifrados de extremo a extremo. Nadie fuera de este chat puede leerlos.
+              </p>
+            </div>
+          </div>
+
+          {/* Banner de Agregar Contacto */}
+          {!isContact && activeChat && !activeChat.isGroup && (
+            <div className="flex justify-center mb-6">
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white dark:bg-[#182229] p-4 rounded-xl shadow-md border border-wa-border flex flex-col items-center gap-3 max-w-[90%] text-center"
+              >
+                <div className="w-12 h-12 bg-wa-bg rounded-full flex items-center justify-center text-wa-teal">
+                  <UserPlus size={24} />
+                </div>
+                <div>
+                  <p className="text-[15px] font-medium text-wa-text-primary">¿Deseas agregar a {activeChat.name} a tus contactos?</p>
+                  <p className="text-[13px] text-wa-text-secondary mt-1">El remitente no está en tu lista de contactos.</p>
+                </div>
+                <div className="flex gap-3 w-full">
+                  <button 
+                    onClick={handleAddContact}
+                    className="flex-1 bg-[#007bfc] text-white py-2 rounded-lg text-[14px] font-medium hover:bg-[#0066d4] transition-colors"
+                  >
+                    Añadir contacto
+                  </button>
+                  <button 
+                    className="flex-1 bg-wa-bg text-wa-text-primary py-2 rounded-lg text-[14px] font-medium hover:bg-wa-hover transition-colors"
+                  >
+                    Bloquear
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
           <AnimatePresence initial={false}>
             {displayMessages.map((msg) => {
-              const isMe = msg.sender === 'me';
+              const isMe = msg.senderId === currentUser?.id;
+              const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               return (
                 <motion.div 
                   key={msg.id}
@@ -154,13 +234,34 @@ export const ChatArea = () => {
                   transition={{ duration: 0.2 }}
                   className={cn("flex flex-col max-w-[65%] relative group", isMe ? "self-end items-end" : "self-start items-start")}
                 >
-                  <div className={cn("px-3 py-1.5 rounded-lg shadow-sm text-[14.2px] relative", isMe ? "bg-wa-bubble-sent rounded-tr-none" : "bg-wa-bubble-received rounded-tl-none")}>
+                  <div className={cn("rounded-lg shadow-sm text-[14.2px] relative overflow-hidden", isMe ? "bg-wa-bubble-sent rounded-tr-none" : "bg-wa-bubble-received rounded-tl-none", msg.type === 'image' ? "p-1 pb-1.5" : "px-3 py-1.5")}>
                     <div className={cn("absolute top-0 w-3 h-3", isMe ? "-right-2 bg-wa-bubble-sent [clip-path:polygon(0_0,0_100%,100%_0)]" : "-left-2 bg-wa-bubble-received [clip-path:polygon(100%_0,100%_100%,0_0)]")}></div>
-                    <div className="flex flex-wrap items-end gap-2">
-                      <span className="text-wa-text-primary break-words whitespace-pre-wrap">{msg.text}</span>
-                      <div className="flex items-center gap-1 ml-auto pt-1">
-                        <span className="text-[11px] text-wa-text-secondary uppercase">{msg.timestamp}</span>
-                        {isMe && <span className={cn("text-wa-text-secondary", msg.status === 'read' && "text-[#53bdeb]")}>{msg.status === 'sent' ? <Check size={14} /> : <CheckCheck size={14} />}</span>}
+                    <div className="flex flex-col gap-1">
+                      {msg.type === 'image' ? (
+                        <div className="relative group/img max-w-[300px]">
+                          <img src={msg.imageUrl} alt="" className="rounded-md w-full h-auto max-h-[400px] object-cover cursor-pointer hover:opacity-95 transition-opacity" />
+                          {msg.text && <p className="text-wa-text-primary mt-1 px-1">{msg.text}</p>}
+                        </div>
+                      ) : (
+                        <span className="text-wa-text-primary break-words whitespace-pre-wrap">{msg.text}</span>
+                      )}
+                      
+                      <div className="flex items-center gap-1 ml-auto pt-0.5">
+                        <span className={cn("text-[11px] uppercase", msg.type === 'image' ? "text-white/80 drop-shadow-sm absolute bottom-2 right-8" : "text-wa-text-secondary")}>
+                          {time}
+                        </span>
+                        {isMe && (
+                          <span className={cn(
+                            msg.type === 'image' ? "text-white/80 absolute bottom-2 right-2 drop-shadow-sm" : "text-wa-text-secondary", 
+                            msg.status === 'read' && (msg.type === 'image' ? "text-[#4fc3f7]" : "text-[#4fc3f7]")
+                          )}>
+                            {msg.status === 'sent' ? (
+                              <Check size={14} />
+                            ) : (
+                              <CheckCheck size={14} className={cn(msg.status === 'read' && "text-[#4fc3f7]")} />
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -170,7 +271,6 @@ export const ChatArea = () => {
           </AnimatePresence>
         </div>
 
-        {/* Input Area - Glass Effect */}
         <div className="min-h-[62px] glass flex items-center px-4 py-2 gap-4 z-20 relative">
           <div className="flex gap-4 text-wa-text-secondary relative items-center">
             <div ref={emojiPickerRef}>
@@ -183,7 +283,6 @@ export const ChatArea = () => {
                 )}
               </AnimatePresence>
             </div>
-            
             <div ref={attachMenuRef} className="relative">
               <Plus size={26} onClick={() => setShowAttachMenu(!showAttachMenu)} className={cn("cursor-pointer hover:text-wa-text-primary transition-all duration-300", showAttachMenu ? "text-wa-teal rotate-[135deg]" : "rotate-0")} />
               <AnimatePresence>
@@ -191,7 +290,7 @@ export const ChatArea = () => {
                   <motion.div initial={{ opacity: 0, y: 20, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.9 }} className="absolute bottom-[60px] left-[-10px] w-[220px] bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl py-3 z-50 border border-wa-border origin-bottom-left">
                     <div className="flex flex-col gap-1">
                       <AttachItem icon={<FileText size={20} />} label="Documento" color="bg-[#7f66ff]" />
-                      <AttachItem icon={<Image size={20} />} label="Fotos y videos" color="bg-[#007bfc]" />
+                      <AttachItem icon={<Image size={20} />} label="Fotos y videos" color="bg-[#007bfc]" onClick={() => fileInputRef.current?.click()} />
                       <AttachItem icon={<Camera size={20} />} label="Cámara" color="bg-[#ff2e74]" />
                       <AttachItem icon={<User size={20} />} label="Contacto" color="bg-[#009de2]" />
                       <AttachItem icon={<BarChart2 size={20} />} label="Encuesta" color="bg-[#ffbc38]" />
@@ -201,10 +300,16 @@ export const ChatArea = () => {
                   </motion.div>
                 )}
               </AnimatePresence>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
             </div>
           </div>
           <div className="flex-1 relative">
-            <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleKeyDown} placeholder="Escribe un mensaje" className="w-full bg-white/80 rounded-lg px-4 py-2.5 text-[15px] outline-none shadow-sm placeholder:text-wa-text-secondary text-wa-text-primary focus:bg-white transition-all" />
+            <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={handleKeyDown} placeholder={isUploading ? "Subiendo imagen..." : "Escribe un mensaje"} disabled={isUploading} className="w-full bg-white/80 rounded-lg px-4 py-2.5 text-[15px] outline-none shadow-sm placeholder:text-wa-text-secondary text-wa-text-primary focus:bg-white transition-all disabled:opacity-50" />
+            {isUploading && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-5 h-5 border-2 border-wa-teal border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
           </div>
           <div className="text-wa-text-secondary">
             {inputText.trim() ? (
@@ -216,7 +321,6 @@ export const ChatArea = () => {
         </div>
       </div>
 
-      {/* Right Search Panel */}
       <AnimatePresence>
         {showSearch && (
           <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="w-[30%] min-w-[300px] h-full bg-white flex flex-col border-l border-wa-border z-30 shadow-2xl">
@@ -237,7 +341,7 @@ export const ChatArea = () => {
                 <div className="flex flex-col gap-4">
                   {displayMessages.map(msg => (
                     <motion.div layout key={msg.id} className="p-3 hover:bg-wa-bg cursor-pointer rounded-lg border-b border-wa-border transition-colors">
-                      <p className="text-[12px] text-wa-text-secondary mb-1">{msg.timestamp}</p>
+                      <p className="text-[12px] text-wa-text-secondary mb-1">{new Date(msg.timestamp).toLocaleTimeString()}</p>
                       <p className="text-[14px] text-wa-text-primary line-clamp-2">{msg.text}</p>
                     </motion.div>
                   ))}
@@ -251,8 +355,8 @@ export const ChatArea = () => {
   );
 };
 
-const AttachItem = ({ icon, label, color }: { icon: React.ReactNode, label: string, color: string }) => (
-  <motion.div whileHover={{ x: 5 }} className="flex items-center gap-4 px-4 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors group">
+const AttachItem = ({ icon, label, color, onClick }: { icon: React.ReactNode, label: string, color: string, onClick?: () => void }) => (
+  <motion.div whileHover={{ x: 5 }} onClick={onClick} className="flex items-center gap-4 px-4 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors group">
     <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-110", color)}>{icon}</div>
     <span className="text-[14.5px] text-wa-text-primary font-medium">{label}</span>
   </motion.div>

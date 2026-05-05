@@ -1,84 +1,77 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
 @theme {
-  --color-wa-bg: #f0f2f5;
-  --color-wa-sidebar: #ffffff;
-  --color-wa-nav-rail: #202c33;
-  --color-wa-panel: #f0f2f5;
-  --color-wa-border: #d1d7db;
-  --color-wa-hover: #f5f6f6;
-  --color-wa-active: #ebebeb;
+  --color-wa-bg: var(--wa-bg);
+  --color-wa-sidebar: var(--wa-sidebar);
+  --color-wa-nav-rail: var(--wa-nav-rail);
+  --color-wa-panel: var(--wa-panel);
+  --color-wa-border: var(--wa-border);
+  --color-wa-hover: var(--wa-hover);
+  --color-wa-active: var(--wa-active);
   --color-wa-green: #00a884;
   --color-wa-teal: #008069;
-  --color-wa-text-primary: #111b21;
-  --color-wa-text-secondary: #667781;
-  --color-wa-bubble-sent: #dcf8c6;
-  --color-wa-bubble-received: #ffffff;
-  --color-wa-chat-bg: #efeae2;
+  --color-wa-text-primary: var(--wa-text-primary);
+  --color-wa-text-secondary: var(--wa-text-secondary);
+  --color-wa-bubble-sent: var(--wa-bubble-sent);
+  --color-wa-bubble-received: var(--wa-bubble-received);
+  --color-wa-chat-bg: var(--wa-chat-bg);
+}
+
+:root {
+  --wa-bg: #f0f2f5;
+  --wa-sidebar: #ffffff;
+  --wa-nav-rail: #202c33;
+  --wa-panel: #f0f2f5;
+  --wa-border: #d1d7db;
+  --wa-hover: #f5f6f6;
+  --wa-active: #ebebeb;
+  --wa-text-primary: #111b21;
+  --wa-text-secondary: #667781;
+  --wa-bubble-sent: #dcf8c6;
+  --wa-bubble-received: #ffffff;
+  --wa-chat-bg: #efeae2;
+}
+
+.dark {
+  --wa-bg: #0b141a;
+  --wa-sidebar: #111b21;
+  --wa-nav-rail: #202c33;
+  --wa-panel: #202c33;
+  --wa-border: #222d34;
+  --wa-hover: #202c33;
+  --wa-active: #2a3942;
+  --wa-text-primary: #e9edef;
+  --wa-text-secondary: #8696a0;
+  --wa-bubble-sent: #005c4b;
+  --wa-bubble-received: #202c33;
+  --wa-chat-bg: #0b141a;
 }
 
 @layer base {
   * {
     @apply border-wa-border;
     font-family: 'Inter', sans-serif;
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
   body {
     @apply bg-wa-bg text-wa-text-primary antialiased;
   }
 }
 
-/* Custom Scrollbar Premium */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #ced0d1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #aebac1;
-}
-
-/* Efectos de Glassmorphism */
+/* Glassmorphism Dinámico */
 .glass {
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--wa-sidebar);
+  opacity: 0.95;
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
-.glass-dark {
-  background: rgba(32, 44, 51, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ced0d1; border-radius: 10px; }
+.dark ::-webkit-scrollbar-thumb { background: #374045; }
 
-/* Animaciones suaves */
-.transition-standard {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .4; }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes bg-pan-slow {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 100% 100%; }
-}
-
-.animate-bg-dynamic {
-  animation: bg-pan-slow 100s linear infinite;
-}
+/* Animación de pan lento */
+@keyframes bg-pan-slow { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+.animate-bg-dynamic { animation: bg-pan-slow 100s linear infinite; }

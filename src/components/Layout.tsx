@@ -2,7 +2,6 @@ import { NavRail } from './NavRail';
 import { Sidebar } from '../features/sidebar/components/Sidebar';
 import { ChatArea } from './ChatArea';
 import { StatusSidebar } from '../features/status/components/StatusSidebar';
-import { ProfileSidebar } from '../features/profile/components/ProfileSidebar';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,9 +25,8 @@ export const Layout = () => {
         "h-full border-r border-wa-border",
         activeChatId ? "hidden md:block w-[400px]" : "w-full md:w-[400px]"
       )}>
-        {view === 'chats' && <Sidebar />}
+        {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile') && <Sidebar />}
         {view === 'status' && <StatusSidebar />}
-        {view === 'profile' && <ProfileSidebar />}
         {view === 'communities' && (
           <div className="w-full h-full bg-wa-sidebar flex flex-col items-center justify-center p-8 text-center">
             <h2 className="text-xl font-bold text-wa-text-primary mb-2">Comunidades</h2>

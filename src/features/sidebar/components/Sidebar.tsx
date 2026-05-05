@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { List, RowComponentProps } from 'react-window';
-import { Search, Filter, Plus, ChevronDown, Star, MoreVertical } from 'lucide-react';
+import { Search, Filter, Plus, ChevronDown, Star, MoreVertical, Moon, Sun } from 'lucide-react';
 import { useChatStore, Chat } from '../store/useChatStore';
+import { ProfileView } from './ProfileView';
+import { NewChatView } from './NewChatView';
+import { AddContactView } from './AddContactView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -18,31 +21,40 @@ interface RowProps {
 // Componente de Fila sin memo directo para evitar conflictos de tipos
 const ChatItem = ({ index, style, items, ariaAttributes }: RowComponentProps<RowProps>) => {
   const chat = items[index];
-  const { activeChatId, setActiveChat, toggleFavorite } = useChatStore();
+  const { activeChatId, setActiveChat, toggleFavorite, startChat } = useChatStore();
   const isActive = activeChatId === chat?.id;
 
   // En la v2 de react-window, es mejor devolver un div vacío que null para mantener la consistencia
   if (!chat) return <div style={style} {...ariaAttributes} />;
 
+  const handleClick = () => {
+    if (chat.isContact && chat.userId) {
+      startChat(chat.userId);
+    } else {
+      setActiveChat(chat.id);
+    }
+  };
+
   return (
     <div 
       style={style} 
       {...ariaAttributes}
+      onClick={handleClick}
       className={cn(
         "flex items-center px-3 py-2 cursor-pointer transition-colors border-b border-wa-border group",
         isActive ? "bg-wa-active" : "bg-wa-sidebar hover:bg-wa-hover"
       )}
     >
-      <div onClick={() => setActiveChat(chat.id)} className="relative flex-shrink-0">
+      <div className="relative flex-shrink-0">
         <img src={chat.avatar} alt={chat.name} className="w-12 h-12 rounded-full object-cover shadow-sm" />
         {chat.isOnline && (
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-wa-green border-2 border-white rounded-full"></div>
         )}
       </div>
       
-      <div onClick={() => setActiveChat(chat.id)} className="ml-3 flex-1 min-w-0">
+      <div className="ml-3 flex-1 min-w-0">
         <div className="flex justify-between items-baseline">
-          <h3 className="text-[17px] font-medium text-wa-text-primary truncate">{chat.name}</h3>
+          <h2 className="text-[17px] font-medium text-wa-text-primary truncate">{chat.name}</h2>
           <span className="text-xs text-wa-text-secondary">{chat.timestamp}</span>
         </div>
         <div className="flex justify-between items-center mt-1">
@@ -88,7 +100,7 @@ const SkeletonChatItem = () => (
 );
 
 export const Sidebar = () => {
-  const { chats, setChats } = useChatStore();
+  const { chats, setChats, view, setView, currentUser, fetchChats, isDarkMode, toggleDarkMode, contacts, fetchContacts } = useChatStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'favorites' | 'groups'>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -99,40 +111,67 @@ export const Sidebar = () => {
   }, []);
 
   useEffect(() => {
-    if (chats.length === 0) {
-      const mockChats: Chat[] = Array.from({ length: 1000 }).map((_, i) => ({
-        id: `chat-${i}`,
-        name: i === 0 ? "AsicMe Support" : i % 10 === 0 ? `Grupo ${Math.floor(i/10)} 🚀` : `Contacto ${i + 1}`,
-        lastMessage: i === 0 ? "¡Hola! ¿En qué podemos ayudarte?" : i % 10 === 0 ? "Admin: ¡Bienvenidos!" : `Mensaje ${i + 1}`,
-        avatar: i % 10 === 0 ? `https://ui-avatars.com/api/?name=G+${i}` : `https://i.pravatar.cc/150?u=${i}`,
-        unreadCount: i % 15 === 0 ? 2 : 0,
-        timestamp: "12:45 PM",
-        isOnline: i % 7 === 0,
-        isGroup: i % 10 === 0
-      }));
-      setChats(mockChats);
+    if (currentUser?.id) {
+      fetchChats(currentUser.id);
+      fetchContacts(currentUser.id);
     }
-  }, [chats.length, setChats]);
+  }, [currentUser?.id, fetchChats, fetchContacts]);
 
   const filteredChats = useMemo(() => {
     let result = chats;
     if (activeFilter === 'unread') result = result.filter(c => c.unreadCount > 0);
     else if (activeFilter === 'favorites') result = result.filter(c => c.isFavorite);
     else if (activeFilter === 'groups') result = result.filter(c => c.isGroup);
+    
     if (searchQuery.trim()) {
-      result = result.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const chatResults = result.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      // Incluir contactos que coincidan y NO tengan ya un chat abierto
+      const contactResults = contacts
+        .filter(c => {
+          const nameMatch = (c.nickname || c.user.name).toLowerCase().includes(searchQuery.toLowerCase());
+          const phoneMatch = c.user.phone.includes(searchQuery);
+          const alreadyHasChat = chats.some(chat => chat.name === (c.nickname || c.user.name));
+          return (nameMatch || phoneMatch) && !alreadyHasChat;
+        })
+        .map(c => ({
+          id: `contact-${c.contactId}`,
+          name: c.nickname || c.user.name,
+          lastMessage: 'Contacto de Asicme',
+          avatar: c.user.avatar,
+          unreadCount: 0,
+          timestamp: '',
+          isContact: true,
+          userId: c.contactId
+        }));
+
+      return [...chatResults, ...contactResults];
     }
+    
     return result;
-  }, [chats, searchQuery, activeFilter]);
+  }, [chats, contacts, searchQuery, activeFilter]);
 
   return (
-    <div className="w-full md:w-[400px] h-full flex flex-col bg-wa-sidebar border-r border-wa-border overflow-hidden">
+    <div className="w-full md:w-[400px] h-full flex flex-col bg-wa-sidebar border-r border-wa-border overflow-hidden relative">
       <div className="px-4 py-3 flex justify-between items-center bg-wa-sidebar z-20">
-        <div className="w-10 h-10 rounded-full overflow-hidden cursor-pointer shadow-sm border border-wa-border">
-          <img src="https://i.pravatar.cc/150?u=me" alt="Me" className="w-full h-full object-cover" />
+        <div 
+          className="w-10 h-10 rounded-full overflow-hidden cursor-pointer shadow-sm border border-wa-border transition-transform active:scale-95"
+          onClick={() => setView('profile')}
+        >
+          <img src={currentUser?.avatar || "https://i.pravatar.cc/150?u=me"} alt="Me" className="w-full h-full object-cover" />
         </div>
-        <div className="flex gap-4 text-wa-text-secondary">
-          <Plus size={20} className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" />
+        <div className="flex gap-4 text-wa-text-secondary items-center">
+          <div 
+            onClick={toggleDarkMode}
+            className="cursor-pointer hover:bg-wa-hover rounded-full p-1.5 transition-all"
+          >
+            {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
+          </div>
+          <Plus 
+            size={20} 
+            className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" 
+            onClick={() => setView('new-chat')}
+          />
           <MoreVertical size={20} className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" />
         </div>
       </div>
@@ -145,11 +184,46 @@ export const Sidebar = () => {
       </div>
 
       <div className="flex gap-2 px-3 py-2 border-b border-wa-border text-[13px] overflow-x-auto no-scrollbar">
-        {['all', 'unread', 'favorites', 'groups'].map((f) => (
-          <span key={f} onClick={() => setActiveFilter(f as any)} className={cn("px-3 py-1 rounded-full font-medium cursor-pointer transition-all", activeFilter === f ? "bg-wa-active text-wa-green shadow-sm" : "bg-wa-bg text-wa-text-secondary hover:bg-wa-hover")}>
-            {f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : f === 'favorites' ? 'Favoritos' : 'Grupos'}
-          </span>
-        ))}
+        {['all', 'unread', 'favorites', 'groups'].map((f) => {
+          const isUnreadTab = f === 'unread';
+          const isFavoriteTab = f === 'favorites';
+          const isGroupsTab = f === 'groups';
+          
+          const unreadTotal = chats.reduce((acc, chat) => acc + (chat.unreadCount || 0), 0);
+          const favoritesTotal = chats.filter(chat => chat.isFavorite).length;
+          const groupsTotal = chats.filter(chat => chat.isGroup).length;
+          
+          return (
+            <span 
+              key={f} 
+              onClick={() => setActiveFilter(f as any)} 
+              className={cn(
+                "px-3 py-1 rounded-full font-medium cursor-pointer transition-all flex items-center gap-1.5", 
+                activeFilter === f ? "bg-wa-active text-wa-green shadow-sm" : "bg-wa-bg text-wa-text-secondary hover:bg-wa-hover"
+              )}
+            >
+              {f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : f === 'favorites' ? 'Favoritos' : 'Grupos'}
+              
+              {isUnreadTab && unreadTotal > 0 && (
+                <span className="bg-wa-green text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
+                  {unreadTotal}
+                </span>
+              )}
+
+              {isFavoriteTab && favoritesTotal > 0 && (
+                <span className="bg-yellow-400 text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">
+                  {favoritesTotal}
+                </span>
+              )}
+
+              {isGroupsTab && groupsTotal > 0 && (
+                <span className="bg-[#007bfc] text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">
+                  {groupsTotal}
+                </span>
+              )}
+            </span>
+          );
+        })}
       </div>
 
       <div className="flex-1 overflow-hidden relative">
@@ -171,6 +245,21 @@ export const Sidebar = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Botón Flotante estilo WhatsApp para Nuevo Chat */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setView('add-contact')}
+        className="absolute bottom-6 right-6 w-14 h-14 bg-[#007bfc] rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-shadow z-40"
+      >
+        <Plus size={24} />
+      </motion.button>
+
+      {/* Vistas Deslizables */}
+      {view === 'profile' && <ProfileView />}
+      {view === 'new-chat' && <NewChatView />}
+      {view === 'add-contact' && <AddContactView onBack={() => setView('chats')} />}
     </div>
   );
 };
