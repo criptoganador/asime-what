@@ -45,7 +45,10 @@ export const ChatArea = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [activeCall, setActiveCall] = useState<{ type: 'voice' | 'video' } | null>(null);
+  const [activeCall, useStateActiveCall] = useState<{ type: 'voice' | 'video' } | null>(null);
+  
+  // Quick fix para que funcione igual
+  const setActiveCall = useStateActiveCall;
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -179,15 +182,22 @@ export const ChatArea = () => {
 
   if (!activeChatId || !activeChat) {
     return (
-      <div className="flex-1 bg-wa-bg flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-64 h-64 mb-8 opacity-20">
-          <img src="https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png" alt="Welcome" className="w-full h-full object-contain" />
+      <div className="flex-1 bg-wa-bg flex flex-col items-center justify-center p-8 text-center relative overflow-hidden">
+        {/* Marca de Agua en Estado Vacío (Sin el recuadro de imagen viejo) */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden flex items-center justify-center">
+          <div 
+            className="absolute inset-0 opacity-[0.04] bg-repeat"
+            style={{ backgroundImage: "url('/favicon.png')", backgroundSize: "120px" }}
+          />
+          <span className="text-[80px] md:text-[120px] font-black uppercase text-wa-text-primary opacity-[0.03] rotate-[-25deg] whitespace-nowrap select-none">
+            AsicMe Chat
+          </span>
         </div>
-        <h1 className="text-3xl font-light text-wa-text-primary mb-4">Asicme Web</h1>
-        <p className="text-wa-text-secondary max-w-md leading-relaxed">
+        <h1 className="text-3xl font-light text-wa-text-primary mb-4 relative z-10 mt-10">Asicme Web</h1>
+        <p className="text-wa-text-secondary max-w-md leading-relaxed relative z-10">
           Envía y recibe mensajes sin necesidad de mantener tu teléfono conectado.
         </p>
-        <div className="mt-auto flex items-center gap-2 text-wa-text-secondary text-sm opacity-50">
+        <div className="mt-auto flex items-center gap-2 text-wa-text-secondary text-sm opacity-50 relative z-10">
           <Lock size={14} />
           Cifrado de extremo a extremo
         </div>
@@ -214,7 +224,18 @@ export const ChatArea = () => {
         className="flex-1 flex flex-col relative border-r border-wa-border overflow-hidden transition-colors duration-500"
         style={{ backgroundColor: getWallpaperColor(chatWallpaper) }}
       >
-        <div className="h-[60px] bg-wa-sidebar flex items-center justify-between px-4 py-2 shadow-sm z-10 border-b border-wa-border">
+        {/* Marca de Agua / Pattern de Fondo en el chat */}
+        <div className="absolute inset-0 z-0 pointer-events-none mt-[60px] mb-[62px] overflow-hidden flex items-center justify-center">
+          <div 
+            className="absolute inset-0 opacity-[0.05] bg-repeat"
+            style={{ backgroundImage: "url('/favicon.png')", backgroundSize: "150px" }}
+          />
+          <span className="text-[80px] md:text-[150px] font-black uppercase text-wa-text-primary opacity-[0.03] rotate-[-25deg] whitespace-nowrap select-none">
+            AsicMe Chat
+          </span>
+        </div>
+
+        <div className="h-[60px] bg-wa-sidebar flex items-center justify-between px-4 py-2 shadow-sm z-10 border-b border-wa-border relative">
           <div className="flex items-center gap-3">
             <ArrowLeft className="md:hidden cursor-pointer" onClick={closeChat} />
             <div className="relative cursor-pointer" onClick={() => { if (activeChat.isGroup) { setViewingGroup(activeChat); setView('group-info'); } }}>
@@ -255,7 +276,7 @@ export const ChatArea = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="bg-wa-sidebar min-h-[62px] flex flex-col z-20">
+        <div className="bg-wa-sidebar min-h-[62px] flex flex-col z-20 relative">
           <AnimatePresence>
             {replyingTo && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="bg-wa-bg mx-2 mt-2 rounded-lg border-l-4 border-wa-teal overflow-hidden flex">
