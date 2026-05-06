@@ -10,11 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@livekit/components-react": "^2.9.21",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react-window": "^1.8.8",
     "clsx": "^2.1.1",
     "emoji-picker-react": "^4.19.1",
     "framer-motion": "^12.38.0",
+    "livekit-client": "^2.18.9",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -28,6 +30,7 @@
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/react-virtualized": "^9.22.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",

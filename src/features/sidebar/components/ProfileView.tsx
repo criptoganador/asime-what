@@ -1,7 +1,8 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Camera, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, Camera, Pencil, Check, Loader2, X } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
+import { uploadImage } from '../../../utils/upload';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -10,33 +11,38 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const ProfileView = () => {
-  const { currentUser, login, setView } = useChatStore();
+  const { currentUser, updateProfile, setView } = useChatStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditingName, setIsEditingName] = React.useState(false);
   const [isEditingAbout, setIsEditingAbout] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
   const [tempName, setTempName] = React.useState(currentUser?.name || '');
   const [tempAbout, setTempAbout] = React.useState(currentUser?.about || '');
 
   if (!currentUser) return null;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        login({ ...currentUser, avatar: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      setIsUploading(true);
+      try {
+        const imageUrl = await uploadImage(file);
+        await updateProfile({ avatar: imageUrl });
+      } catch (error) {
+        alert('Error al subir la imagen');
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
   const saveName = () => {
-    login({ ...currentUser, name: tempName });
+    updateProfile({ name: tempName });
     setIsEditingName(false);
   };
 
   const saveAbout = () => {
-    login({ ...currentUser, about: tempAbout });
+    updateProfile({ about: tempAbout });
     setIsEditingAbout(false);
   };
 
@@ -73,12 +79,20 @@ export const ProfileView = () => {
               accept="image/*" 
               onChange={handleImageUpload} 
             />
-            <div className="w-full h-full rounded-full overflow-hidden shadow-xl border-4 border-white transition-all group-hover:opacity-50">
+            <div className={cn(
+              "w-full h-full rounded-full overflow-hidden shadow-xl border-4 border-white transition-all group-hover:opacity-50 relative",
+              isUploading && "opacity-50"
+            )}>
               <img 
                 src={currentUser.avatar} 
                 alt="Avatar" 
                 className="w-full h-full object-cover" 
               />
+              {isUploading && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 size={40} className="text-wa-teal animate-spin" />
+                </div>
+              )}
             </div>
             {/* Overlay de cámara al hacer hover */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -89,26 +103,30 @@ export const ProfileView = () => {
         </div>
 
         {/* Sección de Nombre */}
-        <div className="bg-white px-8 py-4 shadow-sm mb-7">
-          <label className="text-[14px] text-[#007bfc] mb-4 block">Tu nombre</label>
-          <div className="flex items-center justify-between group">
+        <div className="bg-white px-8 py-4 shadow-sm mb-0.5">
+          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Tu nombre</label>
+          <div className="flex items-center justify-between group h-10">
             {isEditingName ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1 animate-in fade-in slide-in-from-bottom-1">
                 <input 
                   type="text" 
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
                   autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && saveName()}
                   className="flex-1 outline-none text-[17px] bg-transparent"
                 />
-                <Check className="text-wa-teal cursor-pointer" onClick={saveName} />
+                <div className="flex gap-3 ml-2">
+                  <X className="text-wa-text-secondary cursor-pointer hover:text-red-500 transition-colors" size={20} onClick={() => { setTempName(currentUser.name); setIsEditingName(false); }} />
+                  <Check className="text-wa-teal cursor-pointer hover:scale-110 transition-transform" size={20} onClick={saveName} />
+                </div>
               </div>
             ) : (
               <>
                 <span className="text-[17px] text-wa-text-primary">{currentUser.name}</span>
                 <Pencil 
                   size={20} 
-                  className="text-wa-text-secondary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" 
+                  className="text-wa-text-secondary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
                   onClick={() => setIsEditingName(true)}
                 />
               </>
@@ -116,37 +134,49 @@ export const ProfileView = () => {
           </div>
         </div>
 
-        <div className="px-8 mb-7">
-          <p className="text-[14px] text-wa-text-secondary leading-relaxed">
+        <div className="px-8 py-4 mb-7 bg-[#f0f2f5]">
+          <p className="text-[13.5px] text-wa-text-secondary leading-tight">
             Este no es un nombre de usuario ni un PIN. Este nombre será visible para tus contactos de Asicme Web.
           </p>
         </div>
 
         {/* Sección de Info */}
-        <div className="bg-white px-8 py-4 shadow-sm">
-          <label className="text-[14px] text-[#007bfc] mb-4 block">Info.</label>
-          <div className="flex items-center justify-between group">
+        <div className="bg-white px-8 py-4 shadow-sm mb-7">
+          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Info.</label>
+          <div className="flex items-center justify-between group h-10">
             {isEditingAbout ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1 animate-in fade-in slide-in-from-bottom-1">
                 <input 
                   type="text" 
                   value={tempAbout}
                   onChange={(e) => setTempAbout(e.target.value)}
                   autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && saveAbout()}
                   className="flex-1 outline-none text-[17px] bg-transparent"
                 />
-                <Check className="text-wa-teal cursor-pointer" onClick={saveAbout} />
+                <div className="flex gap-3 ml-2">
+                  <X className="text-wa-text-secondary cursor-pointer hover:text-red-500 transition-colors" size={20} onClick={() => { setTempAbout(currentUser.about); setIsEditingAbout(false); }} />
+                  <Check className="text-wa-teal cursor-pointer hover:scale-110 transition-transform" size={20} onClick={saveAbout} />
+                </div>
               </div>
             ) : (
               <>
-                <span className="text-[17px] text-wa-text-primary">{currentUser.about}</span>
+                <span className="text-[17px] text-wa-text-primary line-clamp-1">{currentUser.about}</span>
                 <Pencil 
                   size={20} 
-                  className="text-wa-text-secondary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity" 
+                  className="text-wa-text-secondary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
                   onClick={() => setIsEditingAbout(true)}
                 />
               </>
             )}
+          </div>
+        </div>
+
+        {/* Sección de Teléfono (Solo lectura) */}
+        <div className="bg-white px-8 py-4 shadow-sm">
+          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Teléfono</label>
+          <div className="flex items-center h-10">
+            <span className="text-[17px] text-wa-text-primary">{currentUser.phone}</span>
           </div>
         </div>
       </div>

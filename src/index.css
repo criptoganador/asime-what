@@ -1,67 +1,61 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "@livekit/components-styles";
 
-@theme {
-  --color-wa-bg: var(--wa-bg);
-  --color-wa-sidebar: var(--wa-sidebar);
-  --color-wa-nav-rail: var(--wa-nav-rail);
-  --color-wa-panel: var(--wa-panel);
-  --color-wa-border: var(--wa-border);
-  --color-wa-hover: var(--wa-hover);
-  --color-wa-active: var(--wa-active);
+/* 
+  Usamos variables CSS estándar con el prefijo --color-* 
+  Tailwind CSS v4 las detecta automáticamente como parte del tema.
+  Esto elimina el aviso de "@theme" del editor.
+*/
+:root {
+  --color-wa-bg: #f0f2f5;
+  --color-wa-sidebar: #ffffff;
+  --color-wa-nav-rail: #202c33;
+  --color-wa-panel: #f0f2f5;
+  --color-wa-border: #d1d7db;
+  --color-wa-hover: #f5f6f6;
+  --color-wa-active: #ebebeb;
+  --color-wa-text-primary: #111b21;
+  --color-wa-text-secondary: #667781;
+  --color-wa-bubble-sent: #dcf8c6;
+  --color-wa-bubble-received: #ffffff;
+  --color-wa-chat-bg: #efeae2;
   --color-wa-green: #00a884;
   --color-wa-teal: #008069;
-  --color-wa-text-primary: var(--wa-text-primary);
-  --color-wa-text-secondary: var(--wa-text-secondary);
-  --color-wa-bubble-sent: var(--wa-bubble-sent);
-  --color-wa-bubble-received: var(--wa-bubble-received);
-  --color-wa-chat-bg: var(--wa-chat-bg);
-}
-
-:root {
-  --wa-bg: #f0f2f5;
-  --wa-sidebar: #ffffff;
-  --wa-nav-rail: #202c33;
-  --wa-panel: #f0f2f5;
-  --wa-border: #d1d7db;
-  --wa-hover: #f5f6f6;
-  --wa-active: #ebebeb;
-  --wa-text-primary: #111b21;
-  --wa-text-secondary: #667781;
-  --wa-bubble-sent: #dcf8c6;
-  --wa-bubble-received: #ffffff;
-  --wa-chat-bg: #efeae2;
 }
 
 .dark {
-  --wa-bg: #0b141a;
-  --wa-sidebar: #111b21;
-  --wa-nav-rail: #202c33;
-  --wa-panel: #202c33;
-  --wa-border: #222d34;
-  --wa-hover: #202c33;
-  --wa-active: #2a3942;
-  --wa-text-primary: #e9edef;
-  --wa-text-secondary: #8696a0;
-  --wa-bubble-sent: #005c4b;
-  --wa-bubble-received: #202c33;
-  --wa-chat-bg: #0b141a;
+  --color-wa-bg: #0b141a;
+  --color-wa-sidebar: #111b21;
+  --color-wa-nav-rail: #202c33;
+  --color-wa-panel: #202c33;
+  --color-wa-border: #222d34;
+  --color-wa-hover: #202c33;
+  --color-wa-active: #2a3942;
+  --color-wa-text-primary: #e9edef;
+  --color-wa-text-secondary: #8696a0;
+  --color-wa-bubble-sent: #005c4b;
+  --color-wa-bubble-received: #202c33;
+  --color-wa-chat-bg: #0b141a;
 }
 
 @layer base {
   * {
-    @apply border-wa-border;
+    border-color: var(--color-wa-border);
     font-family: 'Inter', sans-serif;
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
   }
   body {
-    @apply bg-wa-bg text-wa-text-primary antialiased;
+    background-color: var(--color-wa-bg);
+    color: var(--color-wa-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 /* Glassmorphism Dinámico */
 .glass {
-  background: var(--wa-sidebar);
+  background: var(--color-wa-sidebar);
   opacity: 0.95;
   backdrop-filter: blur(10px);
 }

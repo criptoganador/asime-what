@@ -6,12 +6,19 @@ const socket: Socket = io('http://localhost:3001');
 export interface Message {
   id: string;
   text?: string;
-  type: 'text' | 'image' | 'system';
+  type: 'text' | 'image' | 'system' | 'audio' | 'file';
   imageUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  duration?: number;
   senderId: string;
   sender?: 'me' | 'other';
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
+  reactions?: Record<string, string[]>;
+  replyToId?: string;
+  replyTo?: Message;
 }
 
 export interface Chat {
@@ -28,6 +35,22 @@ export interface Chat {
   isContact?: boolean;
   userId?: string;
   otherUserId?: string;
+}
+
+export interface Status {
+  id: string;
+  userId: string;
+  type: 'text' | 'image';
+  content: string;
+  backgroundColor?: string;
+  createdAt: string;
+}
+
+export interface GroupedStatus {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  statuses: Status[];
 }
 
 export interface Contact {
@@ -48,7 +71,7 @@ interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>;
   activeChatId: string | null;
-  view: 'chats' | 'status' | 'communities' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info';
+  view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security';
   viewingGroup: Chat | null;
   isAuthenticated: boolean;
   currentUser: {
@@ -65,7 +88,7 @@ interface ChatState {
   removeParticipant: (chatId: string, userId: string, isSelf?: boolean) => Promise<void>;
   leaveGroup: (chatId: string) => Promise<void>;
   toggleDarkMode: () => void;
-  setView: (view: 'chats' | 'status' | 'communities' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info') => void;
+  setView: (view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security') => void;
   setViewingGroup: (group: Chat | null) => void;
   setActiveChat: (id: string | null) => void;
   setChats: (chats: Chat[]) => void;
@@ -81,16 +104,55 @@ interface ChatState {
   logout: () => void;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
-  sendMessage: (chatId: string, text?: string, type?: 'text' | 'image', imageUrl?: string) => void;
+  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, name: string, type: string, duration?: number }) => void;
   markMessagesRead: (chatId: string) => void;
   createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   updateGroup: (chatId: string, data: { name?: string; avatar?: string; description?: string }) => Promise<void>;
+  updateProfile: (data: { name?: string; avatar?: string; about?: string }) => Promise<void>;
+  statuses: GroupedStatus[];
+  fetchStatuses: () => Promise<void>;
+  createStatus: (data: { type: 'text' | 'image'; content: string; backgroundColor?: string }) => Promise<void>;
+  chatWallpaper: string;
+  setChatWallpaper: (wallpaper: string) => void;
+  notificationsEnabled: boolean;
+  setNotificationsEnabled: (enabled: boolean) => void;
+  soundsEnabled: boolean;
+  setSoundsEnabled: (enabled: boolean) => void;
+  blockedContacts: string[];
+  toggleBlockContact: (userId: string) => void;
+  privacySettings: {
+    lastSeen: 'everyone' | 'contacts' | 'nobody';
+    profilePhoto: 'everyone' | 'contacts' | 'nobody';
+    about: 'everyone' | 'contacts' | 'nobody';
+    status: 'everyone' | 'contacts' | 'nobody';
+  };
+  updatePrivacySettings: (settings: Partial<ChatState['privacySettings']>) => void;
+  saveSettings: () => void;
+  typingUsers: Record<string, string[]>;
+  sendTypingStatus: (chatId: string, isTyping: boolean) => void;
+  addReaction: (chatId: string, messageId: string, emoji: string) => void;
+  replyingTo: Message | null;
+  setReplyingTo: (message: Message | null) => void;
 }
 
-// Restaurar sesión guardada
 const savedUser = localStorage.getItem('asicme_user');
 const restoredUser = savedUser ? JSON.parse(savedUser) : null;
+
+const savedSettings = localStorage.getItem('asicme_settings');
+const initialSettings = savedSettings ? JSON.parse(savedSettings) : {
+  chatWallpaper: 'default',
+  notificationsEnabled: true,
+  soundsEnabled: true,
+  isDarkMode: false,
+  blockedContacts: [],
+  privacySettings: {
+    lastSeen: 'everyone',
+    profilePhoto: 'everyone',
+    about: 'everyone',
+    status: 'everyone'
+  }
+};
 
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
@@ -100,8 +162,71 @@ export const useChatStore = create<ChatState>((set, get) => ({
   viewingGroup: null,
   isAuthenticated: !!restoredUser,
   currentUser: restoredUser,
-  isDarkMode: false,
+  isDarkMode: initialSettings.isDarkMode,
+  chatWallpaper: initialSettings.chatWallpaper,
+  notificationsEnabled: initialSettings.notificationsEnabled,
+  soundsEnabled: initialSettings.soundsEnabled,
+  blockedContacts: initialSettings.blockedContacts || [],
+  privacySettings: initialSettings.privacySettings || {
+    lastSeen: 'everyone',
+    profilePhoto: 'everyone',
+    about: 'everyone',
+    status: 'everyone'
+  },
   participants: [],
+  typingUsers: {},
+  replyingTo: null,
+  
+  setReplyingTo: (message) => set({ replyingTo: message }),
+
+  sendTypingStatus: (chatId, isTyping) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    socket.emit(isTyping ? 'user_typing' : 'user_stop_typing', { chatId, userId: currentUser.id });
+  },
+
+  addReaction: (chatId, messageId, emoji) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    socket.emit('add_reaction', { chatId, messageId, emoji, userId: currentUser.id });
+  },
+
+  setChatWallpaper: (wallpaper) => {
+    set({ chatWallpaper: wallpaper });
+    get().saveSettings();
+  },
+  setNotificationsEnabled: (enabled) => {
+    set({ notificationsEnabled: enabled });
+    get().saveSettings();
+  },
+  setSoundsEnabled: (enabled) => {
+    set({ soundsEnabled: enabled });
+    get().saveSettings();
+  },
+  toggleBlockContact: (userId) => {
+    const current = get().blockedContacts;
+    const updated = current.includes(userId) 
+      ? current.filter(id => id !== userId)
+      : [...current, userId];
+    set({ blockedContacts: updated });
+    get().saveSettings();
+  },
+  updatePrivacySettings: (settings) => {
+    set({ privacySettings: { ...get().privacySettings, ...settings } });
+    get().saveSettings();
+  },
+  saveSettings: () => {
+    const state = get();
+    localStorage.setItem('asicme_settings', JSON.stringify({
+      isDarkMode: state.isDarkMode,
+      chatWallpaper: state.chatWallpaper,
+      notificationsEnabled: state.notificationsEnabled,
+      soundsEnabled: state.soundsEnabled,
+      blockedContacts: state.blockedContacts,
+      privacySettings: state.privacySettings
+    }));
+  },
+
   fetchParticipants: async (chatId) => {
     try {
       const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`);
@@ -153,19 +278,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isDarkMode: newMode });
     if (newMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
+    get().saveSettings();
   },
   setView: (view) => set({ view }),
   setViewingGroup: (group) => set({ viewingGroup: group }),
   setActiveChat: (id) => {
-    set({ activeChatId: id });
+    set({ activeChatId: id, replyingTo: null });
     if (id) {
       get().fetchMessages(id);
       get().markMessagesRead(id);
-      get().markAsRead(id); // Limpiar contador localmente de inmediato
+      get().markAsRead(id); 
       socket.emit('join_chat', id);
     }
   },
-  closeChat: () => set({ activeChatId: null }),
+  closeChat: () => set({ activeChatId: null, replyingTo: null }),
   login: async (userData) => {
     try {
       const response = await fetch('http://localhost:3001/api/auth', {
@@ -260,7 +386,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error fetching messages:', error);
     }
   },
-  sendMessage: (chatId: string, text?: string, type: 'text' | 'image' = 'text', imageUrl?: string) => {
+  sendMessage: (chatId, text, type = 'text', imageUrl, replyToId, fileData) => {
     const { currentUser } = get();
     if (!currentUser) return;
     
@@ -269,8 +395,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       senderId: currentUser.id,
       text,
       type,
-      imageUrl
+      imageUrl,
+      replyToId,
+      ...fileData
     });
+    set({ replyingTo: null });
   },
   markMessagesRead: (chatId: string) => {
     const { currentUser } = get();
@@ -278,9 +407,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.emit('mark_messages_read', { chatId, userId: currentUser.id });
   },
   addMessage: (chatId, message) => {
-    const { chats, currentUser, fetchChats, activeChatId } = get();
+    const { chats, currentUser, fetchChats, activeChatId, soundsEnabled, notificationsEnabled } = get();
     
-    // Si el chat no existe en la lista local, refrescar la lista de chats
+    if (message.senderId !== currentUser?.id) {
+      if (soundsEnabled) {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
+        audio.play().catch(e => console.log('Error playing sound:', e));
+      }
+      
+      if (notificationsEnabled && Notification.permission === 'granted') {
+        new Notification(`Nuevo mensaje`, {
+          body: message.text || (message.type === 'image' ? '📷 Imagen' : message.type === 'audio' ? '🎤 Nota de voz' : '📄 Archivo'),
+          icon: '/favicon.png'
+        });
+      }
+    }
+
     const chatExists = chats.some(c => c.id === chatId);
     if (!chatExists && currentUser) {
       fetchChats(currentUser.id);
@@ -288,7 +430,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set((state) => {
       const currentMsgs = state.messages[chatId] || [];
-      // Evitar duplicados si el mensaje ya existe por ID
       if (currentMsgs.some(m => m.id === message.id)) return state;
 
       const newMessages = {
@@ -300,7 +441,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         chat.id === chatId 
           ? { 
               ...chat, 
-              lastMessage: message.type === 'image' ? '📷 Imagen' : (message.text || ''), 
+              lastMessage: message.type === 'image' ? '📷 Imagen' : message.type === 'audio' ? '🎤 Nota de voz' : message.type === 'file' ? `📄 ${message.fileName}` : (message.text || ''), 
               timestamp: new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
               unreadCount: activeChatId === chatId ? 0 : (chat.unreadCount || 0) + 1 
             }
@@ -340,7 +481,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           name,
           avatar,
           description,
-          participantIds: [...participantIds, currentUser.id] // Siempre incluir al creador
+          participantIds: [...participantIds, currentUser.id] 
         })
       });
       const newGroup = await response.json();
@@ -384,15 +525,99 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error updating group:', error);
     }
   },
+  updateProfile: async (data) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    try {
+      const response = await fetch('http://localhost:3001/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...currentUser, ...data })
+      });
+      const updatedUser = await response.json();
+      localStorage.setItem('asicme_user', JSON.stringify(updatedUser));
+      set({ currentUser: updatedUser });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    }
+  },
+  statuses: [],
+  fetchStatuses: async () => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    try {
+      const response = await fetch(`http://localhost:3001/api/statuses/${currentUser.id}`);
+      const data = await response.json();
+      set({ statuses: Array.isArray(data) ? data : [] });
+    } catch (error) {
+      console.error('Error fetching statuses:', error);
+      set({ statuses: [] });
+    }
+  },
+  createStatus: async (data) => {
+    const { currentUser, fetchStatuses } = get();
+    if (!currentUser) return;
+    try {
+      const response = await fetch('http://localhost:3001/api/statuses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, userId: currentUser.id })
+      });
+      if (response.ok) {
+        await fetchStatuses();
+      }
+    } catch (error) {
+      console.error('Error creating status:', error);
+    }
+  },
 }));
 
-// Escuchar mensajes en tiempo real
 socket.on('receive_message', (message) => {
   const state = useChatStore.getState();
   state.addMessage(message.conversationId, message);
 });
 
-// Escuchar confirmación de lectura
+socket.on('user_typing', ({ chatId, userId }) => {
+  const state = useChatStore.getState();
+  if (userId === state.currentUser?.id) return;
+  const current = state.typingUsers[chatId] || [];
+  if (!current.includes(userId)) {
+    useChatStore.setState((s) => ({
+      typingUsers: { ...s.typingUsers, [chatId]: [...current, userId] }
+    }));
+  }
+});
+
+socket.on('user_stop_typing', ({ chatId, userId }) => {
+  const state = useChatStore.getState();
+  const current = state.typingUsers[chatId] || [];
+  useChatStore.setState((s) => ({
+    typingUsers: { ...s.typingUsers, [chatId]: current.filter(id => id !== userId) }
+  }));
+});
+
+socket.on('message_reaction', ({ chatId, messageId, emoji, userId }) => {
+  const state = useChatStore.getState();
+  const currentMessages = state.messages[chatId] || [];
+  const updatedMessages = currentMessages.map(msg => {
+    if (msg.id === messageId) {
+      const reactions = { ...(msg.reactions || {}) };
+      const users = reactions[emoji] || [];
+      if (users.includes(userId)) {
+        reactions[emoji] = users.filter(id => id !== userId);
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+      } else {
+        reactions[emoji] = [...users, userId];
+      }
+      return { ...msg, reactions };
+    }
+    return msg;
+  });
+  useChatStore.setState((s) => ({
+    messages: { ...state.messages, [chatId]: updatedMessages }
+  }));
+});
+
 socket.on('messages_read', ({ chatId, readBy }) => {
   const state = useChatStore.getState();
   const currentMessages = state.messages[chatId] || [];
@@ -405,7 +630,6 @@ socket.on('messages_read', ({ chatId, readBy }) => {
   }));
 });
 
-// Escuchar cambios de estado (Online/Offline)
 socket.on('user_status_change', ({ userId, status }) => {
   const state = useChatStore.getState();
   const updatedChats = state.chats.map(chat => {
@@ -414,7 +638,6 @@ socket.on('user_status_change', ({ userId, status }) => {
   state.setChats(updatedChats);
 });
 
-// Restaurar conexión de socket si hay sesión guardada
 if (restoredUser) {
   socket.emit('user_connected', restoredUser.id);
   useChatStore.getState().fetchChats(restoredUser.id);

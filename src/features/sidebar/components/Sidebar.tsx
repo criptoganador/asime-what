@@ -6,6 +6,8 @@ import { ProfileView } from './ProfileView';
 import { NewChatView } from './NewChatView';
 import { AddContactView } from './AddContactView';
 import { GroupInfoView } from './GroupInfoView';
+import { PrivacySettings } from './PrivacySettings';
+import { SecuritySettings } from './SecuritySettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -116,10 +118,23 @@ export const Sidebar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'favorites' | 'groups'>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearTimeout(timer);
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
@@ -184,7 +199,29 @@ export const Sidebar = () => {
             className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" 
             onClick={() => setView('new-chat')}
           />
-          <MoreVertical size={20} className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" />
+          <div className="relative" ref={menuRef}>
+            <MoreVertical 
+              size={20} 
+              className={cn("cursor-pointer hover:bg-wa-hover rounded-full p-0.5 transition-colors", showMenu && "text-wa-teal bg-wa-hover")} 
+              onClick={() => setShowMenu(!showMenu)}
+            />
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }} 
+                  animate={{ opacity: 1, scale: 1, y: 0 }} 
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }} 
+                  className="absolute right-0 top-10 w-[200px] bg-white shadow-xl rounded-xl py-2 z-50 border border-wa-border origin-top-right"
+                >
+                  <ul className="text-[14.5px] text-wa-text-primary">
+                    <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('new-chat'); setShowMenu(false); }}>Nuevo chat</li>
+                    <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('profile'); setShowMenu(false); }}>Perfil</li>
+                    <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('settings'); setShowMenu(false); }}>Configuración</li>
+                  </ul>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -289,6 +326,8 @@ export const Sidebar = () => {
         {view === 'new-chat' && <NewChatView key="new-chat" />}
         {view === 'add-contact' && <AddContactView key="add-contact" onBack={() => setView('chats')} />}
         {view === 'group-info' && <GroupInfoView key="group-info" />}
+        {view === 'privacy' && <PrivacySettings key="privacy" />}
+        {view === 'security' && <SecuritySettings key="security" />}
       </AnimatePresence>
     </div>
   );

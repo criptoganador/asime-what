@@ -1,17 +1,35 @@
+import React from 'react';
 import { NavRail } from './NavRail';
 import { Sidebar } from '../features/sidebar/components/Sidebar';
 import { ChatArea } from './ChatArea';
 import { StatusSidebar } from '../features/status/components/StatusSidebar';
+import { SettingsView } from '../features/sidebar/components/SettingsView';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { AnimatePresence, motion } from 'framer-motion';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export const Layout = () => {
-  const { view, activeChatId } = useChatStore();
+  const { view, activeChatId, currentUser } = useChatStore();
+
+  // Actualizar el icono de la pestaña (favicon) dinámicamente con el avatar del usuario
+  React.useEffect(() => {
+    if (currentUser?.avatar) {
+      const link: HTMLLinkElement = document.querySelector("link[rel*='icon']") || document.createElement('link');
+      link.type = 'image/x-icon';
+      link.rel = 'shortcut icon';
+      link.href = currentUser.avatar;
+      document.getElementsByTagName('head')[0].appendChild(link);
+      
+      document.title = `${currentUser.name} | Asicme Web`;
+    } else {
+      document.title = 'Asicme Web';
+    }
+  }, [currentUser?.avatar, currentUser?.name]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-wa-bg">
@@ -20,28 +38,56 @@ export const Layout = () => {
         <NavRail />
       </div>
       
-      {/* Sidebar dinámico: Ocupa todo el ancho en móviles si NO hay chat activo */}
+      {/* Sidebar dinámico */}
       <div className={cn(
         "h-full border-r border-wa-border",
         activeChatId ? "hidden md:block w-[400px]" : "w-full md:w-[400px]"
       )}>
-        {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info') && <Sidebar />}
-        {view === 'status' && <StatusSidebar />}
-        {view === 'communities' && (
-          <div className="w-full h-full bg-wa-sidebar flex flex-col items-center justify-center p-8 text-center">
-            <h2 className="text-xl font-bold text-wa-text-primary mb-2">Comunidades</h2>
-            <p className="text-wa-text-secondary text-sm">Mantén tus grupos conectados y organizados.</p>
-          </div>
-        )}
-        {view === 'settings' && (
-          <div className="w-full h-full bg-wa-sidebar flex flex-col items-center justify-center p-8 text-center">
-            <h2 className="text-xl font-bold text-wa-text-primary mb-2">Configuración</h2>
-            <p className="text-wa-text-secondary text-sm">Próximamente: Ajustes de perfil y privacidad.</p>
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {/* Todas estas vistas comparten el Sidebar como contenedor base */}
+          {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info' || view === 'privacy' || view === 'security') && (
+            <motion.div 
+              key="sidebar-group"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <Sidebar />
+            </motion.div>
+          )}
+
+          {view === 'status' && (
+            <motion.div 
+              key="status"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <StatusSidebar />
+            </motion.div>
+          )}
+
+          {view === 'settings' && (
+            <motion.div 
+              key="settings"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              <SettingsView />
+            </motion.div>
+          )}
+
+        </AnimatePresence>
       </div>
 
-      {/* ChatArea: Ocupa todo el ancho en móviles si HAY chat activo */}
+      {/* ChatArea */}
       <div className={cn(
         "flex-1 h-full",
         !activeChatId ? "hidden md:flex" : "flex"

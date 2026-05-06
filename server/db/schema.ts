@@ -11,10 +11,9 @@ export const users = pgTable('users', {
 
 export const conversations = pgTable('conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name'), // Null for 1v1
+  name: text('name'),
   avatar: text('avatar'),
   description: text('description'),
-  communityId: uuid('community_id'), // Para grupos vinculados a comunidades
   isGroup: boolean('is_group').default(false),
   createdAt: timestamp('created_at').defaultNow(),
 });
@@ -23,17 +22,22 @@ export const conversationParticipants = pgTable('conversation_participants', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: uuid('conversation_id').references(() => conversations.id).notNull(),
   userId: uuid('user_id').references(() => users.id).notNull(),
-  role: text('role').default('member'), // 'admin' o 'member'
+  role: text('role').default('member'),
 });
 
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   conversationId: uuid('conversation_id').references(() => conversations.id).notNull(),
   senderId: uuid('sender_id').references(() => users.id).notNull(),
-  text: text('text'), // Opcional si es imagen
-  type: text('type').default('text'), // 'text' o 'image'
+  text: text('text'),
+  type: text('type').default('text'),
   imageUrl: text('image_url'),
-  status: text('status').default('sent'), // sent, delivered, read
+  fileUrl: text('file_url'),
+  fileName: text('file_name'),
+  fileType: text('file_type'),
+  duration: integer('duration'),
+  replyToId: uuid('reply_to_id'),
+  status: text('status').default('sent'),
   timestamp: timestamp('timestamp').defaultNow(),
 });
 
@@ -42,5 +46,14 @@ export const contacts = pgTable('contacts', {
   ownerId: uuid('owner_id').references(() => users.id).notNull(),
   contactId: uuid('contact_id').references(() => users.id).notNull(),
   nickname: text('nickname'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const statuses = pgTable('statuses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id).notNull(),
+  type: text('type').default('text'),
+  content: text('content').notNull(),
+  backgroundColor: text('background_color').default('#6b21a8'),
   createdAt: timestamp('created_at').defaultNow(),
 });

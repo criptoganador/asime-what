@@ -31,17 +31,22 @@ export const NavRail = () => {
         >
           <CircleDashed size={24} />
         </button>
-        <button 
-          onClick={() => setView('communities')}
-          className={cn(
-            "p-2 rounded-full transition-colors cursor-pointer",
-            view === 'communities' ? "bg-[#374248] text-wa-green" : "hover:bg-[#374248]"
-          )}
-        >
-          <Users size={24} />
-        </button>
       </div>
       
+      {/* Texto Vertical de Marca en el Espacio Vacío con Efecto 3D */}
+      <div className="flex-1 flex items-center justify-center py-8 select-none pointer-events-none">
+        <span 
+          style={{ 
+            writingMode: 'vertical-rl', 
+            transform: 'rotate(180deg)',
+            textShadow: '1px 1px 1px rgba(0,0,0,0.6), -1px -1px 1px rgba(255,255,255,0.05)'
+          }} 
+          className="text-[12px] font-black tracking-[0.5em] uppercase text-[#2a3942] whitespace-nowrap"
+        >
+          Asicme Chat
+        </span>
+      </div>
+
       <div className="flex flex-col gap-6 items-center">
         <button 
           onClick={() => setView('settings')}
