@@ -134,10 +134,11 @@ interface ChatState {
   addReaction: (chatId: string, messageId: string, emoji: string) => void;
   replyingTo: Message | null;
   setReplyingTo: (message: Message | null) => void;
+  checkUser: (phone: string) => Promise<any | null>;
 }
 
 const savedUser = localStorage.getItem('asicme_user');
-const restoredUser = savedUser ? JSON.parse(savedUser) : null;
+const restoredUser = savedUser && savedUser !== 'undefined' ? JSON.parse(savedUser) : null;
 
 const savedSettings = localStorage.getItem('asicme_settings');
 const initialSettings = savedSettings ? JSON.parse(savedSettings) : {
@@ -307,9 +308,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error in login:', error);
     }
   },
+  checkUser: async (phone: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/users/check/${phone}`);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      console.error('Error checking user:', error);
+      return null;
+    }
+  },
   logout: () => {
+    const { currentUser } = get();
+    if (currentUser?.id) {
+      socket.emit('user_disconnected', currentUser.id);
+    }
     localStorage.removeItem('asicme_user');
-    set({ isAuthenticated: false, currentUser: null, activeChatId: null });
+    set({ 
+      isAuthenticated: false, 
+      currentUser: null, 
+      activeChatId: null,
+      chats: [],
+      messages: {} 
+    });
   },
   setChats: (chats) => set({ chats }),
   contacts: [],
@@ -638,7 +659,7 @@ socket.on('user_status_change', ({ userId, status }) => {
   state.setChats(updatedChats);
 });
 
-if (restoredUser) {
+if (restoredUser && restoredUser.id) {
   socket.emit('user_connected', restoredUser.id);
   useChatStore.getState().fetchChats(restoredUser.id);
   useChatStore.getState().fetchContacts(restoredUser.id);

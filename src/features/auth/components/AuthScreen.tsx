@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '../../sidebar/store/useChatStore';
-import { Phone, Check, ArrowRight, User, Camera, ShieldCheck, Copy, CheckCircle2, X, ChevronDown } from 'lucide-react';
+import { Phone, Check, ArrowRight, User, Camera, ShieldCheck, Copy, CheckCircle2, X, ChevronDown, Loader2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -22,8 +22,10 @@ export const AuthScreen = () => {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  
-  const { login } = useChatStore();
+  const [isChecking, setIsChecking] = useState(false);
+  const [userExists, setUserExists] = useState<boolean | null>(null);
+
+  const { login, checkUser } = useChatStore();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,11 +38,34 @@ export const AuthScreen = () => {
     }
   };
 
+  // Validación inteligente del número de teléfono
+  useEffect(() => {
+    const cleanPhone = phone.replace(/\s+/g, '');
+    if (cleanPhone.length >= 8) {
+      const timer = setTimeout(async () => {
+        setIsChecking(true);
+        const fullPhone = `${countryCode}${cleanPhone}`;
+        try {
+          const user = await checkUser(fullPhone);
+          setUserExists(!!user);
+        } catch (error) {
+          setUserExists(null);
+        } finally {
+          setIsChecking(false);
+        }
+      }, 500); // Debounce de 500ms
+      return () => clearTimeout(timer);
+    } else {
+      setUserExists(null);
+      setIsChecking(false);
+    }
+  }, [phone, countryCode, checkUser]);
+
   const handleSendCode = () => {
     // Limpiar el número de espacios o guiones
     const cleanPhone = phone.replace(/\s+/g, '');
     if (cleanPhone.length < 7) return;
-    
+
     const fullPhone = `${countryCode}${cleanPhone}`;
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedCode(code);
@@ -75,10 +100,21 @@ export const AuthScreen = () => {
     }
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     if (otp.join('') === generatedCode) {
-      setStep('profile');
       setShowToast(false);
+      const fullPhone = `${countryCode}${phone.replace(/\s+/g, '')}`;
+
+      // Validar si el usuario ya existe en la BD
+      const existingUser = await useChatStore.getState().checkUser(fullPhone);
+
+      if (existingUser) {
+        // Si ya existe, iniciamos sesión directamente con sus datos
+        login(existingUser);
+      } else {
+        // Si no existe, vamos al paso de perfil (registro)
+        setStep('profile');
+      }
     } else {
       alert('Código incorrecto. Inténtalo de nuevo.');
     }
@@ -105,7 +141,7 @@ export const AuthScreen = () => {
       {/* Toast de Simulación de SMS */}
       <AnimatePresence>
         {showToast && (
-          <motion.div 
+          <motion.div
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 20, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
@@ -127,7 +163,7 @@ export const AuthScreen = () => {
         )}
       </AnimatePresence>
 
-      <motion.div 
+      <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="relative z-10 w-full max-w-[450px] bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col min-h-[520px]"
@@ -148,8 +184,8 @@ export const AuthScreen = () => {
                   <label className="text-[12px] text-[#007bfc] font-bold uppercase tracking-widest">Número de teléfono</label>
                   <div className="flex gap-2">
                     <div className="relative group min-w-[100px]">
-                      <select 
-                        value={countryCode} 
+                      <select
+                        value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
                         className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 px-3 text-[17px] rounded-t-xl transition-all appearance-none cursor-pointer font-medium"
                       >
@@ -164,19 +200,38 @@ export const AuthScreen = () => {
                     </div>
                     <div className="relative group flex-1">
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-wa-text-secondary group-focus-within:text-[#007bfc] transition-colors"><Phone size={20} /></div>
-                      <input 
-                        type="tel" 
-                        value={phone} 
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} 
-                        placeholder="Número de móvil" 
-                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 pl-12 pr-4 text-[18px] rounded-t-xl transition-all" 
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                        placeholder="Número de móvil"
+                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 pl-12 pr-12 text-[18px] rounded-t-xl transition-all"
                       />
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        {isChecking ? (
+                          <Loader2 size={18} className="text-[#007bfc] animate-spin" />
+                        ) : userExists ? (
+                          <div className="flex items-center gap-2 animate-in zoom-in duration-300">
+                            <CheckCircle2 size={18} className="text-wa-green" />
+                            <span className="text-[10px] font-bold text-wa-green uppercase">Registrado</span>
+                          </div>
+                        ) : userExists === false ? (
+                          <div className="flex items-center gap-2 animate-in zoom-in duration-300">
+                            <User size={18} className="text-wa-text-secondary" />
+                            <span className="text-[10px] font-bold text-wa-text-secondary uppercase">Nuevo</span>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[12px] text-wa-text-secondary leading-relaxed">Te enviaremos un código de seguridad para verificar tu identidad.</p>
+                  <p className="text-[12px] text-wa-text-secondary leading-relaxed">
+                    {userExists
+                      ? "¡Bienvenido de nuevo! Haz clic en Entrar para continuar."
+                      : "Te enviaremos un código de seguridad para verificar tu identidad."}
+                  </p>
                 </div>
-                <button onClick={handleSendCode} disabled={phone.length < 8} className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 group">
-                  ENVIAR CÓDIGO
+                <button onClick={handleSendCode} disabled={phone.length < 8 || isChecking} className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 group">
+                  {userExists ? 'ENTRAR' : 'ENVIAR CÓDIGO'}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </motion.div>

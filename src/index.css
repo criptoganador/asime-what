@@ -1,6 +1,6 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import "@livekit/components-styles";
+@import "../node_modules/@livekit/components-styles/dist/general/index.css";
+@import "tailwindcss";
 
 /* 
   Usamos variables CSS estándar con el prefijo --color-* 

@@ -8,7 +8,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const NavRail = () => {
-  const { view, setView } = useChatStore();
+  const { view, setView, logout } = useChatStore();
 
   return (
     <div className="w-[60px] h-full bg-wa-nav-rail flex flex-col items-center py-4 justify-between text-[#aebac1] z-30">
@@ -66,7 +66,14 @@ export const NavRail = () => {
         >
           <UserCircle size={24} />
         </button>
-        <button className="p-2 hover:bg-[#374248] rounded-full transition-colors cursor-pointer">
+        <button 
+          onClick={() => {
+            if (window.confirm('¿Estás seguro de que quieres cerrar sesión?')) {
+              logout();
+            }
+          }}
+          className="p-2 hover:bg-[#374248] rounded-full transition-colors cursor-pointer text-red-400"
+        >
           <LogOut size={24} />
         </button>
       </div>

@@ -158,6 +158,16 @@ app.post('/api/auth', async (req, res) => {
   }
 });
 
+app.get('/api/users/check/:phone', async (req, res) => {
+  const { phone } = req.params;
+  try {
+    const user = await db.query.users.findFirst({ where: eq(users.phone, phone) });
+    res.json(user || null);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al verificar usuario' });
+  }
+});
+
 app.get('/api/get-livekit-token', async (req, res) => {
   const { roomName, participantName } = req.query;
   if (!roomName || !participantName) {
@@ -183,6 +193,7 @@ app.get('/api/get-livekit-token', async (req, res) => {
 
 app.get('/api/chats/:userId', async (req, res) => {
   const { userId } = req.params;
+  if (!userId || userId === 'undefined') return res.status(400).json({ error: 'ID de usuario no válido' });
   try {
     const userConvs = await db.query.conversationParticipants.findMany({ 
       where: eq(conversationParticipants.userId, userId) 
@@ -280,6 +291,7 @@ app.post('/api/groups', async (req, res) => {
 
 app.get('/api/contacts/:userId', async (req, res) => {
   const { userId } = req.params;
+  if (!userId || userId === 'undefined') return res.status(400).json({ error: 'ID de usuario no válido' });
   try {
     const userContacts = await db.query.contacts.findMany({ where: eq(contacts.ownerId, userId) });
     const contactDetails = await Promise.all(userContacts.map(async (c) => {
