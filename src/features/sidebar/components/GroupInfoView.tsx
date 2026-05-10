@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, Pencil, Check, UserPlus, X, MessageCircle, LogOut } from 'lucide-react';
+import { ArrowLeft, Camera, Pencil, Check, UserPlus, X, MessageCircle, LogOut, ShieldCheck, ShieldAlert, MoreVertical } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -111,6 +111,15 @@ export const GroupInfoView = () => {
     if (window.confirm('¿Estás seguro de que quieres salir del grupo? Esta acción no se puede deshacer.')) {
       await leaveGroup(currentGroup.id);
       setView('chats');
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, currentRole: string) => {
+    if (!currentGroup?.id || !isAdmin) return;
+    const newRole = currentRole === 'admin' ? 'member' : 'admin';
+    const action = newRole === 'admin' ? 'hacer administrador' : 'quitar como administrador';
+    if (window.confirm(`¿Quieres ${action} a este usuario?`)) {
+      await updateParticipantRole(currentGroup.id, userId, newRole);
     }
   };
 
@@ -278,14 +287,25 @@ export const GroupInfoView = () => {
                     </div>
                   </div>
                   {isAdmin && p.id !== currentUser?.id && (
-                    <X 
-                      size={18} 
-                      className="text-red-500 cursor-pointer opacity-0 group-hover/member:opacity-100 hover:scale-125 transition-all p-0.5"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveMember(p.id, p.name);
-                      }}
-                    />
+                    <div className="flex items-center gap-2 opacity-0 group-hover/member:opacity-100 transition-opacity">
+                      <button 
+                        title={p.role === 'admin' ? "Quitar admin" : "Hacer admin"}
+                        onClick={(e) => { e.stopPropagation(); handleUpdateRole(p.id, p.role); }}
+                        className={cn(
+                          "p-1 rounded-full hover:bg-wa-bg transition-all",
+                          p.role === 'admin' ? "text-orange-500" : "text-wa-teal"
+                        )}
+                      >
+                        {p.role === 'admin' ? <ShieldAlert size={18} /> : <ShieldCheck size={18} />}
+                      </button>
+                      <button 
+                        title="Eliminar del grupo"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveMember(p.id, p.name); }}
+                        className="p-1 rounded-full hover:bg-red-50 text-red-500 transition-all"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
                   )}
                 </div>
                 <p className="text-[13px] text-wa-text-secondary truncate">{p.about || '¡Hola! Estoy usando Asicme.'}</p>

@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
+import { encryptMessage, decryptMessage } from '../../../utils/crypto';
 
 const socket: Socket = io('http://localhost:3001');
 
 export interface Message {
   id: string;
+  conversationId: string;
   text?: string;
   type: 'text' | 'image' | 'system' | 'audio' | 'file';
   imageUrl?: string;
@@ -19,6 +21,7 @@ export interface Message {
   reactions?: Record<string, string[]>;
   replyToId?: string;
   replyTo?: Message;
+  isDeleted?: boolean;
 }
 
 export interface Chat {
@@ -35,6 +38,7 @@ export interface Chat {
   isContact?: boolean;
   userId?: string;
   otherUserId?: string;
+  lastSeen?: string;
 }
 
 export interface Status {
@@ -67,6 +71,14 @@ export interface Contact {
   };
 }
 
+export interface Participant {
+  id: string;
+  name: string;
+  avatar: string;
+  about?: string;
+  role: 'admin' | 'member';
+}
+
 interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>;
@@ -74,6 +86,7 @@ interface ChatState {
   view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security';
   viewingGroup: Chat | null;
   isAuthenticated: boolean;
+  isValidatingSession: boolean;
   currentUser: {
     id: string;
     name: string;
@@ -82,11 +95,6 @@ interface ChatState {
     about: string;
   } | null;
   isDarkMode: boolean;
-  participants: any[];
-  fetchParticipants: (chatId: string) => Promise<void>;
-  addParticipant: (chatId: string, userId: string) => Promise<void>;
-  removeParticipant: (chatId: string, userId: string, isSelf?: boolean) => Promise<void>;
-  leaveGroup: (chatId: string) => Promise<void>;
   toggleDarkMode: () => void;
   setView: (view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security') => void;
   setViewingGroup: (group: Chat | null) => void;
@@ -134,7 +142,17 @@ interface ChatState {
   addReaction: (chatId: string, messageId: string, emoji: string) => void;
   replyingTo: Message | null;
   setReplyingTo: (message: Message | null) => void;
+  participants: Participant[];
+  fetchParticipants: (chatId: string) => Promise<void>;
+  addParticipant: (chatId: string, userId: string) => Promise<void>;
+  removeParticipant: (chatId: string, userId: string, isSelf?: boolean) => Promise<void>;
+  updateParticipantRole: (chatId: string, userId: string, role: string) => Promise<void>;
+  leaveGroup: (chatId: string) => Promise<void>;
   checkUser: (phone: string) => Promise<any | null>;
+  validateSession: () => Promise<void>;
+  hasMoreMessages: Record<string, boolean>;
+  loadMoreMessages: (chatId: string) => Promise<void>;
+  deleteMessage: (chatId: string, messageId: string, forEveryone: boolean) => void;
 }
 
 const savedUser = localStorage.getItem('asicme_user');
@@ -158,10 +176,12 @@ const initialSettings = savedSettings ? JSON.parse(savedSettings) : {
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
   messages: {},
+  hasMoreMessages: {},
   activeChatId: null,
   view: 'chats',
   viewingGroup: null,
-  isAuthenticated: !!restoredUser,
+  isAuthenticated: false,
+  isValidatingSession: !!restoredUser,
   currentUser: restoredUser,
   isDarkMode: initialSettings.isDarkMode,
   chatWallpaper: initialSettings.chatWallpaper,
@@ -228,41 +248,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
-  fetchParticipants: async (chatId) => {
-    try {
-      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`);
-      const data = await response.json();
-      set({ participants: data });
-    } catch (error) {
-      console.error('Error fetching participants:', error);
-    }
-  },
-  addParticipant: async (chatId, userId) => {
-    try {
-      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      if (response.ok) {
-        get().fetchParticipants(chatId);
-      }
-    } catch (error) {
-      console.error('Error adding participant:', error);
-    }
-  },
-  removeParticipant: async (chatId, userId, isSelf = false) => {
-    try {
-      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants/${userId}?isSelf=${isSelf}`, {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        get().fetchParticipants(chatId);
-      }
-    } catch (error) {
-      console.error('Error removing participant:', error);
-    }
-  },
+
   leaveGroup: async (chatId) => {
     const { currentUser, removeParticipant, closeChat, fetchChats } = get();
     if (!currentUser) return;
@@ -316,6 +302,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } catch (error) {
       console.error('Error checking user:', error);
       return null;
+    }
+  },
+  validateSession: async () => {
+    const { currentUser, logout } = get();
+    if (!currentUser?.id) return;
+    try {
+      const response = await fetch(`http://localhost:3001/api/users/validate/${currentUser.id}`);
+      if (!response.ok) {
+        console.warn('⚠️ Sesión inválida: usuario no existe en la BD. Cerrando sesión...');
+        logout();
+        return;
+      }
+      // Actualizar datos del usuario con los más recientes de la BD
+      const data = await response.json();
+      if (data.user) {
+        localStorage.setItem('asicme_user', JSON.stringify(data.user));
+        set({ currentUser: data.user });
+      }
+    } catch (error) {
+      console.error('Error validando sesión:', error);
+      // Si el servidor no responde, no cerrar sesión (puede ser caída temporal)
     }
   },
   logout: () => {
@@ -398,29 +405,69 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/messages/${chatId}?userId=${currentUser.id}`);
-      const data = await response.json();
+      const response = await fetch(`http://localhost:3001/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=0`);
+      if (!response.ok) return; // Servidor no disponible, no crashear
+      let data = await response.json();
+      if (!Array.isArray(data)) return; // Respuesta inesperada, no crashear
+      
+      data = data.map((msg: Message) => ({ ...msg, text: decryptMessage(msg.text || '', chatId) }));
+
       set((state) => ({
-        messages: { ...state.messages, [chatId]: data }
+        messages: { ...state.messages, [chatId]: data },
+        hasMoreMessages: { ...state.hasMoreMessages, [chatId]: data.length === 50 }
       }));
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.warn('⚠️ Error fetching messages (Neon puede estar temporalmente inaccesible)');
+    }
+  },
+  loadMoreMessages: async (chatId: string) => {
+    const { currentUser, messages, hasMoreMessages } = get();
+    if (!currentUser || hasMoreMessages[chatId] === false) return;
+    
+    const currentMessages = messages[chatId] || [];
+    const offset = currentMessages.length;
+    
+    try {
+      const response = await fetch(`http://localhost:3001/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=${offset}`);
+      let data = await response.json();
+      
+      data = data.map((msg: Message) => ({ ...msg, text: decryptMessage(msg.text || '', chatId) }));
+      
+      set((state) => ({
+        messages: { 
+          ...state.messages, 
+          [chatId]: [...data, ...currentMessages] 
+        },
+        hasMoreMessages: { 
+          ...state.hasMoreMessages, 
+          [chatId]: data.length === 50 
+        }
+      }));
+    } catch (error) {
+      console.error('Error loading more messages:', error);
     }
   },
   sendMessage: (chatId, text, type = 'text', imageUrl, replyToId, fileData) => {
     const { currentUser } = get();
     if (!currentUser) return;
     
+    const encryptedText = type === 'text' ? encryptMessage(text || '', chatId) : text;
+    
     socket.emit('send_message', {
       chatId,
       senderId: currentUser.id,
-      text,
+      text: encryptedText,
       type,
       imageUrl,
       replyToId,
       ...fileData
     });
     set({ replyingTo: null });
+  },
+  deleteMessage: (chatId, messageId, forEveryone) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    socket.emit('delete_message', { chatId, messageId, forEveryone, userId: currentUser.id });
   },
   markMessagesRead: (chatId: string) => {
     const { currentUser } = get();
@@ -562,6 +609,49 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error updating profile:', error);
     }
   },
+  fetchParticipants: async (chatId) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`);
+      const data = await response.json();
+      set({ participants: Array.isArray(data) ? data : [] });
+    } catch (error) {
+      console.error('Error fetching participants:', error);
+    }
+  },
+  addParticipant: async (chatId, userId) => {
+    try {
+      await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      await get().fetchParticipants(chatId);
+    } catch (error) {
+      console.error('Error adding participant:', error);
+    }
+  },
+  removeParticipant: async (chatId, userId, isSelf = false) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants/${userId}?isSelf=${isSelf}`, { method: 'DELETE' });
+      if (response.ok) {
+        get().fetchParticipants(chatId);
+      }
+    } catch (error) {
+      console.error('Error removing participant:', error);
+    }
+  },
+  updateParticipantRole: async (chatId, userId, role) => {
+    try {
+      await fetch(`http://localhost:3001/api/conversations/${chatId}/participants/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role })
+      });
+      await get().fetchParticipants(chatId);
+    } catch (error) {
+      console.error('Error updating participant role:', error);
+    }
+  },
   statuses: [],
   fetchStatuses: async () => {
     const { currentUser } = get();
@@ -593,9 +683,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 }));
 
-socket.on('receive_message', (message) => {
+socket.on('receive_message', (message: Message) => {
   const state = useChatStore.getState();
-  state.addMessage(message.conversationId, message);
+  const decryptedMessage = { ...message, text: decryptMessage(message.text || '', message.conversationId) };
+  state.addMessage(message.conversationId, decryptedMessage);
+});
+
+socket.on('messages_read', ({ chatId, readBy }) => {
+  const state = useChatStore.getState();
+  const currentMessages = state.messages[chatId] || [];
+  
+  // Si yo soy el remitente de esos mensajes, los marco como leídos
+  const updatedMessages = currentMessages.map(msg => {
+    if (msg.senderId === state.currentUser?.id && msg.status !== 'read') {
+      return { ...msg, status: 'read' };
+    }
+    return msg;
+  });
+  
+  useChatStore.setState((s) => ({
+    messages: { ...s.messages, [chatId]: updatedMessages }
+  }));
 });
 
 socket.on('user_typing', ({ chatId, userId }) => {
@@ -651,16 +759,75 @@ socket.on('messages_read', ({ chatId, readBy }) => {
   }));
 });
 
-socket.on('user_status_change', ({ userId, status }) => {
+socket.on('user_status_change', ({ userId, status, lastSeen }) => {
   const state = useChatStore.getState();
   const updatedChats = state.chats.map(chat => {
-    return { ...chat, isOnline: status === 'online' };
+    return chat.otherUserId === userId 
+      ? { ...chat, isOnline: status === 'online', lastSeen: lastSeen || chat.lastSeen } 
+      : chat;
   });
   state.setChats(updatedChats);
 });
 
+socket.on('message_deleted', ({ chatId, messageId, forEveryone, userId }) => {
+  const state = useChatStore.getState();
+  const currentMessages = state.messages[chatId] || [];
+  
+  if (forEveryone) {
+    const updatedMessages = currentMessages.map(msg => 
+      msg.id === messageId 
+        ? { ...msg, isDeleted: true, text: 'Este mensaje fue eliminado', imageUrl: undefined, fileUrl: undefined, fileName: undefined } 
+        : msg
+    );
+    useChatStore.setState((s) => ({
+      messages: { ...state.messages, [chatId]: updatedMessages }
+    }));
+  } else {
+    if (state.currentUser?.id === userId) {
+      // Remove it from local view
+      const updatedMessages = currentMessages.filter(msg => msg.id !== messageId);
+      useChatStore.setState((s) => ({
+        messages: { ...state.messages, [chatId]: updatedMessages }
+      }));
+    }
+  }
+});
+
+socket.on('spam_warning', ({ message }) => {
+  alert('⚠️ Anti-Spam: ' + message);
+});
+
 if (restoredUser && restoredUser.id) {
-  socket.emit('user_connected', restoredUser.id);
-  useChatStore.getState().fetchChats(restoredUser.id);
-  useChatStore.getState().fetchContacts(restoredUser.id);
+  // Validar que el usuario aún existe en la BD antes de reconectar
+  (async () => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/users/validate/${restoredUser.id}`);
+      if (!response.ok) {
+        console.warn('⚠️ Usuario eliminado de la BD. Cerrando sesión automáticamente...');
+        localStorage.removeItem('asicme_user');
+        useChatStore.setState({ isAuthenticated: false, isValidatingSession: false, currentUser: null });
+        return;
+      }
+      // Usuario válido: proceder con la reconexión normal
+      const data = await response.json();
+      if (data.user) {
+        localStorage.setItem('asicme_user', JSON.stringify(data.user));
+        useChatStore.setState({ currentUser: data.user, isAuthenticated: true, isValidatingSession: false });
+      } else {
+        useChatStore.setState({ isAuthenticated: true, isValidatingSession: false });
+      }
+      socket.emit('user_connected', restoredUser.id);
+      useChatStore.getState().fetchChats(restoredUser.id);
+      useChatStore.getState().fetchContacts(restoredUser.id);
+    } catch (error) {
+      console.error('Error validando sesión al iniciar:', error);
+      // Si el servidor no está disponible, confiar en localStorage temporalmente
+      useChatStore.setState({ isAuthenticated: true, isValidatingSession: false });
+      socket.emit('user_connected', restoredUser.id);
+      useChatStore.getState().fetchChats(restoredUser.id);
+      useChatStore.getState().fetchContacts(restoredUser.id);
+    }
+  })();
+} else {
+  useChatStore.setState({ isValidatingSession: false });
 }

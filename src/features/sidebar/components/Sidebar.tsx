@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { List, RowComponentProps } from 'react-window';
 import { Search, Filter, Plus, ChevronDown, Star, MoreVertical, Moon, Sun, Trash2 } from 'lucide-react';
 import { useChatStore, Chat } from '../store/useChatStore';
+import { decryptMessage } from '../../../utils/crypto';
 import { ProfileView } from './ProfileView';
 import { NewChatView } from './NewChatView';
 import { AddContactView } from './AddContactView';
@@ -58,10 +59,20 @@ const ChatItem = ({ index, style, items, ariaAttributes }: RowComponentProps<Row
       <div className="ml-3 flex-1 min-w-0">
         <div className="flex justify-between items-baseline">
           <h2 className="text-[17px] font-medium text-wa-text-primary truncate">{chat.name}</h2>
-          <span className="text-xs text-wa-text-secondary">{chat.timestamp}</span>
+          <span className="text-xs text-wa-text-secondary whitespace-nowrap">
+            {(() => {
+              if (!chat.timestamp) return '';
+              const d = new Date(chat.timestamp);
+              return isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            })()}
+          </span>
         </div>
         <div className="flex justify-between items-center mt-1">
-          <p className="text-[14px] text-wa-text-secondary truncate pr-2">{chat.lastMessage}</p>
+          <p className="text-[14px] text-wa-text-secondary truncate pr-2">
+            {chat.lastMessage?.startsWith('U2FsdGVkX1') 
+              ? decryptMessage(chat.lastMessage, chat.id) 
+              : chat.lastMessage}
+          </p>
           <div className="flex items-center gap-2">
             <Star 
               size={16} 

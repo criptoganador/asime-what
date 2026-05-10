@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Send, Smile, ArrowLeft, Image as ImageIcon, 
-  X, Reply, Plus, 
+  X, Reply, Plus, Trash2, 
   FileText, File as FileIcon, Mic, StopCircle, Play, Pause, Download,
-  Lock, Phone, Video
+  Lock, Phone, Video, Ban, Search
 } from 'lucide-react';
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { uploadImage, uploadFile } from '../utils/upload';
 import { CallView } from './CallView';
 import logo from '../assets/logo.png';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -36,7 +37,8 @@ export const ChatArea = () => {
   const { 
     activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, 
     markMessagesRead, setViewingGroup, chatWallpaper, typingUsers, sendTypingStatus,
-    addReaction, replyingTo, setReplyingTo
+    addReaction, replyingTo, setReplyingTo,
+    hasMoreMessages, loadMoreMessages, deleteMessage
   } = useChatStore();
   
   const activeChat = Array.isArray(chats) ? chats.find(c => c.id === activeChatId) : null;
@@ -46,6 +48,11 @@ export const ChatArea = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [activeCall, useStateActiveCall] = useState<{ type: 'voice' | 'video' } | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Quick fix para que funcione igual
   const setActiveCall = useStateActiveCall;
@@ -60,16 +67,67 @@ export const ChatArea = () => {
 
   const currentMessages = useMemo(() => (activeChatId ? messages[activeChatId] || [] : []), [activeChatId, messages]);
 
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return currentMessages;
+    return currentMessages.filter(msg => 
+      msg.text?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      msg.fileName?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [currentMessages, searchQuery]);
+
+  const prevMessagesLengthRef = useRef(currentMessages.length);
+  const prevChatIdRef = useRef(activeChatId);
+
+  const formatLastSeen = (timestamp?: string) => {
+    if (!timestamp) return 'últ. vez recientemente';
+    const date = new Date(timestamp);
+    const today = new Date();
+    if (date.toDateString() === today.toDateString()) {
+      return `últ. vez hoy a las ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return `últ. vez el ${date.toLocaleDateString()} a las ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    const isChatChanged = activeChatId !== prevChatIdRef.current;
+    const isNewMessageAtBottom = currentMessages.length - prevMessagesLengthRef.current === 1;
+    const isFirstLoad = prevMessagesLengthRef.current === 0 && currentMessages.length > 0;
+    
+    // Solo auto-scrollear al fondo si entramos a un chat nuevo, 
+    // es la primera carga, o llegó un (1) mensaje nuevo al final
+    if (isChatChanged || isNewMessageAtBottom || isFirstLoad) {
+      scrollToBottom();
+    }
+    
+    prevMessagesLengthRef.current = currentMessages.length;
+    prevChatIdRef.current = activeChatId;
+
     if (activeChatId) {
       markMessagesRead(activeChatId);
     }
   }, [currentMessages, activeChatId]);
+
+  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    if (target.scrollTop === 0 && activeChatId && hasMoreMessages[activeChatId] && !isLoadingMore) {
+      setIsLoadingMore(true);
+      const previousScrollHeight = target.scrollHeight;
+      
+      await loadMoreMessages(activeChatId);
+      
+      // Restaurar la posición del scroll para que no salte al principio
+      requestAnimationFrame(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight - previousScrollHeight;
+        }
+      });
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     if (!activeChatId || !inputText.trim()) {
@@ -174,6 +232,11 @@ export const ChatArea = () => {
     }
   };
 
+  const onEmojiClick = (emojiData: any) => {
+    setInputText(prev => prev + emojiData.emoji);
+    // No cerramos el picker automáticamente para que el usuario pueda poner varios
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -245,7 +308,7 @@ export const ChatArea = () => {
             <div>
               <h3 className="font-medium text-wa-text-primary leading-tight">{activeChat.name}</h3>
               <p className={cn("text-[13px] transition-colors", isOtherTyping ? "text-wa-teal font-medium" : "text-wa-text-secondary")}>
-                {isOtherTyping ? 'escribiendo...' : activeChat.isOnline ? 'en línea' : 'últ. vez hoy a las 14:30'}
+                {isOtherTyping ? 'escribiendo...' : activeChat.isOnline ? 'en línea' : formatLastSeen(activeChat.lastSeen)}
               </p>
             </div>
           </div>
@@ -258,20 +321,68 @@ export const ChatArea = () => {
               </div>
               <span className="text-[14px] font-semibold bg-gradient-to-r from-wa-text-primary to-[#007bfc] bg-clip-text text-transparent tracking-wider uppercase text-xs">ASICME CHAT</span>
             </div>
-            {/* Botones de Llamada */}
+            {/* Botones de Llamada y Búsqueda */}
             <div className="flex items-center gap-6 text-wa-text-secondary mr-2">
+              <Search 
+                size={20} 
+                className={cn("cursor-pointer hover:text-wa-teal transition-colors", isSearching && "text-wa-teal")} 
+                onClick={() => {
+                  setIsSearching(!isSearching);
+                  if (isSearching) setSearchQuery('');
+                }} 
+              />
               <Video size={20} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'video' })} />
               <Phone size={19} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'voice' })} />
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:px-16 space-y-2 relative z-1">
-          {currentMessages.map((msg, index) => {
+        {/* Barra de Búsqueda Interna */}
+        <AnimatePresence>
+          {isSearching && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-wa-sidebar px-4 py-2 border-b border-wa-border z-10"
+            >
+              <div className="relative flex items-center bg-wa-bg rounded-lg px-3 py-1.5">
+                <Search size={16} className="text-wa-text-secondary" />
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder="Buscar en el chat..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-[14px] ml-3"
+                />
+                {searchQuery && (
+                  <X 
+                    size={16} 
+                    className="text-wa-text-secondary cursor-pointer hover:text-wa-text-primary" 
+                    onClick={() => setSearchQuery('')}
+                  />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-4 md:px-16 space-y-2 relative z-1"
+        >
+          {isLoadingMore && (
+            <div className="flex justify-center py-2">
+              <div className="w-6 h-6 border-2 border-wa-teal border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
+          {filteredMessages.map((msg, index) => {
             const isMe = msg.senderId === currentUser?.id;
             const showTail = index === 0 || currentMessages[index - 1].senderId !== msg.senderId;
             const repliedMsg = msg.replyToId ? currentMessages.find(m => m.id === msg.replyToId) : null;
-            return <MessageBubble key={msg.id} msg={msg} isMe={isMe} showTail={showTail} repliedMsg={repliedMsg} onReply={() => setReplyingTo(msg)} onReact={(emoji: string) => addReaction(activeChatId, msg.id, emoji)} />;
+            return <MessageBubble key={msg.id} msg={msg} isMe={isMe} showTail={showTail} repliedMsg={repliedMsg} onReply={() => setReplyingTo(msg)} onReact={(emoji: string) => addReaction(activeChatId, msg.id, emoji)} onDelete={(forEveryone: boolean) => deleteMessage(activeChatId, msg.id, forEveryone)} />;
           })}
           <div ref={messagesEndRef} />
         </div>
@@ -291,7 +402,32 @@ export const ChatArea = () => {
 
           <div className="flex items-center gap-2 px-4 py-3 relative">
             <div className="flex gap-3 text-wa-text-secondary items-center">
-              <Smile size={24} className="cursor-pointer hover:text-wa-teal transition-colors" />
+              <div className="relative">
+                <Smile 
+                  size={24} 
+                  className={cn("cursor-pointer hover:text-wa-teal transition-colors", showEmojiPicker && "text-wa-teal")} 
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                />
+                <AnimatePresence>
+                  {showEmojiPicker && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute bottom-12 left-0 z-[100] shadow-2xl"
+                    >
+                      <EmojiPicker 
+                        onEmojiClick={onEmojiClick}
+                        autoFocusSearch={false}
+                        theme={Theme.LIGHT}
+                        width={350}
+                        height={400}
+                        lazyLoadEmojis={true}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               <div className="relative">
                 <Plus size={24} className={cn("cursor-pointer transition-transform duration-300", showPlusMenu && "rotate-45 text-wa-teal")} onClick={() => setShowPlusMenu(!showPlusMenu)} />
                 <AnimatePresence>
@@ -338,13 +474,17 @@ const PlusMenuItem = ({ icon, label, onClick }: any) => (
   </div>
 );
 
-const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact }: any) => {
+const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete }: any) => {
   const [showActions, setShowActions] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const renderContent = () => {
+    if (msg.isDeleted) {
+      return <div className="flex items-center gap-2 text-wa-text-secondary italic opacity-80"><Ban size={16} /> <span className="text-[14.5px]">Este mensaje fue eliminado</span></div>;
+    }
     switch (msg.type) {
       case 'image':
         return <div className="space-y-1"><img src={msg.imageUrl} alt="Sent" className="max-w-full rounded-lg" />{msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>}</div>;
@@ -377,9 +517,9 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact }: an
   };
 
   return (
-    <div className={cn("flex w-full mb-1 group relative", isMe ? "justify-end" : "justify-start")} onMouseEnter={() => setShowActions(true)} onMouseLeave={() => { setShowActions(false); setShowReactions(false); }}>
-      <div className={cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px]", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"))}>
-        <AnimatePresence>{showActions && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> </motion.div> )}</AnimatePresence>
+    <div className={cn("flex w-full mb-1 group relative", isMe ? "justify-end" : "justify-start")} onMouseEnter={() => setShowActions(true)} onMouseLeave={() => { setShowActions(false); setShowReactions(false); setShowDeleteMenu(false); }}>
+      <div className={cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px]", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"), msg.isDeleted && "bg-transparent border border-wa-border shadow-none text-wa-text-secondary")}>
+        {!msg.isDeleted && <AnimatePresence>{showActions && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> <div className="relative"><button onClick={() => setShowDeleteMenu(!showDeleteMenu)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={16} /></button>{showDeleteMenu && (<div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-xl border border-wa-border overflow-hidden z-50 w-40 flex flex-col"><button onClick={() => { onDelete(false); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full">Eliminar para mí</button>{isMe && <button onClick={() => { onDelete(true); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full text-red-500">Eliminar para todos</button>}</div>)}</div> </motion.div> )}</AnimatePresence>}
         <AnimatePresence>{showReactions && ( <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={cn("absolute bottom-full mb-2 bg-white rounded-full shadow-xl p-1 flex gap-1 z-30 border border-wa-border", isMe ? "right-0" : "left-0")}> {REACTIONS.map(emoji => <button key={emoji} onClick={() => { onReact(emoji); setShowReactions(false); }} className="hover:scale-125 transition-transform p-1 text-xl">{emoji}</button>)} </motion.div> )}</AnimatePresence>
         {repliedMsg && ( <div className="mb-2 bg-black/5 rounded-lg border-l-4 border-wa-teal p-1.5 px-2 overflow-hidden"> <div className="text-[12px] font-bold text-wa-teal truncate">{repliedMsg.senderId === msg.senderId ? 'Tú' : 'Contacto'}</div> <div className="text-[13px] text-wa-text-secondary truncate italic"> {repliedMsg.type === 'image' ? '📷 Imagen' : repliedMsg.type === 'audio' ? '🎤 Nota de voz' : repliedMsg.type === 'file' ? `📄 ${repliedMsg.fileName}` : repliedMsg.text} </div> </div> )}
         {renderContent()}

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, boolean, uuid } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, integer, boolean, uuid, jsonb } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -6,6 +6,7 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   avatar: text('avatar'),
   about: text('about').default('¡Hola! Estoy usando Asicme Web.'),
+  lastSeen: timestamp('last_seen'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
@@ -38,6 +39,9 @@ export const messages = pgTable('messages', {
   duration: integer('duration'),
   replyToId: uuid('reply_to_id'),
   status: text('status').default('sent'),
+  reactions: jsonb('reactions').default({}),
+  isDeleted: boolean('is_deleted').default(false),
+  deletedFor: jsonb('deleted_for').default([]),
   timestamp: timestamp('timestamp').defaultNow(),
 });
 

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch index.ts",
+    "dev": "tsx db-guardian.ts & tsx watch index.ts",
     "db:push": "drizzle-kit push",
     "guardian": "tsx db-guardian.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -19,8 +19,10 @@
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.1",
     "livekit-server-sdk": "^2.15.2",
     "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3"
   },
@@ -28,6 +30,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
+    "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.21.0",
