@@ -52,6 +52,7 @@ export const ChatArea = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Quick fix para que funcione igual
@@ -487,7 +488,20 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
     }
     switch (msg.type) {
       case 'image':
-        return <div className="space-y-1"><img src={msg.imageUrl} alt="Sent" className="max-w-full rounded-lg" />{msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>}</div>;
+        return (
+          <div className="space-y-1">
+            <div 
+              className="relative group/img cursor-pointer overflow-hidden rounded-lg"
+              onClick={() => setSelectedImage(msg.imageUrl || null)}
+            >
+              <img src={msg.imageUrl} alt="Sent" className="max-w-full hover:scale-[1.02] transition-transform duration-500" />
+              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
+                <Search size={24} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
+              </div>
+            </div>
+            {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>}
+          </div>
+        );
       case 'file':
         return (
           <div className="flex items-center gap-3 p-1 bg-black/5 rounded-lg border border-black/5 min-w-[200px]">
@@ -502,15 +516,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
           </div>
         );
       case 'audio':
-        return (
-          <div className="flex items-center gap-3 min-w-[240px] py-1">
-            <div className="relative"><img src="https://i.pravatar.cc/150?u=voice" className="w-12 h-12 rounded-full" alt="" /><div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-wa-teal"><Mic size={14} /></div></div>
-            <button onClick={() => { if (audioRef.current && !isPlaying) audioRef.current.play(); else if (audioRef.current) audioRef.current.pause(); setIsPlaying(!isPlaying); }} className="text-wa-text-secondary hover:text-wa-text-primary transition-colors">{isPlaying ? <Pause size={28} /> : <Play size={28} />}</button>
-            <div className="flex-1 h-1 bg-wa-text-secondary/20 rounded-full relative overflow-hidden"><motion.div initial={{ width: 0 }} animate={{ width: isPlaying ? '100%' : '0%' }} transition={{ duration: msg.duration || 5, ease: "linear" }} className="absolute inset-0 bg-wa-teal" /></div>
-            <span className="text-[12px] text-wa-text-secondary font-mono">{Math.floor((msg.duration || 0) / 60)}:{(msg.duration || 0 % 60).toString().padStart(2, '0')}</span>
-            <audio ref={audioRef} src={msg.fileUrl} onEnded={() => setIsPlaying(false)} className="hidden" />
-          </div>
-        );
+        return <AudioPlayer msg={msg} />;
       default:
         return <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>;
     }
@@ -524,7 +530,28 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         {repliedMsg && ( <div className="mb-2 bg-black/5 rounded-lg border-l-4 border-wa-teal p-1.5 px-2 overflow-hidden"> <div className="text-[12px] font-bold text-wa-teal truncate">{repliedMsg.senderId === msg.senderId ? 'Tú' : 'Contacto'}</div> <div className="text-[13px] text-wa-text-secondary truncate italic"> {repliedMsg.type === 'image' ? '📷 Imagen' : repliedMsg.type === 'audio' ? '🎤 Nota de voz' : repliedMsg.type === 'file' ? `📄 ${repliedMsg.fileName}` : repliedMsg.text} </div> </div> )}
         {renderContent()}
         <div className="flex items-center justify-end gap-1 mt-0.5"><span className="text-[11px] text-wa-text-secondary uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{isMe && <div className={cn("flex items-center transition-colors", msg.status === 'read' ? "text-[#53bdeb]" : "text-wa-text-secondary")}><CheckAll size={16} /></div>}</div>
-        {msg.reactions && Object.keys(msg.reactions).length > 0 && ( <div className={cn("absolute -bottom-3 flex bg-white rounded-full shadow-sm border border-wa-border p-0.5 px-1.5 gap-0.5 z-10", isMe ? "right-2" : "left-2")}> {Object.entries(msg.reactions).map(([emoji, users]: any) => <span key={emoji} className="text-[12px] flex items-center gap-0.5">{emoji} {users.length > 1 && <span className="text-[10px] text-wa-text-secondary font-bold">{users.length}</span>}</span>)} </div> )}
+        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+          <div className={cn(
+            "absolute -bottom-3 flex flex-wrap gap-1 z-10",
+            isMe ? "right-2 flex-row-reverse" : "left-2"
+          )}>
+            {Object.entries(msg.reactions).map(([emoji, users]: any) => (
+              <motion.div 
+                key={emoji}
+                initial={{ scale: 0, y: 5 }}
+                animate={{ scale: 1, y: 0 }}
+                className="flex items-center gap-1 bg-white rounded-full shadow-sm border border-wa-border p-0.5 px-2 hover:bg-wa-bg transition-colors cursor-default"
+              >
+                <span className="text-[12px]">{emoji}</span>
+                {users.length > 1 && (
+                  <span className="text-[10px] text-wa-text-secondary font-bold border-l border-wa-border pl-1 ml-0.5">
+                    {users.length}
+                  </span>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -535,3 +562,122 @@ const CheckAll = ({ size }: { size: number }) => (
     <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-3.51-3.665a.365.365 0 0 0-.525-.01l-.463.43a.365.365 0 0 0-.006.52l4.28 4.471a.485.485 0 0 0 .7.014l5.424-7.854a.365.365 0 0 0-.062-.512zm-4.71 0l-.478-.372a.365.365 0 0 0-.51.063L4.966 9.879a.32.32 0 0 1-.484.033L1.5 6.247a.365.365 0 0 0-.525-.01l-.463.43a.365.365 0 0 0-.006.52l4.28 4.471a.485.485 0 0 0 .7.014l5.424-7.854a.365.365 0 0 0-.062-.512z" />
   </svg>
 );
+
+const AudioPlayer = ({ msg }: { msg: any }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { chats } = useChatStore();
+
+  const chat = chats.find(c => c.id === msg.conversationId);
+  const avatar = msg.senderId === useChatStore.getState().currentUser?.id 
+    ? useChatStore.getState().currentUser?.avatar 
+    : chat?.avatar || 'https://i.pravatar.cc/150?u=voice';
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) audioRef.current.pause();
+      else audioRef.current.play();
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = (currentTime / (msg.duration || 1)) * 100;
+
+  return (
+    <div className="flex items-center gap-3 min-w-[240px] py-1">
+      <div className="relative">
+        <img src={avatar} className="w-12 h-12 rounded-full object-cover border border-wa-border shadow-sm" alt="" />
+        <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-wa-teal">
+          <Mic size={14} />
+        </div>
+      </div>
+      
+      <button 
+        onClick={togglePlay} 
+        className="text-wa-text-secondary hover:text-wa-text-primary transition-all active:scale-90"
+      >
+        {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
+      </button>
+
+      <div className="flex-1 flex flex-col gap-1">
+        <div className="h-1 bg-wa-text-secondary/20 rounded-full relative overflow-hidden cursor-pointer group">
+          <div 
+            className="absolute h-full bg-wa-teal transition-all duration-100 ease-linear"
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+          <div className="absolute h-full w-full bg-transparent group-hover:bg-wa-teal/10" />
+        </div>
+        <div className="flex justify-between items-center px-0.5">
+          <span className="text-[10px] text-wa-text-secondary font-mono tracking-tighter">
+            {formatTime(currentTime)}
+          </span>
+          <span className="text-[10px] text-wa-text-secondary font-mono tracking-tighter">
+            {formatTime(msg.duration || 0)}
+          </span>
+        </div>
+      </div>
+
+      <audio 
+        ref={audioRef} 
+        src={msg.fileUrl} 
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+        onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
+        className="hidden" 
+      />
+    </div>
+  );
+};
+
+const ImageModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 md:p-10"
+      onClick={onClose}
+    >
+      <div className="absolute top-6 right-6 flex gap-4 z-[210]">
+        <a 
+          href={url} 
+          download 
+          onClick={(e) => e.stopPropagation()}
+          className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"
+          title="Descargar"
+        >
+          <Download size={24} />
+        </a>
+        <button 
+          onClick={onClose}
+          className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"
+          title="Cerrar"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      <motion.div 
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        className="relative max-w-full max-h-full flex items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <img 
+          src={url} 
+          alt="Preview" 
+          className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" 
+        />
+      </motion.div>
+      
+      <p className="mt-6 text-white/60 text-sm font-medium tracking-wide">Haz clic fuera para cerrar</p>
+    </motion.div>
+  );
+};

@@ -598,6 +598,35 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
   res.json({ imageUrl: `http://localhost:${port}/uploads/${req.file.filename}` });
 });
 
+app.get('/api/get-livekit-token', async (req, res) => {
+  const { roomName, participantName } = req.query;
+  
+  if (!roomName || !participantName) {
+    return res.status(400).json({ error: 'Faltan parámetros roomName o participantName' });
+  }
+
+  try {
+    const at = new AccessToken(
+      process.env.LIVEKIT_API_KEY,
+      process.env.LIVEKIT_API_SECRET,
+      {
+        identity: participantName as string,
+      }
+    );
+    at.addGrant({ 
+      roomJoin: true, 
+      room: roomName as string,
+      canPublish: true,
+      canSubscribe: true,
+    });
+
+    res.json({ token: await at.toJwt() });
+  } catch (error) {
+    console.error('Error generando token LiveKit:', error);
+    res.status(500).json({ error: 'Error al generar token de llamada' });
+  }
+});
+
 app.post('/api/upload-file', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
   res.json({ fileUrl: `http://localhost:${port}/uploads/${req.file.filename}` });
