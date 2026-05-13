@@ -9,6 +9,33 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) {
+              return 'vendor-react';
+            }
+            if (id.includes('node_modules/@livekit/') || id.includes('node_modules/livekit-client/')) {
+              return 'vendor-livekit';
+            }
+            if (id.includes('node_modules/emoji-picker-react/')) {
+              return 'vendor-emoji';
+            }
+            if (id.includes('node_modules/lucide-react/')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('node_modules/framer-motion/')) {
+              return 'vendor-motion';
+            }
+            return 'vendor';
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+  },
   optimizeDeps: {
     include: ['react-window', 'zustand', 'framer-motion'],
   },

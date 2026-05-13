@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, lazy, Suspense } from 'react';
 import { 
   Send, Smile, ArrowLeft, Image as ImageIcon, 
   X, Reply, Plus, Trash2, 
@@ -10,9 +10,12 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadImage, uploadFile } from '../utils/upload';
-import { CallView } from './CallView';
+// import { CallView } from './CallView';
 import logo from '../assets/logo.png';
-import EmojiPicker, { Theme } from 'emoji-picker-react';
+import { Theme } from 'emoji-picker-react';
+
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
+const CallView = lazy(() => import('./CallView').then(m => ({ default: m.CallView })));
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -273,16 +276,18 @@ export const ChatArea = () => {
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      {activeCall && (
-        <CallView 
-          roomName={activeChatId} 
-          participantName={currentUser?.name || 'Usuario'} 
-          chatName={activeChat.name}
-          chatAvatar={activeChat.avatar}
-          video={activeCall.type === 'video'} 
-          onClose={() => setActiveCall(null)} 
-        />
-      )}
+      <Suspense fallback={null}>
+        {activeCall && (
+          <CallView 
+            roomName={activeChatId} 
+            participantName={currentUser?.name || 'Usuario'} 
+            chatName={activeChat.name}
+            chatAvatar={activeChat.avatar}
+            video={activeCall.type === 'video'} 
+            onClose={() => setActiveCall(null)} 
+          />
+        )}
+      </Suspense>
       
       <div 
         className="flex-1 flex flex-col relative border-r border-wa-border overflow-hidden transition-colors duration-500"
@@ -383,7 +388,19 @@ export const ChatArea = () => {
             const isMe = msg.senderId === currentUser?.id;
             const showTail = index === 0 || currentMessages[index - 1].senderId !== msg.senderId;
             const repliedMsg = msg.replyToId ? currentMessages.find(m => m.id === msg.replyToId) : null;
-            return <MessageBubble key={msg.id} msg={msg} isMe={isMe} showTail={showTail} repliedMsg={repliedMsg} onReply={() => setReplyingTo(msg)} onReact={(emoji: string) => addReaction(activeChatId, msg.id, emoji)} onDelete={(forEveryone: boolean) => deleteMessage(activeChatId, msg.id, forEveryone)} />;
+            return (
+              <MessageBubble 
+                key={msg.id} 
+                msg={msg} 
+                isMe={isMe} 
+                showTail={showTail} 
+                repliedMsg={repliedMsg} 
+                onReply={() => setReplyingTo(msg)} 
+                onReact={(emoji: string) => addReaction(activeChatId, msg.id, emoji)} 
+                onDelete={(forEveryone: boolean) => deleteMessage(activeChatId, msg.id, forEveryone)}
+                onImageClick={setSelectedImage}
+              />
+            );
           })}
           <div ref={messagesEndRef} />
         </div>
@@ -417,14 +434,18 @@ export const ChatArea = () => {
                       exit={{ opacity: 0, y: 10 }}
                       className="absolute bottom-12 left-0 z-[100] shadow-2xl"
                     >
-                      <EmojiPicker 
-                        onEmojiClick={onEmojiClick}
-                        autoFocusSearch={false}
-                        theme={Theme.LIGHT}
-                        width={350}
-                        height={400}
-                        lazyLoadEmojis={true}
-                      />
+                      <Suspense fallback={<div className="w-[350px] h-[400px] bg-wa-sidebar flex items-center justify-center rounded-lg border border-wa-border">
+                        <div className="w-8 h-8 border-2 border-wa-teal border-t-transparent rounded-full animate-spin"></div>
+                      </div>}>
+                        <EmojiPicker 
+                          onEmojiClick={onEmojiClick}
+                          autoFocusSearch={false}
+                          theme={Theme.LIGHT}
+                          width={350}
+                          height={400}
+                          lazyLoadEmojis={true}
+                        />
+                      </Suspense>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -475,7 +496,7 @@ const PlusMenuItem = ({ icon, label, onClick }: any) => (
   </div>
 );
 
-const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete }: any) => {
+const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onImageClick }: any) => {
   const [showActions, setShowActions] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
@@ -492,7 +513,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
           <div className="space-y-1">
             <div 
               className="relative group/img cursor-pointer overflow-hidden rounded-lg"
-              onClick={() => setSelectedImage(msg.imageUrl || null)}
+              onClick={() => onImageClick(msg.imageUrl || null)}
             >
               <img src={msg.imageUrl} alt="Sent" className="max-w-full hover:scale-[1.02] transition-transform duration-500" />
               <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
