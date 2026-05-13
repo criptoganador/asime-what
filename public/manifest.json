@@ -1,0 +1,21 @@
+{
+  "name": "AsicMe Chat",
+  "short_name": "AsicMe",
+  "description": "Plataforma de comunicación premium y segura.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00a884",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -20,10 +20,14 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1); // Confiar en el proxy de Render (para rate limiting y HTTPS)
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
+    origin: process.env.ALLOWED_ORIGIN || [
+      "http://localhost:5173",
+      "https://asimechat-frontend.onrender.com"
+    ],
     methods: ["GET", "POST"]
   }
 });
@@ -31,7 +35,10 @@ const io = new Server(httpServer, {
 const port = process.env.PORT || 3001;
 
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
+  origin: process.env.ALLOWED_ORIGIN || [
+    "http://localhost:5173",
+    "https://asimechat-frontend.onrender.com"
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -45,6 +52,11 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/', apiLimiter);
+
+// Endpoint de Salud para Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -598,7 +610,7 @@ app.post('/api/contacts', async (req, res) => {
 
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  const baseUrl = process.env.APP_URL || `http://localhost:${port}`;
+  const baseUrl = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`);
   res.json({ imageUrl: `${baseUrl}/uploads/${req.file.filename}` });
 });
 
@@ -633,7 +645,7 @@ app.get('/api/get-livekit-token', async (req, res) => {
 
 app.post('/api/upload-file', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  const baseUrl = process.env.APP_URL || `http://localhost:${port}`;
+  const baseUrl = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`);
   res.json({ fileUrl: `${baseUrl}/uploads/${req.file.filename}` });
 });
 
@@ -789,5 +801,24 @@ app.post('/api/admin/cleanup', async (req, res) => {
 });
 
 httpServer.listen(port, () => {
-  console.log(`🚀 Servidor Asicme Real-Time corriendo en http://localhost:${port}`);
+  const url = process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`;
+  console.log(`🚀 Servidor Asicme Real-Time corriendo en ${url}`);
 });
+
+// Manejo de Cierre Gracioso (Graceful Shutdown)
+const shutdown = () => {
+  console.log('🛑 Cerrando servidor graciosamente...');
+  httpServer.close(() => {
+    console.log('✅ Servidor HTTP cerrado.');
+    process.exit(0);
+  });
+  
+  // Forzar cierre tras 10 segundos si no termina solo
+  setTimeout(() => {
+    console.error('⚠️ Forzando cierre tras tiempo de espera.');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
