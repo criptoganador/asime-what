@@ -6,6 +6,7 @@ import {
 } from '@livekit/components-react';
 import { X, Shield, PhoneOff, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { API_URL } from '../config';
 
 interface CallViewProps {
   roomName: string;
@@ -62,7 +63,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
 
         // 3. Fetch token only if hardware is OK
         const resp = await fetch(
-          `http://localhost:3001/api/get-livekit-token?roomName=${roomName}&participantName=${participantName}`
+          `${API_URL}/api/get-livekit-token?roomName=${roomName}&participantName=${participantName}`
         );
         const data = await resp.json();
         setToken(data.token);

@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { encryptMessage, decryptMessage } from '../../../utils/crypto';
+import { API_URL } from '../../../config';
 
-const socket: Socket = io('http://localhost:3001');
+const socket: Socket = io(API_URL);
 
 export interface Message {
   id: string;
@@ -281,7 +282,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   closeChat: () => set({ activeChatId: null, replyingTo: null }),
   login: async (userData) => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth', {
+      const response = await fetch(`${API_URL}/api/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
@@ -296,7 +297,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   checkUser: async (phone: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/users/check/${phone}`);
+      const response = await fetch(`${API_URL}/api/users/check/${phone}`);
       if (!response.ok) return null;
       return await response.json();
     } catch (error) {
@@ -308,7 +309,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser, logout } = get();
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/users/validate/${currentUser.id}`);
+      const response = await fetch(`${API_URL}/api/users/validate/${currentUser.id}`);
       if (!response.ok) {
         console.warn('⚠️ Sesión inválida: usuario no existe en la BD. Cerrando sesión...');
         logout();
@@ -344,7 +345,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setContacts: (contacts) => set({ contacts }),
   fetchContacts: async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/contacts/${userId}`);
+      const response = await fetch(`${API_URL}/api/contacts/${userId}`);
       if (response.status === 401) {
         get().logout();
         return;
@@ -366,7 +367,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser, fetchChats, setActiveChat, setView } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch('http://localhost:3001/api/conversations', {
+      const response = await fetch(`${API_URL}/api/conversations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -383,7 +384,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   fetchChats: async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/chats/${userId}`);
+      const response = await fetch(`${API_URL}/api/chats/${userId}`);
       if (response.status === 401) {
         get().logout();
         return;
@@ -405,7 +406,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=0`);
+      const response = await fetch(`${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=0`);
       if (!response.ok) return; // Servidor no disponible, no crashear
       let data = await response.json();
       if (!Array.isArray(data)) return; // Respuesta inesperada, no crashear
@@ -428,7 +429,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const offset = currentMessages.length;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=${offset}`);
+      const response = await fetch(`${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=${offset}`);
       let data = await response.json();
       
       data = data.map((msg: Message) => ({ ...msg, text: decryptMessage(msg.text || '', chatId) }));
@@ -542,7 +543,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser, fetchChats, setActiveChat, setView } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch('http://localhost:3001/api/groups', {
+      const response = await fetch(`${API_URL}/api/groups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -564,7 +565,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser, fetchChats, activeChatId, setActiveChat } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}`, {
+      const response = await fetch(`${API_URL}/api/conversations/${chatId}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -581,7 +582,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser, fetchChats } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/groups/${chatId}`, {
+      const response = await fetch(`${API_URL}/api/groups/${chatId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -597,7 +598,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch('http://localhost:3001/api/auth', {
+      const response = await fetch(`${API_URL}/api/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...currentUser, ...data })
@@ -611,7 +612,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   fetchParticipants: async (chatId) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`);
+      const response = await fetch(`${API_URL}/api/conversations/${chatId}/participants`);
       const data = await response.json();
       set({ participants: Array.isArray(data) ? data : [] });
     } catch (error) {
@@ -620,7 +621,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   addParticipant: async (chatId, userId) => {
     try {
-      await fetch(`http://localhost:3001/api/conversations/${chatId}/participants`, {
+      await fetch(`${API_URL}/api/conversations/${chatId}/participants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -632,7 +633,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   removeParticipant: async (chatId, userId, isSelf = false) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/conversations/${chatId}/participants/${userId}?isSelf=${isSelf}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/api/conversations/${chatId}/participants/${userId}?isSelf=${isSelf}`, { method: 'DELETE' });
       if (response.ok) {
         get().fetchParticipants(chatId);
       }
@@ -642,7 +643,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   updateParticipantRole: async (chatId, userId, role) => {
     try {
-      await fetch(`http://localhost:3001/api/conversations/${chatId}/participants/${userId}/role`, {
+      await fetch(`${API_URL}/api/conversations/${chatId}/participants/${userId}/role`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role })
@@ -657,7 +658,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/statuses/${currentUser.id}`);
+      const response = await fetch(`${API_URL}/api/statuses/${currentUser.id}`);
       const data = await response.json();
       set({ statuses: Array.isArray(data) ? data : [] });
     } catch (error) {
@@ -669,7 +670,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser, fetchStatuses } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch('http://localhost:3001/api/statuses', {
+      const response = await fetch(`${API_URL}/api/statuses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, userId: currentUser.id })
@@ -801,7 +802,7 @@ if (restoredUser && restoredUser.id) {
   // Validar que el usuario aún existe en la BD antes de reconectar
   (async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/users/validate/${restoredUser.id}`);
+      const response = await fetch(`${API_URL}/api/users/validate/${restoredUser.id}`);
       if (!response.ok) {
         console.warn('⚠️ Usuario eliminado de la BD. Cerrando sesión automáticamente...');
         localStorage.removeItem('asicme_user');

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Search, UserPlus, MessageSquare, Check, Users, X } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { AddContactView } from './AddContactView';
+import { API_URL } from '../../../config';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -50,7 +51,7 @@ export const NewChatView = () => {
     const timer = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(`http://localhost:3001/api/users/search?query=${encodeURIComponent(query)}&currentUserId=${currentUser?.id}`);
+        const response = await fetch(`${API_URL}/api/users/search?query=${encodeURIComponent(query)}&currentUserId=${currentUser?.id}`);
         const data = await response.json();
         setSearchResults(data);
       } catch (error) {
@@ -78,7 +79,7 @@ export const NewChatView = () => {
     formData.append('image', file);
 
     try {
-      const response = await fetch('http://localhost:3001/api/upload', {
+      const response = await fetch(`${API_URL}/api/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -93,7 +94,7 @@ export const NewChatView = () => {
 
   const addContact = async (user: any) => {
     try {
-      await fetch('http://localhost:3001/api/contacts', {
+      await fetch(`${API_URL}/api/contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

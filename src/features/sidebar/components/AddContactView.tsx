@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, User, Phone } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
+import { API_URL } from '../../../config';
 
 export const AddContactView = ({ onBack }: { onBack: () => void }) => {
       const { currentUser, fetchContacts } = useChatStore();
@@ -20,7 +21,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
       const cleanPhone = phone.replace(/\s+/g, '');
       const fullPhone = `${countryCode}${cleanPhone}`;
       
-      const res = await fetch(`http://localhost:3001/api/users/search?query=${encodeURIComponent(fullPhone)}&currentUserId=${currentUser?.id}`);
+      const res = await fetch(`${API_URL}/api/users/search?query=${encodeURIComponent(fullPhone)}&currentUserId=${currentUser?.id}`);
       const found = await res.json();
       
       if (found.length === 0) {
@@ -29,7 +30,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
         return;
       }
 
-      await fetch('http://localhost:3001/api/contacts', {
+      await fetch(`${API_URL}/api/contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

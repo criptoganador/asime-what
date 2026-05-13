@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Camera, Pencil, Check, UserPlus, X, MessageCircle, LogOut, ShieldCheck, ShieldAlert, MoreVertical } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
+import { API_URL } from '../../../config';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -10,7 +11,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const GroupInfoView = () => {
-  const { viewingGroup, updateGroup, setView, chats, activeChatId, participants, fetchParticipants, contacts, addParticipant, removeParticipant, currentUser, startChat, leaveGroup } = useChatStore();
+  const { viewingGroup, updateGroup, setView, chats, activeChatId, participants, fetchParticipants, contacts, addParticipant, removeParticipant, currentUser, startChat, leaveGroup, updateParticipantRole } = useChatStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Defensa nivel 1: Encontrar el grupo de forma síncrona
@@ -63,7 +64,7 @@ export const GroupInfoView = () => {
     formData.append('image', file);
 
     try {
-      const response = await fetch('http://localhost:3001/api/upload', {
+      const response = await fetch(`${API_URL}/api/upload`, {
         method: 'POST',
         body: formData,
       });

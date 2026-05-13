@@ -1,9 +1,11 @@
+import { API_URL } from '../config';
+
 export const uploadImage = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('image', file);
 
   try {
-    const response = await fetch('http://localhost:3001/api/upload', {
+    const response = await fetch(`${API_URL}/api/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -25,7 +27,7 @@ export const uploadFile = async (file: File): Promise<string> => {
   formData.append('file', file);
 
   try {
-    const response = await fetch('http://localhost:3001/api/upload-file', {
+    const response = await fetch(`${API_URL}/api/upload-file`, {
       method: 'POST',
       body: formData,
     });

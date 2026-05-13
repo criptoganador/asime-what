@@ -23,14 +23,17 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
     methods: ["GET", "POST"]
   }
 });
 
 const port = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || "http://localhost:5173",
+  credentials: true
+}));
 app.use(express.json());
 
 // Anti-Spam Nivel Enterprise: Rate Limiting para APIs REST
@@ -595,7 +598,8 @@ app.post('/api/contacts', async (req, res) => {
 
 app.post('/api/upload', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  res.json({ imageUrl: `http://localhost:${port}/uploads/${req.file.filename}` });
+  const baseUrl = process.env.APP_URL || `http://localhost:${port}`;
+  res.json({ imageUrl: `${baseUrl}/uploads/${req.file.filename}` });
 });
 
 app.get('/api/get-livekit-token', async (req, res) => {
@@ -629,7 +633,8 @@ app.get('/api/get-livekit-token', async (req, res) => {
 
 app.post('/api/upload-file', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file' });
-  res.json({ fileUrl: `http://localhost:${port}/uploads/${req.file.filename}` });
+  const baseUrl = process.env.APP_URL || `http://localhost:${port}`;
+  res.json({ fileUrl: `${baseUrl}/uploads/${req.file.filename}` });
 });
 
 app.post('/api/statuses', async (req, res) => {
