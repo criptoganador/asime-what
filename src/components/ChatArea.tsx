@@ -241,8 +241,14 @@ export const ChatArea = () => {
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-    } catch (err) {
-      alert('Permiso de micrófono denegado');
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        alert('Para enviar notas de voz, permite el acceso al micrófono en la configuración de tu navegador.');
+      } else if (err.name === 'NotFoundError') {
+        alert('No se encontró un micrófono en tu dispositivo.');
+      } else {
+        alert('Error al acceder al micrófono. Verifica los permisos de tu navegador.');
+      }
     }
   };
 
