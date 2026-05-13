@@ -3,7 +3,7 @@ import {
   Send, Smile, ArrowLeft, Image as ImageIcon, 
   X, Reply, Plus, Trash2, 
   FileText, File as FileIcon, Mic, StopCircle, Play, Pause, Download,
-  Lock, Phone, Video, Ban, Search
+  Lock, Phone, Video, Ban, Search, MoreVertical
 } from 'lucide-react';
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -56,6 +56,8 @@ export const ChatArea = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 430);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Quick fix para que funcione igual
@@ -96,6 +98,12 @@ export const ChatArea = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    const handleResize = () => setIsSmallScreen(window.innerWidth < 430);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const isChatChanged = activeChatId !== prevChatIdRef.current;
@@ -314,23 +322,23 @@ export const ChatArea = () => {
           </span>
         </div>
 
-        <div className="h-[60px] bg-wa-sidebar flex items-center justify-between px-4 py-2 shadow-sm z-10 border-b border-wa-border relative">
-          <div className="flex items-center gap-3">
+        <div className="h-[56px] sm:h-[60px] bg-wa-sidebar flex items-center justify-between px-2 sm:px-4 py-2 shadow-sm z-10 border-b border-wa-border relative">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ArrowLeft className="md:hidden cursor-pointer" onClick={closeChat} />
             <div className="relative cursor-pointer" onClick={() => { if (activeChat.isGroup) { setViewingGroup(activeChat); setView('group-info'); } }}>
-              <img src={activeChat.avatar} className="w-10 h-10 rounded-full object-cover" alt="" />
+              <img src={activeChat.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover" alt="" />
               {activeChat.isOnline && !activeChat.isGroup && <div className="absolute bottom-0 right-0 w-3 h-3 bg-wa-green border-2 border-white rounded-full"></div>}
             </div>
             <div>
-              <h3 className="font-medium text-wa-text-primary leading-tight">{activeChat.name}</h3>
+              <h3 className="font-medium text-wa-text-primary leading-tight text-[15px] sm:text-base truncate max-w-[120px] sm:max-w-none">{activeChat.name}</h3>
               <p className={cn("text-[13px] transition-colors", isOtherTyping ? "text-wa-teal font-medium" : "text-wa-text-secondary")}>
                 {isOtherTyping ? 'escribiendo...' : activeChat.isOnline ? 'en línea' : formatLastSeen(activeChat.lastSeen)}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             {/* Branding: Logo y Título con Efecto Glow y Glassmorphism Avanzado */}
-            <div className="hidden lg:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#007bfc]/10 to-purple-500/10 backdrop-blur-xl rounded-full border border-[#007bfc]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#007bfc]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group">
+            <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#007bfc]/10 to-purple-500/10 backdrop-blur-xl rounded-full border border-[#007bfc]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#007bfc]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group">
               <div className="relative">
                 <img src={logo} alt="Asicme" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,123,252,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(0,123,252,0.8)] transition-all duration-300" />
                 <div className="absolute inset-0 bg-blue-500/20 blur-[10px] rounded-full -z-10 animate-pulse"></div>
@@ -338,17 +346,73 @@ export const ChatArea = () => {
               <span className="text-[14px] font-semibold bg-gradient-to-r from-wa-text-primary to-[#007bfc] bg-clip-text text-transparent tracking-wider uppercase text-xs">ASICME CHAT</span>
             </div>
             {/* Botones de Llamada y Búsqueda */}
-            <div className="flex items-center gap-6 text-wa-text-secondary mr-2">
-              <Search 
-                size={20} 
-                className={cn("cursor-pointer hover:text-wa-teal transition-colors", isSearching && "text-wa-teal")} 
-                onClick={() => {
-                  setIsSearching(!isSearching);
-                  if (isSearching) setSearchQuery('');
-                }} 
-              />
-              <Video size={20} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'video' })} />
-              <Phone size={19} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'voice' })} />
+            <div className="flex items-center gap-3 sm:gap-4 text-wa-text-secondary mr-1 sm:mr-2">
+              {!isSmallScreen ? (
+                <>
+                  <Search 
+                    size={20} 
+                    className={cn("cursor-pointer hover:text-wa-teal transition-colors", isSearching && "text-wa-teal")} 
+                    onClick={() => {
+                      setIsSearching(!isSearching);
+                      if (isSearching) setSearchQuery('');
+                    }} 
+                  />
+                  <Video size={20} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'video' })} />
+                  <Phone size={19} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'voice' })} />
+                </>
+              ) : (
+                <div className="relative">
+                  <MoreVertical 
+                    size={20} 
+                    className="cursor-pointer hover:text-wa-teal transition-colors" 
+                    onClick={() => setShowHeaderMenu(!showHeaderMenu)} 
+                  />
+                  <AnimatePresence>
+                    {showHeaderMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.9, y: -10, x: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: -10, x: 10 }}
+                          className="absolute top-10 right-0 w-48 bg-white rounded-xl shadow-2xl py-2 z-50 border border-wa-border overflow-hidden"
+                        >
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                            onClick={() => {
+                              setIsSearching(!isSearching);
+                              setShowHeaderMenu(false);
+                            }}
+                          >
+                            <Search size={18} />
+                            <span>Buscar en el chat</span>
+                          </button>
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                            onClick={() => {
+                              setActiveCall({ type: 'video' });
+                              setShowHeaderMenu(false);
+                            }}
+                          >
+                            <Video size={18} />
+                            <span>Video llamada</span>
+                          </button>
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                            onClick={() => {
+                              setActiveCall({ type: 'voice' });
+                              setShowHeaderMenu(false);
+                            }}
+                          >
+                            <Phone size={18} />
+                            <span>Llamada de voz</span>
+                          </button>
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -387,7 +451,7 @@ export const ChatArea = () => {
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-4 md:px-16 space-y-2 relative z-1"
+          className="flex-1 overflow-y-auto p-3 sm:p-4 sm:px-8 md:px-12 lg:px-16 space-y-2 relative z-1"
         >
           {isLoadingMore && (
             <div className="flex justify-center py-2">
@@ -442,7 +506,7 @@ export const ChatArea = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute bottom-12 left-0 z-[100] shadow-2xl"
+                      className="absolute bottom-12 left-0 z-[100] shadow-2xl max-w-[calc(100vw-32px)]"
                     >
                       <Suspense fallback={<div className="w-[350px] h-[400px] bg-wa-sidebar flex items-center justify-center rounded-lg border border-wa-border">
                         <div className="w-8 h-8 border-2 border-wa-teal border-t-transparent rounded-full animate-spin"></div>
@@ -451,7 +515,7 @@ export const ChatArea = () => {
                           onEmojiClick={onEmojiClick}
                           autoFocusSearch={false}
                           theme={Theme.LIGHT}
-                          width={350}
+                          width={Math.min(350, window.innerWidth - 32)}
                           height={400}
                           lazyLoadEmojis={true}
                         />

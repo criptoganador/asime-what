@@ -145,7 +145,7 @@ export const AuthScreen = () => {
             initial={{ y: -100, opacity: 0 }}
             animate={{ y: 20, opacity: 1 }}
             exit={{ y: -100, opacity: 0 }}
-            className="absolute top-0 left-1/2 -translate-x-1/2 z-[110] bg-white shadow-2xl rounded-2xl p-4 border-l-4 border-[#007bfc] flex items-center gap-4 min-w-[350px] cursor-pointer group"
+            className="absolute top-0 left-1/2 -translate-x-1/2 z-[110] bg-white shadow-2xl rounded-2xl p-4 border-l-4 border-[#007bfc] flex items-center gap-4 w-[90vw] max-w-[380px] cursor-pointer group"
             onClick={handleCopyCode}
           >
             <div className="w-10 h-10 bg-[#007bfc]/10 rounded-full flex items-center justify-center text-[#007bfc]">
@@ -166,9 +166,9 @@ export const AuthScreen = () => {
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="relative z-10 w-full max-w-[450px] bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col min-h-[520px]"
+        className="relative z-10 w-[95vw] max-w-[450px] bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col min-h-[480px] sm:min-h-[520px]"
       >
-        <div className="p-10 text-center flex flex-col items-center">
+        <div className="p-6 sm:p-10 text-center flex flex-col items-center">
           <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-2xl border border-wa-border p-1 overflow-hidden">
             <img src="/favicon.png" alt="Asicme Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
@@ -176,7 +176,7 @@ export const AuthScreen = () => {
           <p className="text-wa-text-secondary text-[15px]">Conectando tu mundo con estilo</p>
         </div>
 
-        <div className="flex-1 px-10 pb-10 flex flex-col">
+        <div className="flex-1 px-6 sm:px-10 pb-6 sm:pb-10 flex flex-col">
           <AnimatePresence mode="wait">
             {step === 'phone' && (
               <motion.div key="phone" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="flex flex-col gap-6">
@@ -245,7 +245,7 @@ export const AuthScreen = () => {
                 </div>
                 <div className="flex justify-center gap-3">
                   {otp.map((digit, i) => (
-                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} className="w-12 h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#007bfc] outline-none text-center text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
+                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} className="w-10 h-14 sm:w-12 sm:h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#007bfc] outline-none text-center text-xl sm:text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
                   ))}
                 </div>
                 <button onClick={handleVerifyOtp} disabled={otp.some(d => !d)} className="mt-2 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3">

@@ -148,7 +148,7 @@ export const GroupInfoView = () => {
         <div className="flex justify-center py-8">
           <div 
             className={cn(
-              "relative w-52 h-52 group",
+              "relative w-40 h-40 sm:w-52 sm:h-52 group",
               isAdmin ? "cursor-pointer" : "cursor-default"
             )}
             onClick={() => isAdmin && fileInputRef.current?.click()}
@@ -183,7 +183,7 @@ export const GroupInfoView = () => {
         </div>
 
         {/* Sección de Nombre */}
-        <div className="bg-white px-8 py-4 shadow-sm mb-7">
+        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
           <label className="text-[14px] text-[#007bfc] mb-4 block font-medium uppercase tracking-wider">Nombre del grupo</label>
           <div className="flex items-center justify-between group">
             {isEditingName && isAdmin ? (
@@ -213,7 +213,7 @@ export const GroupInfoView = () => {
         </div>
 
         {/* Sección de Descripción */}
-        <div className="bg-white px-8 py-4 shadow-sm mb-7">
+        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
           <label className="text-[14px] text-[#007bfc] mb-4 block font-medium uppercase tracking-wider">Descripción</label>
           <div className="flex items-center justify-between group">
             {isEditingDescription && isAdmin ? (
@@ -246,14 +246,14 @@ export const GroupInfoView = () => {
 
         {/* Sección de Participantes */}
         <div className="bg-white shadow-sm mb-7">
-          <div className="px-8 py-4 flex justify-between items-center border-b border-wa-border">
+          <div className="px-5 sm:px-8 py-4 flex justify-between items-center border-b border-wa-border">
             <span className="text-[14px] text-[#007bfc] font-medium uppercase tracking-wider">{participants.length} participantes</span>
           </div>
 
           {isAdmin && (
             <div 
               onClick={() => setShowAddMember(true)}
-              className="px-8 py-4 flex items-center gap-4 hover:bg-wa-hover cursor-pointer transition-colors group"
+              className="px-5 sm:px-8 py-4 flex items-center gap-4 hover:bg-wa-hover cursor-pointer transition-colors group"
             >
               <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
                 <UserPlus size={20} />
@@ -267,7 +267,7 @@ export const GroupInfoView = () => {
               key={p.id} 
               onClick={() => handlePrivateMessage(p.id)}
               className={cn(
-                "px-8 py-3 flex items-center gap-4 border-t border-wa-border/50 group/member transition-colors",
+                "px-5 sm:px-8 py-3 flex items-center gap-4 border-t border-wa-border/50 group/member transition-colors",
                 p.id !== currentUser?.id && "cursor-pointer hover:bg-wa-hover"
               )}
             >
@@ -319,7 +319,7 @@ export const GroupInfoView = () => {
         <div className="bg-white shadow-sm mb-10">
           <div 
             onClick={handleLeaveGroup}
-            className="px-8 py-4 flex items-center gap-4 text-red-500 hover:bg-red-50 cursor-pointer transition-colors group"
+            className="px-5 sm:px-8 py-4 flex items-center gap-4 text-red-500 hover:bg-red-50 cursor-pointer transition-colors group"
           >
             <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-500 shadow-sm group-hover:scale-110 transition-transform">
               <LogOut size={20} />

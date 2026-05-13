@@ -22,7 +22,7 @@ export const StatusSidebar = () => {
   const avatarInputRef = React.useRef<HTMLInputElement>(null);
   const statusInputRef = React.useRef<HTMLInputElement>(null);
 
-  console.log('Statuses in Sidebar:', statuses);
+
 
   const myGroup = statuses.find(s => s.userId === currentUser?.id);
   const hasMyStatus = myGroup && myGroup.statuses.length > 0;
@@ -70,7 +70,7 @@ export const StatusSidebar = () => {
   };
 
   return (
-    <div className="w-[400px] h-full flex flex-col bg-wa-sidebar border-r border-wa-border overflow-hidden relative">
+    <div className="w-full md:w-[400px] h-full flex flex-col bg-wa-sidebar border-r border-wa-border overflow-hidden relative">
       {/* Header */}
       <div className="px-4 py-3 flex justify-between items-center bg-wa-sidebar">
         <h1 className="text-xl font-bold text-wa-text-primary">Estados</h1>

@@ -125,7 +125,7 @@ export const NewChatView = () => {
     >
       {/* Header Dinámico */}
       <div className="bg-[#007bfc] text-white shadow-md">
-        <div className="h-[60px] flex items-center px-6 gap-6">
+        <div className="h-[60px] flex items-center px-4 sm:px-6 gap-4 sm:gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
             onClick={() => step === 'list' ? setView('chats') : setStep('list')} 
@@ -189,33 +189,35 @@ export const NewChatView = () => {
               <div className="flex flex-col">
                 {tab === 'contacts' && (
                   <>
-                    {/* Botón para iniciar creación de grupo */}
-                    <div 
-                      onClick={() => setStep('group-name')}
-                      className="flex items-center px-6 py-4 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border group"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
-                        <Users size={20} />
+                    {/* Botones de acción principal */}
+                    <div className="py-2">
+                      <div 
+                        onClick={() => setStep('group-name')}
+                        className="flex items-center px-6 py-3.5 hover:bg-wa-hover cursor-pointer transition-colors group"
+                      >
+                        <div className="w-11 h-11 rounded-full bg-wa-teal flex items-center justify-center text-white shadow-sm">
+                          <Users size={20} />
+                        </div>
+                        <div className="ml-4 border-b border-wa-border flex-1 py-1">
+                          <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo grupo</h3>
+                        </div>
                       </div>
-                      <div className="ml-4">
-                        <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo grupo</h3>
-                      </div>
-                    </div>
 
-                    <div 
-                      onClick={() => setShowAddForm(true)}
-                      className="flex items-center px-6 py-4 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border group"
-                    >
-                      <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
-                        <UserPlus size={20} />
+                      <div 
+                        onClick={() => setShowAddForm(true)}
+                        className="flex items-center px-6 py-3.5 hover:bg-wa-hover cursor-pointer transition-colors group"
+                      >
+                        <div className="w-11 h-11 rounded-full bg-wa-teal flex items-center justify-center text-white shadow-sm">
+                          <UserPlus size={20} />
+                        </div>
+                        <div className="ml-4 flex-1 py-1">
+                          <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo contacto</h3>
+                        </div>
                       </div>
-                      <div className="ml-4">
-                        <h3 className="text-[16px] font-medium text-wa-text-primary">Nuevo contacto</h3>
-                      </div>
-                    </div>
 
-                    <div className="px-8 py-4 text-[#007bfc] text-[13px] font-medium uppercase tracking-wider bg-wa-bg/30">
-                      Tus contactos · {contacts.length}
+                      <div className="px-6 py-4 text-wa-teal text-[12.5px] font-bold uppercase tracking-widest bg-wa-bg/40 border-y border-wa-border">
+                        Tus contactos · {contacts.length}
+                      </div>
                     </div>
 
                     {contacts.map((contact: any) => (
@@ -229,7 +231,7 @@ export const NewChatView = () => {
                           <h3 className="text-[16px] font-medium text-wa-text-primary">{contact.nickname || contact.user?.name}</h3>
                           <p className="text-[13px] text-wa-text-secondary truncate">{contact.user?.about || '¡Hola! Estoy usando Asicme Web.'}</p>
                         </div>
-                        <MessageSquare size={18} className="text-wa-text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <MessageSquare size={18} className="text-wa-text-secondary sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
                       </div>
                     ))}
                   </>
@@ -265,7 +267,7 @@ export const NewChatView = () => {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 30, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="flex-1 p-8 flex flex-col items-center gap-10 bg-wa-bg/10 h-full overflow-y-auto"
+              className="flex-1 p-5 sm:p-8 flex flex-col items-center gap-6 sm:gap-10 bg-wa-bg/10 h-full overflow-y-auto"
             >
               <div 
                 className="relative group cursor-pointer"
@@ -278,7 +280,7 @@ export const NewChatView = () => {
                   accept="image/*" 
                   onChange={handleImageUpload} 
                 />
-                <div className="w-44 h-44 rounded-full bg-wa-bg flex items-center justify-center text-wa-text-secondary border-2 border-dashed border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner overflow-hidden">
+                <div className="w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-wa-bg flex items-center justify-center text-wa-text-secondary border-2 border-dashed border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner overflow-hidden">
                   {isUploading ? (
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007bfc]"></div>
                   ) : groupAvatar ? (
@@ -287,8 +289,8 @@ export const NewChatView = () => {
                     <Users size={64} />
                   )}
                 </div>
-                <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
-                   <div className="text-white opacity-0 group-hover:opacity-100 font-medium text-sm text-center px-4 uppercase tracking-tighter">Cambiar icono del grupo</div>
+                <div className="absolute inset-0 rounded-full bg-black/30 sm:bg-black/0 sm:group-hover:bg-black/20 flex items-center justify-center transition-all">
+                   <div className="text-white sm:opacity-0 sm:group-hover:opacity-100 font-medium text-xs sm:text-sm text-center px-4 uppercase tracking-tighter">Cambiar icono</div>
                 </div>
               </div>
 

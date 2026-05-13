@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { List, RowComponentProps } from 'react-window';
-import { Search, Filter, Plus, ChevronDown, Star, MoreVertical, Moon, Sun, Trash2 } from 'lucide-react';
+import { Search, Filter, Plus, Star, MoreVertical, Moon, Sun, Trash2 } from 'lucide-react';
 import { useChatStore, Chat } from '../store/useChatStore';
 import { decryptMessage } from '../../../utils/crypto';
 import { ProfileView } from './ProfileView';
 import { NewChatView } from './NewChatView';
 import { AddContactView } from './AddContactView';
 import { GroupInfoView } from './GroupInfoView';
-import { PrivacySettings } from './PrivacySettings';
+
 import { SecuritySettings } from './SecuritySettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
@@ -130,20 +130,30 @@ export const Sidebar = () => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'favorites' | 'groups'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 430);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const filterMenuRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500);
     
+    const handleResize = () => setIsSmallScreen(window.innerWidth < 430);
+    window.addEventListener('resize', handleResize);
+    
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
+      }
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setShowFilterMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     
     return () => {
       clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
@@ -189,156 +199,193 @@ export const Sidebar = () => {
     return result;
   }, [chats, contacts, searchQuery, activeFilter]);
 
-  return (
-    <div className="w-full md:w-[400px] h-full flex flex-col bg-wa-sidebar border-r border-wa-border overflow-hidden relative">
-      <div className="px-4 py-3 flex justify-between items-center bg-wa-sidebar z-20">
-        <div 
-          className="w-10 h-10 rounded-full overflow-hidden cursor-pointer shadow-sm border border-wa-border transition-transform active:scale-95"
-          onClick={() => setView('profile')}
+  // Decidimos qué contenido principal mostrar
+  const renderMainContent = () => {
+    if (view === 'chats') {
+      return (
+        <motion.div 
+          key="main-chats"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="flex flex-col h-full relative"
         >
-          <img src={currentUser?.avatar || "https://i.pravatar.cc/150?u=me"} alt="Me" className="w-full h-full object-cover" />
-        </div>
-        <div className="flex gap-4 text-wa-text-secondary items-center">
-          <div 
-            onClick={toggleDarkMode}
-            className="cursor-pointer hover:bg-wa-hover rounded-full p-1.5 transition-all"
-          >
-            {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
+          {/* Header */}
+          <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex justify-between items-center bg-wa-sidebar z-20 shadow-sm">
+            <div 
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden cursor-pointer shadow-sm border border-wa-border transition-transform active:scale-95"
+              onClick={() => setView('profile')}
+            >
+              <img src={currentUser?.avatar || "https://i.pravatar.cc/150?u=me"} alt="Me" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex gap-3 sm:gap-4 text-wa-text-secondary items-center">
+              <div 
+                onClick={toggleDarkMode}
+                className="cursor-pointer hover:bg-wa-hover rounded-full p-1.5 transition-all"
+              >
+                {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
+              </div>
+              <Plus 
+                size={20} 
+                className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" 
+                onClick={() => setView('new-chat')}
+              />
+              <div className="relative" ref={menuRef}>
+                <MoreVertical 
+                  size={20} 
+                  className={cn("cursor-pointer hover:bg-wa-hover rounded-full p-0.5 transition-colors", showMenu && "text-wa-teal bg-wa-hover")} 
+                  onClick={() => setShowMenu(!showMenu)}
+                />
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }} 
+                      animate={{ opacity: 1, scale: 1, y: 0 }} 
+                      exit={{ opacity: 0, scale: 0.95, y: -10 }} 
+                      className="absolute right-0 top-10 w-[200px] bg-white shadow-xl rounded-xl py-2 z-50 border border-wa-border origin-top-right"
+                    >
+                      <ul className="text-[14.5px] text-wa-text-primary">
+                        <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('new-chat'); setShowMenu(false); }}>Nuevo chat</li>
+                        <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('profile'); setShowMenu(false); }}>Perfil</li>
+                        <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('settings'); setShowMenu(false); }}>Configuración</li>
+                      </ul>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
           </div>
-          <Plus 
-            size={20} 
-            className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" 
-            onClick={() => setView('new-chat')}
-          />
-          <div className="relative" ref={menuRef}>
-            <MoreVertical 
-              size={20} 
-              className={cn("cursor-pointer hover:bg-wa-hover rounded-full p-0.5 transition-colors", showMenu && "text-wa-teal bg-wa-hover")} 
-              onClick={() => setShowMenu(!showMenu)}
-            />
-            <AnimatePresence>
-              {showMenu && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }} 
-                  animate={{ opacity: 1, scale: 1, y: 0 }} 
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }} 
-                  className="absolute right-0 top-10 w-[200px] bg-white shadow-xl rounded-xl py-2 z-50 border border-wa-border origin-top-right"
+
+          {/* Buscador */}
+          <div className="px-3 py-2">
+            <div className="relative flex items-center bg-wa-bg rounded-xl px-3 py-1.5 focus-within:bg-white focus-within:shadow-sm transition-all">
+              <Search size={18} className={cn("text-wa-text-secondary", searchQuery && "text-wa-teal")} />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Busca un chat" className="ml-4 bg-transparent outline-none text-[15px] w-full" />
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div className="px-3 py-2 border-b border-wa-border relative z-10">
+            {!isSmallScreen ? (
+              <div className="flex gap-2 text-[13px] overflow-x-auto no-scrollbar">
+                {['all', 'unread', 'favorites', 'groups'].map((f) => {
+                  const isUnreadTab = f === 'unread';
+                  const unreadTotal = chats.reduce((acc, chat) => acc + (chat.unreadCount || 0), 0);
+                  const favoritesTotal = chats.filter(chat => chat.isFavorite).length;
+                  const groupsTotal = chats.filter(chat => chat.isGroup).length;
+                  
+                  return (
+                    <span 
+                      key={f} 
+                      onClick={() => setActiveFilter(f as any)} 
+                      className={cn(
+                        "px-3 py-1 rounded-full font-medium cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap", 
+                        activeFilter === f ? "bg-wa-active text-wa-green shadow-sm" : "bg-wa-bg text-wa-text-secondary hover:bg-wa-hover"
+                      )}
+                    >
+                      {f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : f === 'favorites' ? 'Favoritos' : 'Grupos'}
+                      {isUnreadTab && unreadTotal > 0 && <span className="bg-wa-green text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">{unreadTotal}</span>}
+                      {f === 'favorites' && favoritesTotal > 0 && <span className="bg-yellow-400 text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">{favoritesTotal}</span>}
+                      {f === 'groups' && groupsTotal > 0 && <span className="bg-[#007bfc] text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">{groupsTotal}</span>}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2" ref={filterMenuRef}>
+                <span className="bg-wa-active text-wa-green px-4 py-1.5 rounded-full font-bold text-[14px] shadow-sm flex items-center gap-2">
+                  {activeFilter === 'all' ? 'Todos' : activeFilter === 'unread' ? 'No leídos' : activeFilter === 'favorites' ? 'Favoritos' : 'Grupos'}
+                </span>
+                <div 
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className={cn("p-2 rounded-full cursor-pointer transition-all", showFilterMenu ? "bg-wa-teal text-white shadow-lg" : "bg-wa-bg text-wa-text-secondary shadow-sm")}
                 >
-                  <ul className="text-[14.5px] text-wa-text-primary">
-                    <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('new-chat'); setShowMenu(false); }}>Nuevo chat</li>
-                    <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('profile'); setShowMenu(false); }}>Perfil</li>
-                    <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('settings'); setShowMenu(false); }}>Configuración</li>
-                  </ul>
+                  <Filter size={18} />
+                </div>
+                <AnimatePresence>
+                  {showFilterMenu && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.9, x: 10, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, x: 10, y: -10 }}
+                      className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-2xl py-2 z-50 border border-wa-border overflow-hidden"
+                    >
+                      {['all', 'unread', 'favorites', 'groups'].map((f) => (
+                        <div 
+                          key={f}
+                          onClick={() => { setActiveFilter(f as any); setShowFilterMenu(false); }}
+                          className={cn(
+                            "flex items-center justify-between px-5 py-3 cursor-pointer transition-colors",
+                            activeFilter === f ? "bg-wa-bg text-wa-teal font-bold" : "hover:bg-wa-bg text-wa-text-primary"
+                          )}
+                        >
+                          <span>{f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : f === 'favorites' ? 'Favoritos' : 'Grupos'}</span>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* Lista de Chats */}
+          <div className="flex-1 overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 bg-white">
+                  {Array.from({ length: 12 }).map((_, i) => <SkeletonChatItem key={i} />)}
+                </motion.div>
+              ) : (
+                <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
+                  <List
+                    rowCount={filteredChats.length}
+                    rowHeight={72}
+                    rowComponent={ChatItem}
+                    rowProps={{ items: filteredChats }}
+                    style={{ height: '100%', width: '100%' }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-        </div>
-      </div>
 
-      <div className="px-3 py-2">
-        <div className="relative flex items-center bg-wa-bg rounded-xl px-3 py-1.5 focus-within:bg-white focus-within:shadow-sm transition-all">
-          <Search size={18} className={cn("text-wa-text-secondary", searchQuery && "text-wa-teal")} />
-          <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Busca un chat" className="ml-4 bg-transparent outline-none text-[15px] w-full" />
-        </div>
-      </div>
+          {/* Botón Flotante */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setView('add-contact')}
+            className="absolute bottom-6 right-6 w-14 h-14 bg-wa-teal rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-shadow z-40"
+          >
+            <Plus size={24} />
+          </motion.button>
+        </motion.div>
+      );
+    }
 
-      <div className="flex gap-2 px-3 py-2 border-b border-wa-border text-[13px] overflow-x-auto no-scrollbar">
-        {['all', 'unread', 'favorites', 'groups'].map((f) => {
-          const isUnreadTab = f === 'unread';
-          const isFavoriteTab = f === 'favorites';
-          const isGroupsTab = f === 'groups';
-          
-          const unreadTotal = chats.reduce((acc, chat) => acc + (chat.unreadCount || 0), 0);
-          const favoritesTotal = chats.filter(chat => chat.isFavorite).length;
-          const groupsTotal = chats.filter(chat => chat.isGroup).length;
-          
-          return (
-            <span 
-              key={f} 
-              onClick={() => setActiveFilter(f as any)} 
-              className={cn(
-                "px-3 py-1 rounded-full font-medium cursor-pointer transition-all flex items-center gap-1.5", 
-                activeFilter === f ? "bg-wa-active text-wa-green shadow-sm" : "bg-wa-bg text-wa-text-secondary hover:bg-wa-hover"
-              )}
-            >
-              {f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : f === 'favorites' ? 'Favoritos' : 'Grupos'}
-              
-              {isUnreadTab && unreadTotal > 0 && (
-                <span className="bg-wa-green text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">
-                  {unreadTotal}
-                </span>
-              )}
-
-              {isFavoriteTab && favoritesTotal > 0 && (
-                <span className="bg-yellow-400 text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">
-                  {favoritesTotal}
-                </span>
-              )}
-
-              {isGroupsTab && groupsTotal > 0 && (
-                <span className="bg-[#007bfc] text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">
-                  {groupsTotal}
-                </span>
-              )}
-            </span>
-          );
-        })}
-      </div>
-
-      <div className="flex-1 overflow-hidden relative">
-        <AnimatePresence mode="wait">
-          {isLoading ? (
-            <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-10 bg-white">
-              {Array.from({ length: 12 }).map((_, i) => <SkeletonChatItem key={i} />)}
-            </motion.div>
-          ) : view === 'chats' ? (
-            <motion.div 
-              key="list" 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              className="h-full"
-            >
-              <List
-                rowCount={filteredChats.length}
-                rowHeight={72}
-                rowComponent={ChatItem}
-                rowProps={{ items: filteredChats }}
-                style={{ height: window.innerHeight - 180, width: '100%' }}
-              />
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="view-placeholder"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              className="absolute inset-0 bg-wa-bg flex items-center justify-center"
-            >
-              <div className="animate-pulse text-wa-text-secondary text-sm">Cargando vista...</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Botón Flotante estilo WhatsApp para Nuevo Chat */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setView('add-contact')}
-        className="absolute bottom-6 right-6 w-14 h-14 bg-[#007bfc] rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-shadow z-40"
+    // Si no es 'chats', mostramos las sub-vistas
+    return (
+      <motion.div 
+        key="sub-view-container"
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 50 }}
+        className="absolute inset-0 z-[100] bg-white h-full overflow-hidden"
       >
-        <Plus size={24} />
-      </motion.button>
+        {view === 'profile' && <ProfileView />}
+        {view === 'new-chat' && <NewChatView />}
+        {view === 'add-contact' && <AddContactView onBack={() => setView('chats')} />}
+        {view === 'group-info' && <GroupInfoView />}
 
-      {/* Vistas Deslizables con AnimatePresence para evitar bloqueos de renderizado */}
-      <AnimatePresence>
-        {view === 'profile' && <ProfileView key="profile" />}
-        {view === 'new-chat' && <NewChatView key="new-chat" />}
-        {view === 'add-contact' && <AddContactView key="add-contact" onBack={() => setView('chats')} />}
-        {view === 'group-info' && <GroupInfoView key="group-info" />}
-        {view === 'privacy' && <PrivacySettings key="privacy" />}
-        {view === 'security' && <SecuritySettings key="security" />}
+        {view === 'security' && <SecuritySettings />}
+      </motion.div>
+    );
+  };
+
+  return (
+    <div className="w-full md:w-[400px] h-full bg-wa-sidebar border-r border-wa-border overflow-hidden relative">
+      <AnimatePresence mode="wait">
+        {renderMainContent()}
       </AnimatePresence>
     </div>
   );

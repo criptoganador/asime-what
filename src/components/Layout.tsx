@@ -32,20 +32,23 @@ export const Layout = () => {
   }, [currentUser?.avatar, currentUser?.name]);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-wa-bg">
-      {/* NavRail: Oculto en móviles */}
-      <div className="hidden md:flex h-full">
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-wa-bg">
+      {/* NavRail: Lateral en desktop, inferior en móviles (solo cuando no hay chat activo) */}
+      <div className={cn(
+        "h-full z-30",
+        activeChatId ? "hidden md:flex" : "flex order-2 md:order-1"
+      )}>
         <NavRail />
       </div>
       
       {/* Sidebar dinámico */}
       <div className={cn(
-        "h-full border-r border-wa-border",
+        "flex-1 md:flex-none h-full border-r border-wa-border order-1 md:order-2",
         activeChatId ? "hidden md:block w-[400px]" : "w-full md:w-[400px]"
       )}>
         <AnimatePresence mode="wait">
           {/* Todas estas vistas comparten el Sidebar como contenedor base */}
-          {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info' || view === 'privacy' || view === 'security') && (
+          {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info' || view === 'security') && (
             <motion.div 
               key="sidebar-group"
               initial={{ opacity: 0, x: -20 }}

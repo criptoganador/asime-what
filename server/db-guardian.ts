@@ -9,12 +9,12 @@ async function guard() {
   console.log('🛡️  MODO GUARDIÁN ACTIVADO: Verificando Base de Datos en Neon...');
   
   try {
-    // 1. Sincronizar esquema con drizzle-kit push
-    console.log('🔄 Sincronizando campos y tablas con el esquema actual...');
+    // 1. Sincronizar esquema con migraciones (más seguro para producción)
+    console.log('🔄 Sincronizando base de datos con migraciones...');
     try {
-      execSync('npx drizzle-kit push', { stdio: 'inherit' });
+      execSync('npx tsx migrate.ts', { stdio: 'inherit' });
     } catch (pushError) {
-      console.warn('⚠️  Guardián: drizzle-kit push falló. El servidor arrancará con el esquema actual de Neon.');
+      console.warn('⚠️  Guardián: La migración falló. El servidor arrancará con el esquema actual.');
     }
     
     // 2. Verificación de salud de la conexión y tablas críticas

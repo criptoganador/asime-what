@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Camera, Pencil, Check, Loader2, X } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
@@ -13,11 +13,11 @@ function cn(...inputs: ClassValue[]) {
 export const ProfileView = () => {
   const { currentUser, updateProfile, setView } = useChatStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isEditingName, setIsEditingName] = React.useState(false);
-  const [isEditingAbout, setIsEditingAbout] = React.useState(false);
-  const [isUploading, setIsUploading] = React.useState(false);
-  const [tempName, setTempName] = React.useState(currentUser?.name || '');
-  const [tempAbout, setTempAbout] = React.useState(currentUser?.about || '');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingAbout, setIsEditingAbout] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [tempName, setTempName] = useState(currentUser?.name || '');
+  const [tempAbout, setTempAbout] = useState(currentUser?.about || '');
 
   if (!currentUser) return null;
 
@@ -55,7 +55,7 @@ export const ProfileView = () => {
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
       {/* Header Estilo WhatsApp/Asicme */}
-      <div className="h-[108px] bg-[#007bfc] flex items-end px-6 pb-4 text-white">
+      <div className="h-20 sm:h-[108px] bg-[#007bfc] flex items-end px-4 sm:px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -65,11 +65,11 @@ export const ProfileView = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#f0f2f5]">
+      <div className="flex-1 overflow-y-auto bg-wa-bg">
         {/* Foto de Perfil con efecto Hover */}
-        <div className="flex justify-center py-8">
+        <div className="flex justify-center py-6 sm:py-8">
           <div 
-            className="relative w-52 h-52 group cursor-pointer"
+            className="relative w-40 h-40 sm:w-52 sm:h-52 group cursor-pointer"
             onClick={() => fileInputRef.current?.click()}
           >
             <input 
@@ -95,15 +95,16 @@ export const ProfileView = () => {
               )}
             </div>
             {/* Overlay de cámara al hacer hover */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera size={32} />
-              <span className="text-[13px] font-medium uppercase mt-2 text-center px-4 leading-tight">Cambiar foto de perfil</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 sm:bg-transparent rounded-full">
+              <Camera size={28} className="sm:hidden" />
+              <Camera size={32} className="hidden sm:block" />
+              <span className="text-[11px] sm:text-[13px] font-medium uppercase mt-1 sm:mt-2 text-center px-4 leading-tight">Cambiar foto</span>
             </div>
           </div>
         </div>
 
         {/* Sección de Nombre */}
-        <div className="bg-white px-8 py-4 shadow-sm mb-0.5">
+        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-0.5">
           <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Tu nombre</label>
           <div className="flex items-center justify-between group h-10">
             {isEditingName ? (
@@ -126,7 +127,7 @@ export const ProfileView = () => {
                 <span className="text-[17px] text-wa-text-primary">{currentUser.name}</span>
                 <Pencil 
                   size={20} 
-                  className="text-wa-text-secondary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
+                  className="text-wa-text-secondary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
                   onClick={() => setIsEditingName(true)}
                 />
               </>
@@ -134,14 +135,14 @@ export const ProfileView = () => {
           </div>
         </div>
 
-        <div className="px-8 py-4 mb-7 bg-[#f0f2f5]">
+        <div className="px-5 sm:px-8 py-4 mb-7 bg-wa-bg">
           <p className="text-[13.5px] text-wa-text-secondary leading-tight">
             Este no es un nombre de usuario ni un PIN. Este nombre será visible para tus contactos de Asicme Web.
           </p>
         </div>
 
         {/* Sección de Info */}
-        <div className="bg-white px-8 py-4 shadow-sm mb-7">
+        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
           <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Info.</label>
           <div className="flex items-center justify-between group h-10">
             {isEditingAbout ? (
@@ -164,7 +165,7 @@ export const ProfileView = () => {
                 <span className="text-[17px] text-wa-text-primary line-clamp-1">{currentUser.about}</span>
                 <Pencil 
                   size={20} 
-                  className="text-wa-text-secondary cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
+                  className="text-wa-text-secondary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
                   onClick={() => setIsEditingAbout(true)}
                 />
               </>
@@ -173,7 +174,7 @@ export const ProfileView = () => {
         </div>
 
         {/* Sección de Teléfono (Solo lectura) */}
-        <div className="bg-white px-8 py-4 shadow-sm">
+        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm">
           <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Teléfono</label>
           <div className="flex items-center h-10">
             <span className="text-[17px] text-wa-text-primary">{currentUser.phone}</span>
