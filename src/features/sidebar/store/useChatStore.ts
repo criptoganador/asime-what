@@ -481,7 +481,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (message.senderId !== currentUser?.id) {
       if (soundsEnabled) {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-        audio.play().catch(e => console.log('Error playing sound:', e));
+        audio.play().catch(e => {
+          if (e.name === 'NotAllowedError') {
+            // Silenciosamente ignoramos si el usuario aún no ha interactuado
+            console.warn('Sonido bloqueado por el navegador: se requiere interacción previa del usuario.');
+          } else {
+            console.error('Error al reproducir sonido:', e);
+          }
+        });
       }
       
       if (notificationsEnabled && Notification.permission === 'granted') {

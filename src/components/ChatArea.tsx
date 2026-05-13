@@ -64,6 +64,7 @@ export const ChatArea = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<any>(null);
@@ -159,7 +160,7 @@ export const ChatArea = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file' | 'audio') => {
     const file = e.target.files?.[0];
     if (file && activeChatId) {
       setIsUploading(true);
@@ -168,6 +169,14 @@ export const ChatArea = () => {
         if (type === 'image') {
           const imageUrl = await uploadImage(file);
           sendMessage(activeChatId, undefined, 'image', imageUrl, replyingTo?.id);
+        } else if (type === 'audio') {
+          const audioUrl = await uploadFile(file);
+          sendMessage(activeChatId, undefined, 'audio', undefined, replyingTo?.id, {
+            url: audioUrl,
+            name: file.name,
+            type: file.type,
+            duration: 0 // Podríamos intentar obtener la duración real si fuera necesario
+          });
         } else {
           const fileUrl = await uploadFile(file);
           sendMessage(activeChatId, undefined, 'file', undefined, replyingTo?.id, {
@@ -180,6 +189,7 @@ export const ChatArea = () => {
         alert('Error al subir el archivo');
       } finally {
         setIsUploading(false);
+        if (e.target) e.target.value = ''; // Reset input
       }
     }
   };
@@ -454,14 +464,36 @@ export const ChatArea = () => {
                 <Plus size={24} className={cn("cursor-pointer transition-transform duration-300", showPlusMenu && "rotate-45 text-wa-teal")} onClick={() => setShowPlusMenu(!showPlusMenu)} />
                 <AnimatePresence>
                   {showPlusMenu && (
-                    <motion.div initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.9 }} className="absolute bottom-12 left-0 bg-white rounded-2xl shadow-xl py-3 w-52 z-50 border border-wa-border overflow-hidden">
-                      <PlusMenuItem icon={<FileText className="text-purple-500" />} label="Documento" onClick={() => docInputRef.current?.click()} />
-                      <PlusMenuItem icon={<ImageIcon className="text-[#007bfc]" />} label="Fotos y videos" onClick={() => fileInputRef.current?.click()} />
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.9, x: -20 }} 
+                      animate={{ opacity: 1, y: 0, scale: 1, x: 0 }} 
+                      exit={{ opacity: 0, y: 10, scale: 0.9, x: -20 }} 
+                      className="absolute bottom-14 left-0 bg-white rounded-2xl shadow-2xl py-4 w-56 z-50 border border-wa-border overflow-hidden"
+                    >
+                      <PlusMenuItem 
+                        icon={<FileText size={22} />} 
+                        label="Documento" 
+                        bgColor="bg-[#5157ae]" 
+                        onClick={() => docInputRef.current?.click()} 
+                      />
+                      <PlusMenuItem 
+                        icon={<ImageIcon size={22} />} 
+                        label="Fotos y videos" 
+                        bgColor="bg-[#007bfc]" 
+                        onClick={() => fileInputRef.current?.click()} 
+                      />
+                      <PlusMenuItem 
+                        icon={<Mic size={22} />} 
+                        label="Audio" 
+                        bgColor="bg-[#e91e63]" 
+                        onClick={() => audioInputRef.current?.click()} 
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={(e) => handleFileUpload(e, 'image')} />
                 <input type="file" ref={docInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'file')} />
+                <input type="file" ref={audioInputRef} className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'audio')} />
               </div>
             </div>
             {isRecording ? (
@@ -489,9 +521,11 @@ export const ChatArea = () => {
   );
 };
 
-const PlusMenuItem = ({ icon, label, onClick }: any) => (
+const PlusMenuItem = ({ icon, label, onClick, bgColor }: any) => (
   <div onClick={onClick} className="flex items-center gap-4 px-6 py-3 hover:bg-wa-bg cursor-pointer transition-colors group">
-    <div className="group-hover:scale-110 transition-transform">{icon}</div>
+    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform", bgColor)}>
+      {icon}
+    </div>
     <span className="text-[14.5px] text-wa-text-primary font-medium">{label}</span>
   </div>
 );
@@ -587,6 +621,7 @@ const CheckAll = ({ size }: { size: number }) => (
 const AudioPlayer = ({ msg }: { msg: any }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(msg.duration || 0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { chats } = useChatStore();
 
@@ -604,12 +639,13 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
   };
 
   const formatTime = (time: number) => {
+    if (isNaN(time) || time === 0) return '0:00';
     const mins = Math.floor(time / 60);
     const secs = Math.floor(time % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = (currentTime / (msg.duration || 1)) * 100;
+  const progress = (currentTime / (duration || 1)) * 100;
 
   return (
     <div className="flex items-center gap-3 min-w-[240px] py-1">
@@ -640,7 +676,7 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
             {formatTime(currentTime)}
           </span>
           <span className="text-[10px] text-wa-text-secondary font-mono tracking-tighter">
-            {formatTime(msg.duration || 0)}
+            {formatTime(duration)}
           </span>
         </div>
       </div>
@@ -648,6 +684,7 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
       <audio 
         ref={audioRef} 
         src={msg.fileUrl} 
+        onLoadedMetadata={() => !msg.duration && setDuration(audioRef.current?.duration || 0)}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
         onEnded={() => { setIsPlaying(false); setCurrentTime(0); }}
         className="hidden" 
