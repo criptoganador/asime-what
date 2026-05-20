@@ -275,19 +275,38 @@ export const Sidebar = () => {
                   const groupsTotal = chats.filter(chat => chat.isGroup).length;
                   
                   return (
-                    <span 
+                    <motion.span 
                       key={f} 
-                      onClick={() => setActiveFilter(f as any)} 
+                      onClick={() => setActiveFilter(f as any)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       className={cn(
-                        "px-3 py-1 rounded-full font-medium cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap", 
-                        activeFilter === f ? "bg-wa-active text-wa-green shadow-sm" : "bg-wa-bg text-wa-text-secondary hover:bg-wa-hover"
+                        "px-4 py-1.5 rounded-full font-medium cursor-pointer transition-all duration-300 flex items-center gap-1.5 whitespace-nowrap border select-none", 
+                        activeFilter === f 
+                          ? "bg-gradient-to-r from-wa-teal to-[#00a884] text-white border-transparent shadow-md shadow-wa-teal/20" 
+                          : "bg-wa-bg/50 text-wa-text-secondary border-wa-border hover:bg-wa-hover hover:text-wa-text-primary hover:border-wa-text-secondary/30"
                       )}
                     >
                       {f === 'all' ? 'Todos' : f === 'unread' ? 'No leídos' : f === 'favorites' ? 'Favoritos' : 'Grupos'}
-                      {isUnreadTab && unreadTotal > 0 && <span className="bg-wa-green text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1">{unreadTotal}</span>}
-                      {f === 'favorites' && favoritesTotal > 0 && <span className="bg-yellow-400 text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">{favoritesTotal}</span>}
-                      {f === 'groups' && groupsTotal > 0 && <span className="bg-[#007bfc] text-white text-[10px] min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 shadow-sm">{groupsTotal}</span>}
-                    </span>
+                      {isUnreadTab && unreadTotal > 0 && (
+                        <span className={cn(
+                          "text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1.5 shadow-sm transition-colors",
+                          activeFilter === f ? "bg-white text-wa-teal" : "bg-wa-green text-white"
+                        )}>{unreadTotal}</span>
+                      )}
+                      {f === 'favorites' && favoritesTotal > 0 && (
+                        <span className={cn(
+                          "text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1.5 shadow-sm transition-colors",
+                          activeFilter === f ? "bg-yellow-300 text-wa-teal" : "bg-yellow-400 text-white"
+                        )}>{favoritesTotal}</span>
+                      )}
+                      {f === 'groups' && groupsTotal > 0 && (
+                        <span className={cn(
+                          "text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1.5 shadow-sm transition-colors",
+                          activeFilter === f ? "bg-white text-wa-teal" : "bg-[#007bfc] text-white"
+                        )}>{groupsTotal}</span>
+                      )}
+                    </motion.span>
                   );
                 })}
               </div>
@@ -352,12 +371,12 @@ export const Sidebar = () => {
 
           {/* Botón Flotante */}
           <motion.button
-            whileHover={{ scale: 1.1 }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setView('add-contact')}
-            className="absolute bottom-6 right-6 w-14 h-14 bg-wa-teal rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-shadow z-40"
+            className="absolute bottom-6 right-6 w-14 h-14 bg-[#00a884] hover:bg-[#008f6f] rounded-full flex items-center justify-center text-white shadow-lg shadow-[#00a884]/40 transition-colors z-40"
           >
-            <Plus size={24} />
+            <Plus size={28} />
           </motion.button>
         </motion.div>
       );

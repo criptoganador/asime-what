@@ -36,14 +36,14 @@ export const Layout = () => {
       {/* NavRail: Lateral en desktop, inferior en móviles (solo cuando no hay chat activo) */}
       <div className={cn(
         "h-full z-30",
-        activeChatId ? "hidden md:flex" : "flex order-2 md:order-1"
+        activeChatId ? "hidden md:flex" : "flex order-2 md:order-none"
       )}>
         <NavRail />
       </div>
       
       {/* Sidebar dinámico */}
       <div className={cn(
-        "flex-1 md:flex-none h-full border-r border-wa-border order-1 md:order-2",
+        "flex-1 md:flex-none h-full border-r border-wa-border order-1 md:order-none",
         activeChatId ? "hidden md:block w-[400px]" : "w-full md:w-[400px]"
       )}>
         <AnimatePresence mode="wait">
