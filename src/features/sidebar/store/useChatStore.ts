@@ -1,7 +1,40 @@
 import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
-import { encryptMessage, decryptMessage } from '../../../utils/crypto';
+import { encryptMessage, decryptMessage, importPrivateKey, importPublicKey, deriveSharedKey, encryptMessageE2EE, decryptMessageE2EE, decryptPrivateKeyWithPIN } from '../../../utils/crypto';
 import { API_URL } from '../../../config';
+
+export const decryptSmartMessage = async (encryptedText: string, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
+  if (!encryptedText) return encryptedText;
+  
+  if (chatInfo && !chatInfo.isGroup && chatInfo.otherUserPublicKey && privateKeyJWK) {
+    if (encryptedText.includes('ciphertext') && encryptedText.includes('iv')) {
+      try {
+        const myPrivateKey = await importPrivateKey(privateKeyJWK);
+        const theirPublicKey = await importPublicKey(chatInfo.otherUserPublicKey);
+        const sharedKey = await deriveSharedKey(myPrivateKey, theirPublicKey);
+        return await decryptMessageE2EE(encryptedText, sharedKey);
+      } catch (err) {
+        console.error('Error descifrando E2EE', err);
+      }
+    }
+  }
+  return decryptMessage(encryptedText, chatId);
+};
+
+export const encryptSmartMessage = async (plaintext: string | undefined, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
+  if (!plaintext) return plaintext;
+  if (chatInfo && !chatInfo.isGroup && chatInfo.otherUserPublicKey && privateKeyJWK) {
+    try {
+      const myPrivateKey = await importPrivateKey(privateKeyJWK);
+      const theirPublicKey = await importPublicKey(chatInfo.otherUserPublicKey);
+      const sharedKey = await deriveSharedKey(myPrivateKey, theirPublicKey);
+      return await encryptMessageE2EE(plaintext, sharedKey);
+    } catch (err) {
+      console.error('Error cifrando E2EE', err);
+    }
+  }
+  return encryptMessage(plaintext, chatId);
+};
 
 const socket: Socket = io(API_URL);
 
@@ -40,6 +73,7 @@ export interface Chat {
   userId?: string;
   otherUserId?: string;
   lastSeen?: string;
+  otherUserPublicKey?: string;
 }
 
 export interface Status {
@@ -96,6 +130,7 @@ interface ChatState {
     about: string;
   } | null;
   isDarkMode: boolean;
+  privateKeyJWK: string | null;
   toggleDarkMode: () => void;
   setView: (view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security') => void;
   setViewingGroup: (group: Chat | null) => void;
@@ -109,7 +144,7 @@ interface ChatState {
   markAsRead: (chatId: string) => void;
   toggleFavorite: (chatId: string) => void;
   closeChat: () => void;
-  login: (userData: any) => Promise<void>;
+  login: (userData: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
@@ -198,6 +233,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   participants: [],
   typingUsers: {},
   replyingTo: null,
+  privateKeyJWK: sessionStorage.getItem('asicme_private_key') || null,
   
   setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -288,16 +324,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
         body: JSON.stringify(userData)
       });
       const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data.error };
+      }
+      
+      let privateKeyJWK = null;
+      if (data.encryptedPrivateKey && userData.pin) {
+        privateKeyJWK = decryptPrivateKeyWithPIN(data.encryptedPrivateKey, userData.pin);
+        if (privateKeyJWK) {
+          sessionStorage.setItem('asicme_private_key', privateKeyJWK);
+        }
+      }
+
       localStorage.setItem('asicme_user', JSON.stringify(data));
-      set({ isAuthenticated: true, currentUser: data });
+      set({ isAuthenticated: true, currentUser: data, privateKeyJWK });
       socket.emit('user_connected', data.id);
+      return { success: true };
     } catch (error) {
       console.error('Error in login:', error);
+      return { success: false, error: 'Error de red' };
     }
   },
   checkUser: async (phone: string) => {
     try {
       const response = await fetch(`${API_URL}/api/users/check/${phone}`);
+      if (response.status === 429) {
+        return { rateLimited: true };
+      }
       if (!response.ok) return null;
       return await response.json();
     } catch (error) {
@@ -319,7 +372,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const data = await response.json();
       if (data.user) {
         localStorage.setItem('asicme_user', JSON.stringify(data.user));
-        set({ currentUser: data.user });
+        const pk = sessionStorage.getItem('asicme_private_key');
+        set({ currentUser: data.user, privateKeyJWK: pk });
       }
     } catch (error) {
       console.error('Error validando sesión:', error);
@@ -332,9 +386,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       socket.emit('user_disconnected', currentUser.id);
     }
     localStorage.removeItem('asicme_user');
+    sessionStorage.removeItem('asicme_private_key');
     set({ 
       isAuthenticated: false, 
       currentUser: null, 
+      privateKeyJWK: null,
       activeChatId: null,
       chats: [],
       messages: {} 
@@ -411,7 +467,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let data = await response.json();
       if (!Array.isArray(data)) return; // Respuesta inesperada, no crashear
       
-      data = data.map((msg: Message) => ({ ...msg, text: decryptMessage(msg.text || '', chatId) }));
+      const { chats, privateKeyJWK } = get();
+      const chatInfo = chats.find(c => c.id === chatId);
+      
+      data = await Promise.all(data.map(async (msg: Message) => ({ 
+        ...msg, 
+        text: await decryptSmartMessage(msg.text || '', chatId, chatInfo, privateKeyJWK),
+        imageUrl: await decryptSmartMessage(msg.imageUrl || '', chatId, chatInfo, privateKeyJWK),
+        fileUrl: await decryptSmartMessage(msg.fileUrl || '', chatId, chatInfo, privateKeyJWK)
+      })));
 
       set((state) => ({
         messages: { ...state.messages, [chatId]: data },
@@ -422,7 +486,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
   loadMoreMessages: async (chatId: string) => {
-    const { currentUser, messages, hasMoreMessages } = get();
+    const state = get();
+    const { currentUser, messages, hasMoreMessages } = state;
     if (!currentUser || hasMoreMessages[chatId] === false) return;
     
     const currentMessages = messages[chatId] || [];
@@ -432,7 +497,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const response = await fetch(`${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=${offset}`);
       let data = await response.json();
       
-      data = data.map((msg: Message) => ({ ...msg, text: decryptMessage(msg.text || '', chatId) }));
+      const chatInfo = state.chats.find(c => c.id === chatId);
+      data = await Promise.all(data.map(async (msg: Message) => ({ 
+        ...msg, 
+        text: await decryptSmartMessage(msg.text || '', chatId, chatInfo, state.privateKeyJWK),
+        imageUrl: await decryptSmartMessage(msg.imageUrl || '', chatId, chatInfo, state.privateKeyJWK),
+        fileUrl: await decryptSmartMessage(msg.fileUrl || '', chatId, chatInfo, state.privateKeyJWK)
+      })));
       
       set((state) => ({
         messages: { 
@@ -448,20 +519,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error loading more messages:', error);
     }
   },
-  sendMessage: (chatId, text, type = 'text', imageUrl, replyToId, fileData) => {
-    const { currentUser } = get();
+  sendMessage: async (chatId, text, type = 'text', imageUrl, replyToId, fileData) => {
+    const state = get();
+    const { currentUser } = state;
     if (!currentUser) return;
     
-    const encryptedText = type === 'text' ? encryptMessage(text || '', chatId) : text;
+    const chatInfo = state.chats.find(c => c.id === chatId);
+    const encryptedText = await encryptSmartMessage(text, chatId, chatInfo, state.privateKeyJWK);
+    const encryptedImageUrl = await encryptSmartMessage(imageUrl, chatId, chatInfo, state.privateKeyJWK);
+    const encryptedFileUrl = await encryptSmartMessage(fileData?.url, chatId, chatInfo, state.privateKeyJWK);
     
     socket.emit('send_message', {
       chatId,
       senderId: currentUser.id,
       text: encryptedText,
       type,
-      imageUrl,
+      imageUrl: encryptedImageUrl,
       replyToId,
-      ...fileData
+      ...fileData,
+      url: encryptedFileUrl // replace the url in fileData
     });
     set({ replyingTo: null });
   },
@@ -691,9 +767,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 }));
 
-socket.on('receive_message', (message: Message) => {
+socket.on('receive_message', async (message: Message) => {
   const state = useChatStore.getState();
-  const decryptedMessage = { ...message, text: decryptMessage(message.text || '', message.conversationId) };
+  const chatInfo = state.chats.find(c => c.id === message.conversationId);
+  const decryptedText = await decryptSmartMessage(message.text || '', message.conversationId, chatInfo, state.privateKeyJWK);
+  const decryptedImageUrl = await decryptSmartMessage(message.imageUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);
+  const decryptedFileUrl = await decryptSmartMessage(message.fileUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);
+  
+  const decryptedMessage = { 
+    ...message, 
+    text: decryptedText,
+    imageUrl: decryptedImageUrl,
+    fileUrl: decryptedFileUrl
+  };
   state.addMessage(message.conversationId, decryptedMessage);
 });
 

@@ -16,6 +16,7 @@
   "type": "commonjs",
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -24,17 +25,16 @@
     "express-rate-limit": "^8.5.1",
     "helmet": "^8.1.0",
     "livekit-server-sdk": "^2.15.2",
-    "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "pg": "^8.20.0",
     "socket.io": "^4.8.3",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/multer": "^2.1.0",
     "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",

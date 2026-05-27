@@ -7,14 +7,45 @@ import { db } from './db';
 import { users, conversations, conversationParticipants, messages, contacts, statuses } from './db/schema';
 import { eq, or, and, ilike, not, inArray, sql, gt, lt } from 'drizzle-orm';
 import cron from 'node-cron';
-import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { AccessToken } from 'livekit-server-sdk';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
+import bcrypt from 'bcryptjs';
 import compression from 'compression';
+import crypto from 'crypto';
+
+// Encriptación simétrica AES-256 para teléfonos (Determinista con IV estático para búsquedas exactas)
+const ENCRYPTION_KEY = process.env.PHONE_ENCRYPTION_KEY || 'AsicmeSecretKeyForPhones2024!@#$'; // Exactamente 32 bytes
+const STATIC_IV = Buffer.alloc(16, 0);
+
+function encryptPhone(text: string) {
+  if (!text) return text;
+  try {
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), STATIC_IV);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return encrypted;
+  } catch (error) {
+    console.error('Error encrypting phone:', error);
+    return text;
+  }
+}
+
+function decryptPhone(text: string) {
+  if (!text) return text;
+  try {
+    if (!/^[0-9a-fA-F]+$/.test(text)) return text; // Retorna normal si no es un hex válido
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), STATIC_IV);
+    let decrypted = decipher.update(text, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (error) {
+    console.error('Error decrypting phone:', error);
+    return text;
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +67,7 @@ app.use(compression());
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
+  maxHttpBufferSize: 1e7, // 10 MB payload limit for E2EE Base64 Media
   cors: {
     origin: process.env.ALLOWED_ORIGIN || [
       "http://localhost:5173",
@@ -66,31 +98,21 @@ const apiLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
+// Anti-Enumeration: Rate Limiting estricto para rutas de autenticación
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 5, // Limita a 5 peticiones por IP cada minuto
+  message: { error: 'Demasiados intentos de verificación. Por favor, espera un minuto para tu seguridad.', rateLimited: true },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Endpoint de Salud para Render
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir);
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({ 
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }
-});
-
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Multer eliminado por seguridad (Archivos se guardan en BD como Base64 E2EE)
 
 const activeUsers = new Map<string, string>();
 
@@ -269,31 +291,90 @@ io.on('connection', (socket) => {
   });
 });
 
-app.post('/api/auth', async (req, res) => {
-  const { phone, name, avatar, about } = req.body;
+app.post('/api/auth', authLimiter, async (req, res) => {
+  const { phone, pin, name, avatar, about, publicKey, encryptedPrivateKey } = req.body;
+  if (!phone || !pin) return res.status(400).json({ error: 'Teléfono y PIN son obligatorios' });
+  
   try {
-    let user = await db.query.users.findFirst({ where: eq(users.phone, phone) });
+    const encryptedPhone = encryptPhone(phone);
+    let user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
     if (!user) {
-      const [newUser] = await db.insert(users).values({ phone, name, avatar, about }).returning();
+      if (!publicKey || !encryptedPrivateKey) {
+        return res.status(400).json({ error: 'Faltan claves criptográficas para registro' });
+      }
+      // Registro de usuario nuevo
+      const hashedPin = await bcrypt.hash(pin, 10);
+      const [newUser] = await db.insert(users).values({ 
+        phone: encryptedPhone, 
+        pin: hashedPin, 
+        name: name || 'Usuario', 
+        avatar, 
+        about,
+        publicKey,
+        encryptedPrivateKey
+      }).returning();
       user = newUser;
     } else {
-      const [updatedUser] = await db.update(users).set({ name, avatar, about }).where(eq(users.id, user.id)).returning();
-      user = updatedUser;
+      // Login o actualización de usuario existente
+      
+      if (user.lockedUntil && new Date() < user.lockedUntil) {
+        const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+        return res.status(403).json({ error: `Cuenta bloqueada. Intente de nuevo en ${minutesLeft} minutos.` });
+      }
+
+      const isMatch = await bcrypt.compare(pin, user.pin);
+      if (!isMatch) {
+        const newAttempts = (user.failedLoginAttempts || 0) + 1;
+        let updateData: any = { failedLoginAttempts: newAttempts };
+        
+        if (newAttempts >= 5) {
+          updateData.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+          await db.update(users).set(updateData).where(eq(users.id, user.id));
+          return res.status(403).json({ error: `Demasiados intentos fallidos. Cuenta bloqueada por 15 minutos.` });
+        } else {
+          await db.update(users).set(updateData).where(eq(users.id, user.id));
+          return res.status(401).json({ error: `PIN incorrecto. Le quedan ${5 - newAttempts} intentos.` });
+        }
+      }
+      
+      // Resetear contadores si el PIN fue correcto
+      if ((user.failedLoginAttempts ?? 0) > 0 || user.lockedUntil) {
+        await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
+        user.failedLoginAttempts = 0;
+        user.lockedUntil = null;
+      }
+      
+      if (name) {
+        const [updatedUser] = await db.update(users).set({ name, avatar, about }).where(eq(users.id, user.id)).returning();
+        user = updatedUser;
+      }
     }
-    res.json(user);
+    
+    // Remover el pin del objeto retornado por seguridad y descifrar teléfono
+    const { pin: _pin, ...safeUser } = user;
+    safeUser.phone = decryptPhone(safeUser.phone);
+    res.json(safeUser);
   } catch (error) {
     console.error('❌ Error en /api/auth:', error);
     res.status(500).json({ error: 'Error en auth' });
   }
 });
 
-app.get('/api/users/check/:phone', async (req, res) => {
-  const { phone } = req.params;
+app.get('/api/users/check/:phone', authLimiter, async (req, res) => {
+  const phone = req.params.phone as string;
   try {
     const decodedPhone = decodeURIComponent(phone);
-    console.log('🔍 Buscando usuario con teléfono:', decodedPhone);
-    const user = await db.query.users.findFirst({ where: eq(users.phone, decodedPhone) });
-    res.json(user || null);
+    const encryptedPhone = encryptPhone(decodedPhone);
+    console.log('🔍 Buscando usuario con teléfono encriptado');
+    const user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
+    
+    if (user) {
+      const { pin: _pin, ...safeUser } = user;
+      safeUser.phone = decryptPhone(safeUser.phone);
+      res.json(safeUser);
+    } else {
+      res.json(null);
+    }
   } catch (error) {
     console.error('❌ Error en /api/users/check:', error);
     res.status(500).json({ error: 'Error al verificar usuario' });
@@ -301,17 +382,23 @@ app.get('/api/users/check/:phone', async (req, res) => {
 });
 
 app.get('/api/users/search', async (req, res) => {
-  const { query, currentUserId } = req.query;
+  const query = req.query.query as string;
+  const currentUserId = req.query.currentUserId as string;
   if (!query) return res.json([]);
   try {
+    const encryptedQuery = encryptPhone(query);
     const results = await db.query.users.findMany({
       where: or(
-        ilike(users.phone, `%${query}%`),
+        eq(users.phone, encryptedQuery),
         ilike(users.name, `%${query}%`)
       )
     });
-    // Excluir al usuario actual de los resultados
-    const filtered = results.filter(u => u.id !== currentUserId);
+    // Excluir al usuario actual de los resultados y desencriptar
+    const filtered = results.filter(u => u.id !== currentUserId).map(u => {
+      const { pin: _pin, ...safeUser } = u;
+      safeUser.phone = decryptPhone(safeUser.phone);
+      return safeUser;
+    });
     res.json(filtered);
   } catch (error) {
     console.error('❌ Error en /api/users/search:', error);
@@ -325,7 +412,9 @@ app.get('/api/users/validate/:id', async (req, res) => {
   try {
     const user = await db.query.users.findFirst({ where: eq(users.id, id) });
     if (!user) return res.status(404).json({ valid: false });
-    res.json({ valid: true, user });
+    const { pin: _pin, ...safeUser } = user;
+    safeUser.phone = decryptPhone(safeUser.phone);
+    res.json({ valid: true, user: safeUser });
   } catch (error) {
     res.status(500).json({ valid: false, error: 'Error al validar usuario' });
   }
@@ -379,6 +468,7 @@ app.get('/api/chats/:userId', async (req, res) => {
         u.name as "otherUserName",
         u.avatar as "otherUserAvatar",
         u.last_seen as "lastSeen",
+        u.public_key as "otherUserPublicKey",
         (
           SELECT COUNT(*)::int 
           FROM ${messages} m 
@@ -439,7 +529,8 @@ app.get('/api/chats/:userId', async (req, res) => {
         isOnline: !isGroup && activeUsers.has(row.otherUserId || ''),
         lastSeen: row.lastSeen,
         isGroup: isGroup,
-        otherUserId: row.otherUserId
+        otherUserId: row.otherUserId,
+        otherUserPublicKey: row.otherUserPublicKey
       };
     });
 
@@ -622,11 +713,7 @@ app.post('/api/contacts', async (req, res) => {
   }
 });
 
-app.post('/api/upload', upload.single('image'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file' });
-  const baseUrl = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`);
-  res.json({ imageUrl: `${baseUrl}/uploads/${req.file.filename}` });
-});
+// Endpoints de upload eliminados por seguridad
 
 app.get('/api/get-livekit-token', async (req, res) => {
   const { roomName, participantName } = req.query;
@@ -657,11 +744,7 @@ app.get('/api/get-livekit-token', async (req, res) => {
   }
 });
 
-app.post('/api/upload-file', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No file' });
-  const baseUrl = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`);
-  res.json({ fileUrl: `${baseUrl}/uploads/${req.file.filename}` });
-});
+// Endpoints de upload eliminados por seguridad
 
 app.post('/api/statuses', async (req, res) => {
   const { userId, type, content, backgroundColor } = req.body;
@@ -767,32 +850,11 @@ const performCleanup = async () => {
       return { deleted: 0, files: 0 };
     }
 
-    let filesDeleted = 0;
-    
-    // 2. Eliminar archivos físicos
-    for (const status of expiredStatuses) {
-      if (status.type === 'image' || status.type === 'video') {
-        try {
-          // Extraer nombre del archivo de la URL
-          const fileName = status.content.split('/').pop();
-          if (fileName) {
-            const filePath = path.join(__dirname, 'uploads', fileName);
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-              filesDeleted++;
-            }
-          }
-        } catch (fileErr) {
-          console.error(`❌ Error al borrar archivo del estado ${status.id}:`, fileErr);
-        }
-      }
-    }
-
-    // 3. Eliminar de la base de datos
+    // 2. Eliminar de la base de datos
     await db.delete(statuses).where(lt(statuses.createdAt, threshold));
 
-    console.log(`✅ [Conserje] Limpieza completada. Estados eliminados: ${expiredStatuses.length}, Archivos borrados: ${filesDeleted}`);
-    return { deleted: expiredStatuses.length, files: filesDeleted };
+    console.log(`✅ [Conserje] Limpieza completada. Estados eliminados: ${expiredStatuses.length}`);
+    return { deleted: expiredStatuses.length };
   } catch (error) {
     console.error('❌ [Conserje] Error crítico durante la limpieza:', error);
     throw error;

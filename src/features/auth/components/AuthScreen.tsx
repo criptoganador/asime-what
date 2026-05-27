@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatStore } from '../../sidebar/store/useChatStore';
-import { Phone, Check, ArrowRight, User, Camera, ShieldCheck, Copy, CheckCircle2, X, ChevronDown, Loader2 } from 'lucide-react';
+import { Phone, Check, ArrowRight, ArrowLeft, User, Camera, ShieldCheck, Copy, CheckCircle2, X, ChevronDown, Loader2, Smile } from 'lucide-react';
+import EmojiPicker from 'emoji-picker-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { parsePhoneNumberFromString, AsYouType, CountryCode } from 'libphonenumber-js';
+import { generateECDHKeyPair, encryptPrivateKeyWithPIN } from '../../../utils/crypto';
+import { uploadImage } from '../../../utils/upload';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -11,72 +15,118 @@ function cn(...inputs: ClassValue[]) {
 
 type AuthStep = 'phone' | 'otp' | 'profile';
 
+const CALLING_CODE_TO_ISO: Record<string, CountryCode> = {
+  '+34': 'ES',
+  '+58': 'VE',
+  '+1': 'US',
+  '+52': 'MX',
+  '+54': 'AR',
+  '+57': 'CO'
+};
+
+const isValidPhone = (value: string, callingCode: string) => {
+  const isoCode = CALLING_CODE_TO_ISO[callingCode];
+  if (!isoCode) return false;
+  // Solo pasamos el national number, ya que parsePhoneNumberFromString espera un número y el ISO del país.
+  // Pero a veces el número ya tiene un + código. libphonenumber-js lo maneja.
+  const phoneNumber = parsePhoneNumberFromString(value, isoCode);
+  return phoneNumber ? phoneNumber.isValid() : false;
+};
+
+const formatWithLib = (value: string, callingCode: string) => {
+  const isoCode = CALLING_CODE_TO_ISO[callingCode];
+  if (!isoCode) return value.replace(/\D/g, '');
+  const formatter = new AsYouType(isoCode);
+  return formatter.input(value);
+};
+
+const getDefaultCountryCode = () => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz.includes('Caracas')) return '+58';
+    if (tz.includes('Madrid') || tz.includes('Canary') || tz.includes('Ceuta')) return '+34';
+    if (tz.includes('Mexico') || tz.includes('Tijuana') || tz.includes('Cancun') || tz.includes('Monterrey')) return '+52';
+    if (tz.includes('Argentina') || tz.includes('Buenos_Aires')) return '+54';
+    if (tz.includes('Bogota')) return '+57';
+    if (tz.includes('America/New_York') || tz.includes('America/Chicago') || tz.includes('America/Los_Angeles') || tz.includes('America/Denver')) return '+1';
+    
+    // Si no coincide ninguna, por defecto +34
+    return '+34';
+  } catch {
+    return '+34';
+  }
+};
+
 export const AuthScreen = () => {
   const [step, setStep] = useState<AuthStep>('phone');
-  const [countryCode, setCountryCode] = useState('+34');
+  const [countryCode, setCountryCode] = useState(getDefaultCountryCode);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [generatedCode, setGeneratedCode] = useState('');
   const [name, setName] = useState('');
   const [about, setAbout] = useState('¡Hola! Estoy usando Asicme Web.');
   const [avatar, setAvatar] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [userExists, setUserExists] = useState<boolean | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState(false);
 
   const { login, checkUser } = useChatStore();
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatar(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsUploadingAvatar(true);
+      try {
+        const imageUrl = await uploadImage(file);
+        setAvatar(imageUrl);
+      } catch (error: any) {
+        alert(error.message || '¡Ups! Esta foto pesa más de 2MB, elige una más ligera.');
+      } finally {
+        setIsUploadingAvatar(false);
+      }
     }
   };
 
   // Validación inteligente del número de teléfono
   useEffect(() => {
     const cleanPhone = phone.replace(/\s+/g, '');
-    if (cleanPhone.length >= 8) {
+    const isValid = isValidPhone(cleanPhone, countryCode);
+
+    if (isValid) {
       const timer = setTimeout(async () => {
         setIsChecking(true);
+        setIsRateLimited(false);
         const fullPhone = `${countryCode}${cleanPhone}`;
         try {
           const user = await checkUser(fullPhone);
-          setUserExists(!!user);
+          if (user && user.rateLimited) {
+            setIsRateLimited(true);
+            setUserExists(null);
+          } else {
+            setUserExists(!!user);
+          }
         } catch (error) {
           setUserExists(null);
         } finally {
           setIsChecking(false);
         }
-      }, 500); // Debounce de 500ms
+      }, 800); // Debounce aumentado a 800ms para prevención
       return () => clearTimeout(timer);
     } else {
       setUserExists(null);
       setIsChecking(false);
+      setIsRateLimited(false);
     }
   }, [phone, countryCode, checkUser]);
 
   const handleSendCode = () => {
-    // Limpiar el número de espacios o guiones
     const cleanPhone = phone.replace(/\s+/g, '');
-    if (cleanPhone.length < 7) return;
+    const isValid = isValidPhone(cleanPhone, countryCode);
+    
+    if (!isValid) return;
 
-    const fullPhone = `${countryCode}${cleanPhone}`;
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedCode(code);
     setStep('otp');
-    setTimeout(() => setShowToast(true), 500);
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(generatedCode);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -85,6 +135,19 @@ export const AuthScreen = () => {
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
     if (value && index < 5) document.getElementById(`otp-${index + 1}`)?.focus();
+    
+    if (newOtp.every(d => d !== '')) {
+      handleVerifyOtp(newOtp);
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      const newOtp = [...otp];
+      newOtp[index - 1] = '';
+      setOtp(newOtp);
+      document.getElementById(`otp-${index - 1}`)?.focus();
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent) => {
@@ -97,38 +160,66 @@ export const AuthScreen = () => {
       setOtp(newOtp);
       const lastIndex = Math.min(pasteData.length, 5);
       document.getElementById(`otp-${lastIndex}`)?.focus();
+      
+      if (newOtp.every(d => d !== '')) {
+        handleVerifyOtp(newOtp);
+      }
     }
   };
 
-  const handleVerifyOtp = async () => {
-    if (otp.join('') === generatedCode) {
-      setShowToast(false);
-      const fullPhone = `${countryCode}${phone.replace(/\s+/g, '')}`;
+  const handleVerifyOtp = async (otpToVerify = otp) => {
+    const pinString = otpToVerify.join('');
+    if (pinString.length !== 6) return;
 
-      // Validar si el usuario ya existe en la BD
-      const existingUser = await useChatStore.getState().checkUser(fullPhone);
+    setIsChecking(true);
+    const fullPhone = `${countryCode}${phone.replace(/\s+/g, '')}`;
 
-      if (existingUser) {
-        // Si ya existe, iniciamos sesión directamente con sus datos
-        login(existingUser);
-      } else {
-        // Si no existe, vamos al paso de perfil (registro)
-        setStep('profile');
+    if (userExists) {
+      // Login API call
+      const res = await login({ phone: fullPhone, pin: pinString });
+      setIsChecking(false);
+      if (!res?.success) {
+        alert(res?.error || 'PIN incorrecto. Inténtalo de nuevo.');
+        setOtp(['', '', '', '', '', '']);
+        document.getElementById('otp-0')?.focus();
       }
     } else {
-      alert('Código incorrecto. Inténtalo de nuevo.');
+      setIsChecking(false);
+      setStep('profile');
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (!name.trim()) return;
     const cleanPhone = phone.replace(/\s+/g, '');
-    login({
-      name: name.trim(),
-      phone: `${countryCode}${cleanPhone}`,
-      avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=007bfc&color=fff`,
-      about: about
-    });
+    const pinString = otp.join('');
+    const fullPhone = `${countryCode}${cleanPhone}`;
+    
+    setIsChecking(true);
+
+    try {
+      // Generar claves E2EE
+      const keys = await generateECDHKeyPair();
+      const encryptedPrivateKey = encryptPrivateKeyWithPIN(keys.privateKey, pinString);
+
+      const res = await login({
+        name: name.trim(),
+        phone: fullPhone,
+        pin: pinString,
+        avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=007bfc&color=fff`,
+        about: about,
+        publicKey: keys.publicKey,
+        encryptedPrivateKey: encryptedPrivateKey
+      });
+      setIsChecking(false);
+      if (!res?.success) {
+        alert(res?.error || 'Error al crear cuenta');
+      }
+    } catch (error) {
+      console.error('Error generando claves E2EE:', error);
+      setIsChecking(false);
+      alert('Error interno configurando seguridad E2EE.');
+    }
   };
 
   return (
@@ -137,31 +228,6 @@ export const AuthScreen = () => {
         <div className="absolute top-0 w-full h-[220px] bg-[#007bfc] shadow-lg"></div>
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")' }}></div>
       </div>
-
-      {/* Toast de Simulación de SMS */}
-      <AnimatePresence>
-        {showToast && (
-          <motion.div
-            initial={{ y: -100, opacity: 0 }}
-            animate={{ y: 20, opacity: 1 }}
-            exit={{ y: -100, opacity: 0 }}
-            className="absolute top-0 left-1/2 -translate-x-1/2 z-[110] bg-white shadow-2xl rounded-2xl p-4 border-l-4 border-[#007bfc] flex items-center gap-4 w-[90vw] max-w-[380px] cursor-pointer group"
-            onClick={handleCopyCode}
-          >
-            <div className="w-10 h-10 bg-[#007bfc]/10 rounded-full flex items-center justify-center text-[#007bfc]">
-              <ShieldCheck size={24} />
-            </div>
-            <div className="flex-1">
-              <p className="text-[11px] text-wa-text-secondary font-bold uppercase tracking-widest">Seguridad Asicme</p>
-              <p className="text-[15px] text-wa-text-primary">Código: <span className="font-bold text-[#007bfc] text-lg">{generatedCode}</span></p>
-            </div>
-            <div className="flex items-center gap-2 text-[#007bfc]">
-              {isCopied ? <CheckCircle2 size={20} className="text-wa-green" /> : <Copy size={20} className="opacity-0 group-hover:opacity-100 transition-opacity" />}
-              <span className="text-[12px] font-medium">{isCopied ? '¡Copiado!' : 'Copiar'}</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
@@ -186,7 +252,10 @@ export const AuthScreen = () => {
                     <div className="relative group min-w-[100px]">
                       <select
                         value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
+                        onChange={(e) => {
+                          setCountryCode(e.target.value);
+                          setPhone(formatWithLib(phone, e.target.value));
+                        }}
                         className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 px-3 text-[17px] rounded-t-xl transition-all appearance-none cursor-pointer font-medium"
                       >
                         <option value="+34">🇪🇸 +34</option>
@@ -203,7 +272,7 @@ export const AuthScreen = () => {
                       <input
                         type="tel"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                        onChange={(e) => setPhone(formatWithLib(e.target.value, countryCode))}
                         placeholder="Número de móvil"
                         className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 pl-12 pr-12 text-[18px] rounded-t-xl transition-all"
                       />
@@ -224,31 +293,46 @@ export const AuthScreen = () => {
                       </div>
                     </div>
                   </div>
-                  <p className="text-[12px] text-wa-text-secondary leading-relaxed">
-                    {userExists
-                      ? "¡Bienvenido de nuevo! Haz clic en Entrar para continuar."
-                      : "Te enviaremos un código de seguridad para verificar tu identidad."}
+                  <p className={cn("text-[12px] leading-relaxed", isRateLimited ? "text-red-500 font-medium" : "text-wa-text-secondary")}>
+                    {isRateLimited 
+                      ? "Por seguridad, has superado el límite de intentos. Espera 1 minuto."
+                      : !isValidPhone(phone.replace(/\s+/g, ''), countryCode)
+                        ? "Ingresa un número válido."
+                        : userExists
+                          ? "¡Bienvenido de nuevo! Haz clic en Entrar para continuar."
+                          : "Te enviaremos un código de seguridad para verificar tu identidad."}
                   </p>
                 </div>
-                <button onClick={handleSendCode} disabled={phone.length < 8 || isChecking} className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 group">
-                  {userExists ? 'ENTRAR' : 'ENVIAR CÓDIGO'}
+                <button 
+                  onClick={handleSendCode} 
+                  disabled={!isValidPhone(phone.replace(/\s+/g, ''), countryCode) || isChecking || isRateLimited} 
+                  className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 group"
+                >
+                  {userExists ? 'ENTRAR' : 'SIGUIENTE'}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </motion.div>
             )}
 
             {step === 'otp' && (
-              <motion.div key="otp" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="flex flex-col gap-8 text-center">
-                <div className="space-y-2">
-                  <p className="text-[15px] text-wa-text-primary">Verificación de seguridad</p>
-                  <p className="text-[13px] text-wa-text-secondary">Pega el código recibido o escríbelo</p>
+              <motion.div key="otp" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="flex flex-col gap-8 text-center relative">
+                <button 
+                  onClick={() => setStep('phone')}
+                  className="absolute -top-2 left-0 p-2 text-wa-text-secondary hover:text-[#007bfc] transition-colors rounded-full hover:bg-[#007bfc]/10"
+                  title="Cambiar número de teléfono"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div className="space-y-2 mt-2">
+                  <p className="text-[15px] text-wa-text-primary">{userExists ? 'Ingresa tu PIN de seguridad' : 'Crea tu PIN de seguridad'}</p>
+                  <p className="text-[13px] text-wa-text-secondary">PIN de 6 dígitos para <span className="font-bold">{countryCode} {phone}</span></p>
                 </div>
                 <div className="flex justify-center gap-3">
                   {otp.map((digit, i) => (
-                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} className="w-10 h-14 sm:w-12 sm:h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#007bfc] outline-none text-center text-xl sm:text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
+                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} className="w-10 h-14 sm:w-12 sm:h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#007bfc] outline-none text-center text-xl sm:text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
                   ))}
                 </div>
-                <button onClick={handleVerifyOtp} disabled={otp.some(d => !d)} className="mt-2 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+                <button onClick={() => handleVerifyOtp()} disabled={otp.some(d => !d)} className="mt-2 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3">
                   VERIFICAR AHORA
                   <Check size={20} />
                 </button>
@@ -260,16 +344,81 @@ export const AuthScreen = () => {
                 <div className="flex flex-col items-center gap-4 mb-4">
                   <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
                     <input type="file" id="avatar-upload" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                    <div className="w-32 h-32 bg-wa-bg rounded-full flex items-center justify-center text-wa-text-secondary overflow-hidden border-2 border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner">
+                    <div className={cn(
+                      "w-32 h-32 bg-wa-bg rounded-full flex items-center justify-center text-wa-text-secondary overflow-hidden border-2 border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner relative",
+                      isUploadingAvatar && "opacity-50"
+                    )}>
                       {avatar ? <img src={avatar} alt="Preview" className="w-full h-full object-cover" /> : <User size={64} />}
+                      {isUploadingAvatar && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Loader2 size={32} className="text-[#007bfc] animate-spin" />
+                        </div>
+                      )}
                     </div>
-                    <div className="absolute bottom-1 right-1 w-10 h-10 bg-[#007bfc] text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"><Camera size={20} /></div>
+                    <div className="absolute bottom-1 right-1 w-10 h-10 bg-[#007bfc] text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                      <Camera size={20} />
+                    </div>
                   </div>
                   <p className="text-[13px] text-wa-text-secondary font-medium">Personaliza tu perfil</p>
                 </div>
-                <div className="space-y-5">
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="¿Cómo te llamas?" className="w-full border-b-2 border-wa-border focus:border-[#007bfc] outline-none py-2.5 text-[18px] transition-all" />
-                  <input type="text" value={about} onChange={(e) => setAbout(e.target.value)} placeholder="Tu estado actual" className="w-full border-b-2 border-wa-border focus:border-[#007bfc] outline-none py-2.5 text-[15px] text-wa-text-secondary transition-all" />
+                <div className="space-y-6 w-full">
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      maxLength={25}
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)} 
+                      placeholder="¿Cómo te llamas?" 
+                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#007bfc]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[16px] text-wa-text-primary transition-all shadow-sm focus:shadow-md pr-16" 
+                    />
+                    <span className={cn(
+                      "absolute right-4 bottom-3.5 text-[12px] font-medium transition-colors",
+                      name.length >= 25 ? "text-red-500" : name.length >= 20 ? "text-yellow-500" : "text-wa-text-secondary/60"
+                    )}>
+                      {name.length}/25
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      maxLength={130}
+                      value={about} 
+                      onChange={(e) => setAbout(e.target.value)} 
+                      placeholder="Tu estado actual" 
+                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#007bfc]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[15px] text-wa-text-secondary transition-all shadow-sm focus:shadow-md pr-20" 
+                    />
+                    <div className="absolute right-3 bottom-3.5 flex items-center gap-2">
+                      <span className={cn(
+                        "text-[12px] font-medium transition-colors",
+                        about.length >= 130 ? "text-red-500" : about.length >= 110 ? "text-yellow-500" : "text-wa-text-secondary/60"
+                      )}>
+                        {about.length}/130
+                      </span>
+                      <button 
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className="text-wa-text-secondary hover:text-[#007bfc] transition-colors"
+                      >
+                        <Smile size={18} />
+                      </button>
+                    </div>
+                    {showEmojiPicker && (
+                      <div className="absolute z-50 right-0 top-12 shadow-2xl rounded-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)}></div>
+                        <div className="relative z-50">
+                          <EmojiPicker 
+                            onEmojiClick={(emojiData) => {
+                              if (about.length + emojiData.emoji.length <= 130) {
+                                setAbout(prev => prev + emojiData.emoji);
+                              }
+                              setShowEmojiPicker(false);
+                            }}
+                            width={300}
+                            height={400}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <button onClick={handleFinish} disabled={!name.trim()} className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50">
                   COMENZAR A CHATEAR

@@ -1,21 +1,22 @@
-import { API_URL } from '../config';
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 
-export const uploadImage = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('image', file);
-
-  try {
-    const response = await fetch(`${API_URL}/api/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al subir la imagen');
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (file.size > MAX_FILE_SIZE) {
+      reject(new Error(`El archivo excede el tamaño máximo permitido de 2MB.`));
+      return;
     }
 
-    const data = await response.json();
-    return data.imageUrl;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
+export const uploadImage = async (file: File): Promise<string> => {
+  try {
+    return await fileToBase64(file);
   } catch (error) {
     console.error('Error in uploadImage:', error);
     throw error;
@@ -23,21 +24,8 @@ export const uploadImage = async (file: File): Promise<string> => {
 };
 
 export const uploadFile = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', file);
-
   try {
-    const response = await fetch(`${API_URL}/api/upload-file`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Error al subir el archivo');
-    }
-
-    const data = await response.json();
-    return data.fileUrl;
+    return await fileToBase64(file);
   } catch (error) {
     console.error('Error in uploadFile:', error);
     throw error;

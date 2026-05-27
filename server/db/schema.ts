@@ -3,9 +3,14 @@ import { pgTable, text, timestamp, integer, boolean, uuid, jsonb } from 'drizzle
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   phone: text('phone').notNull().unique(),
+  pin: text('pin').notNull(),
   name: text('name').notNull(),
   avatar: text('avatar'),
   about: text('about').default('¡Hola! Estoy usando Asicme Web.'),
+  publicKey: text('public_key'),
+  encryptedPrivateKey: text('encrypted_private_key'),
+  failedLoginAttempts: integer('failed_login_attempts').default(0),
+  lockedUntil: timestamp('locked_until'),
   lastSeen: timestamp('last_seen'),
   createdAt: timestamp('created_at').defaultNow(),
 });
