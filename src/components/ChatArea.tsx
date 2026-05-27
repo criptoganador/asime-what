@@ -3,14 +3,14 @@ import {
   Send, Smile, ArrowLeft, Image as ImageIcon, 
   X, Reply, Plus, Trash2, 
   FileText, File as FileIcon, Mic, StopCircle, Play, Pause, Download,
-  Lock, Phone, Video, Ban, Search, MoreVertical, AlertCircle
+  Lock, Phone, PhoneOff, Video, Ban, Search, MoreVertical, AlertCircle
 } from 'lucide-react';
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadImage, uploadFile, uploadVideo, uploadAudio, getAudioDuration } from '../utils/upload';
-// import { CallView } from './CallView';
+import { ErrorBoundary } from './ErrorBoundary';
 import logo from '../assets/logo.png';
 import { Theme } from 'emoji-picker-react';
 
@@ -41,7 +41,8 @@ export const ChatArea = () => {
     activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, 
     markMessagesRead, setViewingGroup, chatWallpaper, typingUsers, sendTypingStatus,
     addReaction, replyingTo, setReplyingTo,
-    hasMoreMessages, loadMoreMessages, deleteMessage
+    hasMoreMessages, loadMoreMessages, deleteMessage,
+    activeCall, incomingCall, outgoingCall, callUser, answerCall, endCall, leaveCall
   } = useChatStore();
   
   const activeChat = Array.isArray(chats) ? chats.find(c => c.id === activeChatId) : null;
@@ -50,7 +51,6 @@ export const ChatArea = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [activeCall, useStateActiveCall] = useState<{ type: 'voice' | 'video' } | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,9 +60,6 @@ export const ChatArea = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 430);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Quick fix para que funcione igual
-  const setActiveCall = useStateActiveCall;
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -312,18 +309,21 @@ export const ChatArea = () => {
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <Suspense fallback={null}>
-        {activeCall && (
-          <CallView 
-            roomName={activeChatId} 
-            participantName={currentUser?.name || 'Usuario'} 
-            chatName={activeChat.name}
-            chatAvatar={activeChat.avatar}
-            video={activeCall.type === 'video'} 
-            onClose={() => setActiveCall(null)} 
-          />
-        )}
-      </Suspense>
+      <ErrorBoundary fallback={null}>
+        <Suspense fallback={null}>
+          {activeCall && (
+            <CallView 
+              roomName={activeCall.chatId} 
+              participantName={currentUser?.name || 'Usuario'} 
+              chatName={activeChat.name}
+              chatAvatar={activeChat.avatar}
+              video={activeCall.type === 'video'} 
+              onClose={() => leaveCall()} 
+              onCallEmpty={() => endCall(activeCall.chatId)}
+            />
+          )}
+        </Suspense>
+      </ErrorBoundary>
       
       <div 
         className="flex-1 flex flex-col relative border-r border-wa-border overflow-hidden transition-colors duration-500"
@@ -375,8 +375,8 @@ export const ChatArea = () => {
                       if (isSearching) setSearchQuery('');
                     }} 
                   />
-                  <Video size={20} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'video' })} />
-                  <Phone size={19} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => setActiveCall({ type: 'voice' })} />
+                  <Video size={20} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => callUser(activeChatId!, 'video', activeChat?.name, activeChat?.avatar)} />
+                  <Phone size={19} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => callUser(activeChatId!, 'voice', activeChat?.name, activeChat?.avatar)} />
                 </>
               ) : (
                 <div className="relative">
@@ -408,7 +408,7 @@ export const ChatArea = () => {
                           <button 
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
                             onClick={() => {
-                              setActiveCall({ type: 'video' });
+                              callUser(activeChatId!, 'video', activeChat?.name, activeChat?.avatar);
                               setShowHeaderMenu(false);
                             }}
                           >
@@ -418,7 +418,7 @@ export const ChatArea = () => {
                           <button 
                             className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
                             onClick={() => {
-                              setActiveCall({ type: 'voice' });
+                              callUser(activeChatId!, 'voice', activeChat?.name, activeChat?.avatar);
                               setShowHeaderMenu(false);
                             }}
                           >
@@ -605,6 +605,68 @@ export const ChatArea = () => {
         {selectedImage && <ImageModal url={selectedImage} onClose={() => setSelectedImage(null)} />}
         {selectedVideo && <VideoModal url={selectedVideo} onClose={() => setSelectedVideo(null)} />}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {incomingCall && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 min-w-[300px] flex flex-col items-center gap-4"
+          >
+            <div className="w-16 h-16 relative">
+              <img src={incomingCall.callerAvatar} className="w-full h-full rounded-full object-cover shadow-md border-2 border-[#6366f1]/20" alt="Llamada entrante" />
+              <div className="absolute -bottom-1 -right-1 bg-white p-1.5 rounded-full shadow-sm text-wa-teal">
+                {incomingCall.type === 'video' ? <Video size={14} /> : <Phone size={14} />}
+              </div>
+            </div>
+            <div className="text-center">
+              <h4 className="font-bold text-lg text-gray-800">{incomingCall.callerName}</h4>
+              <p className="text-sm text-gray-500 font-medium">{incomingCall.type === 'video' ? 'Videollamada entrante' : 'Llamada de voz entrante'}</p>
+            </div>
+            <div className="flex gap-4 w-full mt-2">
+              <button 
+                onClick={() => answerCall(incomingCall.chatId, false)}
+                className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+              >
+                <PhoneOff size={18} /> Rechazar
+              </button>
+              <button 
+                onClick={() => answerCall(incomingCall.chatId, true)}
+                className="flex-1 bg-[#6366f1] hover:bg-[#4f46e5] text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#6366f1]/30 transition-all"
+              >
+                <Phone size={18} /> Aceptar
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {outgoingCall && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-[100] bg-white/90 backdrop-blur-xl p-5 rounded-3xl shadow-2xl border border-white/40 flex flex-col items-center gap-4 w-[320px]"
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#6366f1]/20 animate-ping rounded-full" />
+              <img src={outgoingCall.receiverAvatar || 'https://i.pravatar.cc/150'} alt="Llamando" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg relative z-10" />
+            </div>
+            <div className="text-center">
+              <h4 className="font-bold text-lg text-gray-800">{outgoingCall.receiverName}</h4>
+              <p className="text-sm text-[#6366f1] font-medium animate-pulse">Llamando...</p>
+            </div>
+            <button 
+              onClick={() => leaveCall()}
+              className="w-full bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-500/30 transition-all mt-2"
+            >
+              <PhoneOff size={18} /> Colgar
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -688,19 +750,34 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         );
       case 'audio':
         return <AudioPlayer msg={msg} />;
+      case 'system':
+        return (
+          <div className="flex items-center justify-center py-0.5">
+            <span className="text-[13px] font-medium opacity-90">{msg.text}</span>
+          </div>
+        );
       default:
-        return <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap">{msg.text}</p>;
+        return <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>;
     }
   };
 
   return (
-    <div className={cn("flex w-full mb-1 group relative", isMe ? "justify-end" : "justify-start")} onMouseEnter={() => setShowActions(true)} onMouseLeave={() => { setShowActions(false); setShowReactions(false); setShowDeleteMenu(false); }}>
-      <div className={cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px]", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"), msg.isDeleted && "bg-transparent border border-wa-border shadow-none text-wa-text-secondary")}>
-        {!msg.isDeleted && <AnimatePresence>{showActions && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> <div className="relative"><button onClick={() => setShowDeleteMenu(!showDeleteMenu)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={16} /></button>{showDeleteMenu && (<div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-xl border border-wa-border overflow-hidden z-50 w-40 flex flex-col"><button onClick={() => { onDelete(false); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full">Eliminar para mí</button>{isMe && <button onClick={() => { onDelete(true); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full text-red-500">Eliminar para todos</button>}</div>)}</div> </motion.div> )}</AnimatePresence>}
-        <AnimatePresence>{showReactions && ( <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={cn("absolute bottom-full mb-2 bg-white rounded-full shadow-xl p-1 flex gap-1 z-30 border border-wa-border", isMe ? "right-0" : "left-0")}> {REACTIONS.map(emoji => <button key={emoji} onClick={() => { onReact(emoji); setShowReactions(false); }} className="hover:scale-125 transition-transform p-1 text-xl">{emoji}</button>)} </motion.div> )}</AnimatePresence>
+    <div className={cn("flex w-full mb-1 group relative", msg.type === 'system' ? "justify-center my-3" : (isMe ? "justify-end" : "justify-start"))} onMouseEnter={() => setShowActions(true)} onMouseLeave={() => { setShowActions(false); setShowReactions(false); setShowDeleteMenu(false); }}>
+      <div className={cn(
+        msg.type === 'system' 
+          ? "bg-wa-sidebar/40 backdrop-blur-sm px-4 py-1.5 rounded-xl border border-wa-border/50 text-wa-text-secondary shadow-sm mx-auto max-w-[90%]" 
+          : cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px]", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"), msg.isDeleted && "bg-transparent border border-wa-border shadow-none text-wa-text-secondary")
+      )}>
+        {msg.type !== 'system' && !msg.isDeleted && <AnimatePresence>{showActions && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> <div className="relative"><button onClick={() => setShowDeleteMenu(!showDeleteMenu)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={16} /></button>{showDeleteMenu && (<div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-xl border border-wa-border overflow-hidden z-50 w-40 flex flex-col"><button onClick={() => { onDelete(false); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full">Eliminar para mí</button>{isMe && <button onClick={() => { onDelete(true); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full text-red-500">Eliminar para todos</button>}</div>)}</div> </motion.div> )}</AnimatePresence>}
+        {msg.type !== 'system' && <AnimatePresence>{showReactions && ( <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={cn("absolute bottom-full mb-2 bg-white rounded-full shadow-xl p-1 flex gap-1 z-30 border border-wa-border", isMe ? "right-0" : "left-0")}> {REACTIONS.map(emoji => <button key={emoji} onClick={() => { onReact(emoji); setShowReactions(false); }} className="hover:scale-125 transition-transform p-1 text-xl">{emoji}</button>)} </motion.div> )}</AnimatePresence>}
         {repliedMsg && ( <div className="mb-2 bg-black/5 rounded-lg border-l-4 border-wa-teal p-1.5 px-2 overflow-hidden"> <div className="text-[12px] font-bold text-wa-teal truncate">{repliedMsg.senderId === msg.senderId ? 'Tú' : 'Contacto'}</div> <div className="text-[13px] text-wa-text-secondary truncate italic"> {repliedMsg.type === 'image' ? '📷 Imagen' : repliedMsg.type === 'video' ? '🎥 Video' : repliedMsg.type === 'audio' ? '🎤 Nota de voz' : repliedMsg.type === 'file' ? `📄 ${repliedMsg.fileName}` : repliedMsg.text} </div> </div> )}
         {renderContent()}
-        <div className="flex items-center justify-end gap-1 mt-0.5"><span className="text-[11px] text-wa-text-secondary uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{isMe && <div className={cn("flex items-center transition-colors", msg.status === 'read' ? "text-[#53bdeb]" : "text-wa-text-secondary")}><CheckAll size={16} /></div>}</div>
+        {msg.type !== 'system' && (
+          <div className="flex items-center justify-end gap-1 mt-0.5">
+            <span className="text-[11px] text-wa-text-secondary uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            {isMe && <div className={cn("flex items-center transition-colors", msg.status === 'read' ? "text-[#53bdeb]" : "text-wa-text-secondary")}><CheckAll size={16} /></div>}
+          </div>
+        )}
         {msg.reactions && Object.keys(msg.reactions).length > 0 && (
           <div className={cn(
             "absolute -bottom-3 flex flex-wrap gap-1 z-10",

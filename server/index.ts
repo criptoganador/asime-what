@@ -276,6 +276,73 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('call_user', async ({ chatId, callerId, callerName, callerAvatar, type }) => {
+    try {
+      const participants = await db.query.conversationParticipants.findMany({ 
+        where: eq(conversationParticipants.conversationId, chatId) 
+      });
+      participants.forEach(p => {
+        if (p.userId !== callerId) {
+          io.to(p.userId).emit('incoming_call', { chatId, callerId, callerName, callerAvatar, type });
+        }
+      });
+    } catch (error) {
+      console.error('Error in call_user:', error);
+    }
+  });
+
+  socket.on('invite_to_call', ({ chatId, inviterId, inviterName, inviterAvatar, receiverId, type }) => {
+    try {
+      io.to(receiverId).emit('incoming_call', { 
+        chatId, 
+        callerId: inviterId, 
+        callerName: inviterName, 
+        callerAvatar: inviterAvatar, 
+        type 
+      });
+    } catch (error) {
+      console.error('Error in invite_to_call:', error);
+    }
+  });
+
+  socket.on('answer_call', async ({ chatId, answererId, accept }) => {
+    try {
+      const participants = await db.query.conversationParticipants.findMany({ 
+        where: eq(conversationParticipants.conversationId, chatId) 
+      });
+      participants.forEach(p => {
+        if (p.userId !== answererId) {
+          io.to(p.userId).emit('call_answered', { chatId, answererId, accept });
+        }
+      });
+    } catch (error) {
+      console.error('Error in answer_call:', error);
+    }
+  });
+
+  socket.on('end_call', async ({ chatId }) => {
+    try {
+      // 1. Broadcast global termination so ANYONE in that room (even invited 3rd parties) hangs up
+      io.emit('call_ended', { chatId });
+
+      // 2. Insert a system message into the chat
+      const userId = (socket as any).userId;
+      if (userId) {
+        const [newMsg] = await db.insert(messages).values({
+          conversationId: chatId,
+          senderId: userId,
+          text: '📞 Videollamada finalizada',
+          type: 'system',
+        }).returning();
+
+        // 3. Notify participants of the new message
+        io.to(chatId).emit('receive_message', newMsg);
+      }
+    } catch (error) {
+      console.error('Error in end_call:', error);
+    }
+  });
+
   socket.on('disconnect', async () => {
     const userId = (socket as any).userId;
     if (userId) {
@@ -546,6 +613,35 @@ app.get('/api/chats/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error en Super-Query de chats:', error);
     res.status(500).json({ error: 'Error al obtener chats' });
+  }
+});
+
+app.get('/api/get-livekit-token', (req, res) => {
+  const { roomName, participantName } = req.query;
+
+  if (!roomName || !participantName) {
+    return res.status(400).json({ error: 'roomName y participantName son obligatorios' });
+  }
+
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+  if (!apiKey || !apiSecret) {
+    return res.status(500).json({ error: 'Credenciales de LiveKit no configuradas en el servidor' });
+  }
+
+  try {
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity: participantName as string,
+    });
+    
+    at.addGrant({ roomJoin: true, room: roomName as string });
+
+    const token = at.toJwt();
+    res.json({ token });
+  } catch (error) {
+    console.error('Error al generar token de LiveKit:', error);
+    res.status(500).json({ error: 'Error al generar token' });
   }
 });
 

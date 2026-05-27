@@ -69,3 +69,9 @@
 /* Animación de pan lento */
 @keyframes bg-pan-slow { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
 .animate-bg-dynamic { animation: bg-pan-slow 100s linear infinite; }
+
+/* Ocultar botones nativos de LiveKit que interfieren con la UI personalizada */
+.lk-disconnect-button,
+.lk-chat-toggle {
+  display: none !important;
+}

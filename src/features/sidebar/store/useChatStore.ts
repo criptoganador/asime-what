@@ -189,6 +189,17 @@ interface ChatState {
   hasMoreMessages: Record<string, boolean>;
   loadMoreMessages: (chatId: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: string, forEveryone: boolean) => void;
+  incomingCall: { chatId: string, callerId: string, callerName: string, callerAvatar: string, type: 'video' | 'voice' } | null;
+  activeCall: { chatId: string, type: 'video' | 'voice' } | null;
+  outgoingCall: { chatId: string, type: 'video' | 'voice', receiverName: string, receiverAvatar: string } | null;
+  setIncomingCall: (call: any) => void;
+  setActiveCall: (call: any) => void;
+  setOutgoingCall: (call: any) => void;
+  callUser: (chatId: string, type: 'video' | 'voice', receiverName?: string, receiverAvatar?: string) => void;
+  inviteToCall: (chatId: string, receiverId: string, type: 'video' | 'voice') => void;
+  answerCall: (chatId: string, accept: boolean) => void;
+  leaveCall: () => void;
+  endCall: (chatId: string) => void;
 }
 
 const savedUser = localStorage.getItem('asicme_user');
@@ -234,7 +245,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
   typingUsers: {},
   replyingTo: null,
   privateKeyJWK: sessionStorage.getItem('asicme_private_key') || null,
+  incomingCall: null,
+  activeCall: null,
+  outgoingCall: null,
   
+  setIncomingCall: (call) => set({ incomingCall: call }),
+  setActiveCall: (call) => set({ activeCall: call }),
+  setOutgoingCall: (call) => set({ outgoingCall: call }),
+
+  callUser: (chatId, type, receiverName = 'Usuario', receiverAvatar = '') => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    set({ outgoingCall: { chatId, type, receiverName, receiverAvatar } });
+    socket.emit('call_user', { 
+      chatId, 
+      callerId: currentUser.id, 
+      callerName: currentUser.name,
+      callerAvatar: currentUser.avatar,
+      type 
+    });
+  },
+
+  inviteToCall: (chatId, receiverId, type) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    socket.emit('invite_to_call', { 
+      chatId, 
+      inviterId: currentUser.id, 
+      inviterName: currentUser.name,
+      inviterAvatar: currentUser.avatar,
+      receiverId,
+      type 
+    });
+  },
+
+  answerCall: (chatId, accept) => {
+    const { currentUser, incomingCall } = get();
+    if (!currentUser || !incomingCall) return;
+    socket.emit('answer_call', { chatId, answererId: currentUser.id, accept });
+    if (accept) {
+      set({ activeCall: { chatId, type: incomingCall.type }, incomingCall: null });
+    } else {
+      set({ incomingCall: null });
+    }
+  },
+
+  leaveCall: () => {
+    set({ activeCall: null, incomingCall: null, outgoingCall: null });
+  },
+
+  endCall: (chatId) => {
+    socket.emit('end_call', { chatId });
+    set({ activeCall: null, incomingCall: null, outgoingCall: null });
+  },
+
   setReplyingTo: (message) => set({ replyingTo: message }),
 
   sendTypingStatus: (chatId, isTyping) => {
@@ -902,6 +966,43 @@ socket.on('message_deleted', ({ chatId, messageId, forEveryone, userId }) => {
         messages: { ...state.messages, [chatId]: updatedMessages }
       }));
     }
+  }
+});
+
+socket.on('incoming_call', (call) => {
+  const state = useChatStore.getState();
+  if (state.activeCall) {
+    // Si ya está en llamada, rechazar automáticamente
+    socket.emit('answer_call', { chatId: call.chatId, answererId: state.currentUser?.id, accept: false });
+    return;
+  }
+  useChatStore.setState({ incomingCall: call });
+});
+
+socket.on('call_answered', ({ chatId, answererId, accept }) => {
+  const state = useChatStore.getState();
+  const outgoingCall = state.outgoingCall;
+  
+  if (outgoingCall && outgoingCall.chatId === chatId) {
+    if (accept) {
+      useChatStore.setState({ 
+        activeCall: { chatId, type: outgoingCall.type },
+        outgoingCall: null 
+      });
+    } else {
+      useChatStore.setState({ outgoingCall: null });
+      alert('Llamada rechazada');
+    }
+  } else if (state.activeCall?.chatId === chatId && !accept) {
+    useChatStore.setState({ activeCall: null });
+    alert('Llamada terminada');
+  }
+});
+
+socket.on('call_ended', ({ chatId }) => {
+  const state = useChatStore.getState();
+  if (state.activeCall?.chatId === chatId || state.incomingCall?.chatId === chatId || state.outgoingCall?.chatId === chatId) {
+    useChatStore.setState({ activeCall: null, incomingCall: null, outgoingCall: null });
   }
 });
 

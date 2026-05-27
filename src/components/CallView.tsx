@@ -3,10 +3,12 @@ import {
   LiveKitRoom,
   VideoConference,
   RoomAudioRenderer,
+  useParticipants
 } from '@livekit/components-react';
-import { X, Shield, PhoneOff, AlertCircle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
+import { useChatStore } from '../features/sidebar/store/useChatStore';
 
 interface CallViewProps {
   roomName: string;
@@ -14,15 +16,47 @@ interface CallViewProps {
   chatName: string;
   chatAvatar: string;
   onClose: () => void;
+  onCallEmpty: () => void;
   video: boolean;
 }
 
-export const CallView = ({ roomName, participantName, chatName, chatAvatar, onClose, video }: CallViewProps) => {
+const ParticipantMonitor = ({ onCallEmpty, onParticipantsChange }: { onCallEmpty: () => void, onParticipantsChange: (names: string[]) => void }) => {
+  const participants = useParticipants();
+  const [maxParticipants, setMaxParticipants] = useState(0);
+
+  useEffect(() => {
+    if (participants.length > maxParticipants) {
+      setMaxParticipants(participants.length);
+    }
+    
+    // Si éramos varios y ahora solo quedo yo, finalizo la llamada para todos
+    if (maxParticipants > 1 && participants.length === 1) {
+      onCallEmpty();
+    }
+
+    onParticipantsChange(participants.map(p => p.identity));
+  }, [participants, maxParticipants, onCallEmpty, onParticipantsChange]);
+
+  return null;
+};
+
+export const CallView = ({ roomName, participantName, chatName, chatAvatar, onClose, onCallEmpty, video }: CallViewProps) => {
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [disconnectAction, setDisconnectAction] = useState<'leave' | 'empty' | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState('Verificando hardware...');
   const [error, setError] = useState<string | null>(null);
   const [hardwareOk, setHardwareOk] = useState(false);
+  const [showInviteMenu, setShowInviteMenu] = useState(false);
+  const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
+  const { contacts, inviteToCall } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
+
+  const availableContacts = contacts.filter(contact => {
+    const safeContactName = (contact.user?.name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+    return !activeParticipantNames.includes(safeContactName);
+  });
 
   useEffect(() => {
     const checkHardwareAndFetchToken = async () => {
@@ -78,9 +112,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
     checkHardwareAndFetchToken();
   }, [roomName, participantName, video]);
 
-  const handleDisconnect = () => {
-    onClose();
-  };
+
 
   const handleMediaError = (err: Error) => {
     // Secondary catch for runtime errors
@@ -146,7 +178,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
           </div>
           
           <button 
-            onClick={onClose}
+            onClick={() => {
+              if (isDisconnecting) return;
+              setIsDisconnecting(true);
+              setDisconnectAction('leave');
+            }}
             className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-all hover:scale-110 active:scale-95 shadow-lg shadow-red-500/20"
           >
             <PhoneOff size={28} className="rotate-[135deg]" />
@@ -156,39 +192,146 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
     );
   }
 
+  const handleCallEmptyGraceful = () => {
+    if (isDisconnecting) return;
+    setIsDisconnecting(true);
+    setDisconnectAction('empty');
+  };
+
+  const handleDisconnected = () => {
+    if (disconnectAction === 'empty') onCallEmpty();
+    else onClose();
+  };
+
   return (
     <motion.div 
+      layout
+      drag={isMinimized}
+      dragMomentum={false}
       initial={{ opacity: 0, scale: 1.1 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="fixed inset-0 z-[100] bg-black flex flex-col"
+      animate={isMinimized ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
+      className={isMinimized
+        ? "fixed bottom-6 right-6 w-80 h-48 z-[100] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/20 cursor-move"
+        : "fixed inset-0 z-[100] bg-black flex flex-col"
+      }
     >
       <LiveKitRoom
         video={video}
         audio={true}
         token={token}
         serverUrl={serverUrl}
-        connect={true}
-        onDisconnected={handleDisconnect}
+        connect={!isDisconnecting}
+        onDisconnected={handleDisconnected}
         onError={handleMediaError}
         data-lk-theme="default"
         style={{ height: '100vh' }}
       >
-        <VideoConference />
+        <ParticipantMonitor onCallEmpty={handleCallEmptyGraceful} onParticipantsChange={setActiveParticipantNames} />
+        <div className={`lk-video-wrapper w-full h-full ${isMinimized ? 'pointer-events-none' : ''}`}>
+          <VideoConference />
+        </div>
         <RoomAudioRenderer />
         
-        <div className="absolute top-6 left-6 z-[110] flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-          <span className="text-sm font-medium text-white/90">Llamada en curso • {chatName}</span>
-        </div>
+        {!isMinimized && (
+          <>
+            <div className="absolute top-6 left-6 z-[110] flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 pointer-events-none">
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="text-sm font-medium text-white/90">Llamada en curso • {chatName}</span>
+            </div>
 
-        <div className="absolute top-6 right-6 z-[110]">
-          <button 
-            onClick={onClose} 
-            className="p-3 bg-red-500/90 text-white rounded-full hover:bg-red-600 transition-all hover:rotate-90 shadow-xl backdrop-blur-sm"
-          >
-            <X size={24} />
-          </button>
-        </div>
+            <div className="absolute top-6 right-6 z-[110] flex items-center gap-4">
+              <button 
+                onClick={() => setIsMinimized(true)}
+                className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all shadow-xl backdrop-blur-sm border-none cursor-pointer flex items-center justify-center"
+                title="Minimizar a chat"
+              >
+                <MessageCircle size={24} />
+              </button>
+
+              <div className="relative">
+                <button 
+                  onClick={() => setShowInviteMenu(!showInviteMenu)}
+                  className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all shadow-xl backdrop-blur-sm border-none cursor-pointer flex items-center justify-center"
+                  title="Añadir participante"
+                >
+                  <UserPlus size={24} />
+                </button>
+
+                <AnimatePresence>
+                  {showInviteMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowInviteMenu(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                        className="absolute top-14 right-0 w-64 bg-[#111b21] rounded-2xl shadow-2xl z-50 border border-white/10 overflow-hidden"
+                      >
+                        <div className="p-3 border-b border-white/10">
+                          <h3 className="text-white text-sm font-semibold">Añadir participante</h3>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                          {availableContacts.length === 0 ? (
+                            <div className="p-4 text-center text-gray-400 text-sm">No hay contactos disponibles para invitar</div>
+                          ) : (
+                            availableContacts.map(contact => (
+                              <button
+                                key={contact.id}
+                                onClick={() => {
+                                  inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
+                                  setShowInviteMenu(false);
+                                }}
+                                className="w-full flex items-center gap-3 p-3 hover:bg-white/5 transition-colors text-left"
+                              >
+                                <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt={contact.nickname || contact.user?.name} className="w-8 h-8 rounded-full object-cover" />
+                                <span className="text-white text-sm truncate flex-1">{contact.nickname || contact.user?.name}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+              
+              <button 
+                onClick={() => {
+                  if (isDisconnecting) return;
+                  setIsDisconnecting(true);
+                  setDisconnectAction('leave');
+                }}
+                className="p-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-xl backdrop-blur-sm border-none cursor-pointer flex items-center justify-center"
+                title="Colgar llamada"
+              >
+                <PhoneOff size={24} />
+              </button>
+            </div>
+          </>
+        )}
+
+        {isMinimized && (
+          <div className="absolute top-2 right-2 z-[110] flex items-center gap-2">
+            <button 
+              onClick={() => setIsMinimized(false)}
+              className="p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
+              title="Volver a llamada"
+            >
+              <Maximize2 size={16} />
+            </button>
+            <button 
+              onClick={() => {
+                if (isDisconnecting) return;
+                setIsDisconnecting(true);
+                setDisconnectAction('leave');
+              }}
+              className="p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
+              title="Colgar"
+            >
+              <PhoneOff size={16} />
+            </button>
+          </div>
+        )}
       </LiveKitRoom>
     </motion.div>
   );
