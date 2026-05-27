@@ -60,7 +60,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
       className="absolute inset-0 z-[999] bg-wa-bg flex flex-col"
     >
       {/* Header */}
-      <div className="h-20 sm:h-[108px] bg-[#007bfc] flex items-end px-4 sm:px-6 pb-4 text-white">
+      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft className="cursor-pointer hover:scale-110 transition-transform" onClick={onBack} />
           <h2 className="text-[19px] font-medium">Agregar nuevo contacto</h2>
@@ -75,7 +75,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
         ) : (
           <form onSubmit={handleSave} className="space-y-8 bg-white p-5 sm:p-6 rounded-xl shadow-sm">
             <div className="border-b-2 border-gray-100 py-2">
-              <label className="text-xs text-[#007bfc] font-bold uppercase">Nombre Completo</label>
+              <label className="text-xs text-[#6366f1] font-bold uppercase">Nombre Completo</label>
               <input 
                 type="text" 
                 value={name}
@@ -87,7 +87,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
             </div>
 
             <div className="border-b-2 border-gray-100 py-2">
-              <label className="text-xs text-[#007bfc] font-bold uppercase">Número de Teléfono</label>
+              <label className="text-xs text-[#6366f1] font-bold uppercase">Número de Teléfono</label>
               <div className="flex gap-2 items-center">
                 <select 
                   value={countryCode} 
@@ -117,7 +117,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
             <button 
               type="submit"
               disabled={loading}
-              className="w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold hover:bg-[#005bb5] transition-colors shadow-md disabled:opacity-50"
+              className="w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold hover:bg-[#4f46e5] transition-colors shadow-md disabled:opacity-50"
             >
               {loading ? 'BUSCANDO...' : 'GUARDAR CONTACTO'}
             </button>

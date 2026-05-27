@@ -63,7 +63,7 @@ export const AuthScreen = () => {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [name, setName] = useState('');
-  const [about, setAbout] = useState('¡Hola! Estoy usando Asicme Web.');
+  const [about, setAbout] = useState('¡Hola! Estoy usando Asicme Chat.');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -225,7 +225,7 @@ export const AuthScreen = () => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#f0f2f5]">
       <div className="absolute inset-0 z-0">
-        <div className="absolute top-0 w-full h-[220px] bg-[#007bfc] shadow-lg"></div>
+        <div className="absolute top-0 w-full h-[220px] bg-[#6366f1] shadow-lg"></div>
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")' }}></div>
       </div>
 
@@ -238,7 +238,7 @@ export const AuthScreen = () => {
           <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-2xl border border-wa-border p-1 overflow-hidden">
             <img src="/favicon.png" alt="Asicme Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
-          <h2 className="text-[32px] font-bold text-[#007bfc] mb-1 tracking-tight">Asicme Web</h2>
+          <h2 className="text-[32px] font-bold text-[#6366f1] mb-1 tracking-tight">Asicme Chat</h2>
           <p className="text-wa-text-secondary text-[15px]">Conectando tu mundo con estilo</p>
         </div>
 
@@ -247,7 +247,7 @@ export const AuthScreen = () => {
             {step === 'phone' && (
               <motion.div key="phone" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="flex flex-col gap-6">
                 <div className="space-y-4">
-                  <label className="text-[12px] text-[#007bfc] font-bold uppercase tracking-widest">Número de teléfono</label>
+                  <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest">Número de teléfono</label>
                   <div className="flex gap-2">
                     <div className="relative group min-w-[100px]">
                       <select
@@ -256,7 +256,7 @@ export const AuthScreen = () => {
                           setCountryCode(e.target.value);
                           setPhone(formatWithLib(phone, e.target.value));
                         }}
-                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 px-3 text-[17px] rounded-t-xl transition-all appearance-none cursor-pointer font-medium"
+                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#6366f1] outline-none py-3.5 px-3 text-[17px] rounded-t-xl transition-all appearance-none cursor-pointer font-medium"
                       >
                         <option value="+34">🇪🇸 +34</option>
                         <option value="+58">🇻🇪 +58</option>
@@ -268,17 +268,17 @@ export const AuthScreen = () => {
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-wa-text-secondary" />
                     </div>
                     <div className="relative group flex-1">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-wa-text-secondary group-focus-within:text-[#007bfc] transition-colors"><Phone size={20} /></div>
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-wa-text-secondary group-focus-within:text-[#6366f1] transition-colors"><Phone size={20} /></div>
                       <input
                         type="tel"
                         value={phone}
                         onChange={(e) => setPhone(formatWithLib(e.target.value, countryCode))}
                         placeholder="Número de móvil"
-                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#007bfc] outline-none py-3.5 pl-12 pr-12 text-[18px] rounded-t-xl transition-all"
+                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#6366f1] outline-none py-3.5 pl-12 pr-12 text-[18px] rounded-t-xl transition-all"
                       />
                       <div className="absolute right-4 top-1/2 -translate-y-1/2">
                         {isChecking ? (
-                          <Loader2 size={18} className="text-[#007bfc] animate-spin" />
+                          <Loader2 size={18} className="text-[#6366f1] animate-spin" />
                         ) : userExists ? (
                           <div className="flex items-center gap-2 animate-in zoom-in duration-300">
                             <CheckCircle2 size={18} className="text-wa-green" />
@@ -306,7 +306,7 @@ export const AuthScreen = () => {
                 <button 
                   onClick={handleSendCode} 
                   disabled={!isValidPhone(phone.replace(/\s+/g, ''), countryCode) || isChecking || isRateLimited} 
-                  className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 group"
+                  className="mt-4 w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] transition-all disabled:opacity-50 flex items-center justify-center gap-3 group"
                 >
                   {userExists ? 'ENTRAR' : 'SIGUIENTE'}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
@@ -318,7 +318,7 @@ export const AuthScreen = () => {
               <motion.div key="otp" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="flex flex-col gap-8 text-center relative">
                 <button 
                   onClick={() => setStep('phone')}
-                  className="absolute -top-2 left-0 p-2 text-wa-text-secondary hover:text-[#007bfc] transition-colors rounded-full hover:bg-[#007bfc]/10"
+                  className="absolute -top-2 left-0 p-2 text-wa-text-secondary hover:text-[#6366f1] transition-colors rounded-full hover:bg-[#6366f1]/10"
                   title="Cambiar número de teléfono"
                 >
                   <ArrowLeft size={20} />
@@ -329,10 +329,10 @@ export const AuthScreen = () => {
                 </div>
                 <div className="flex justify-center gap-3">
                   {otp.map((digit, i) => (
-                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} className="w-10 h-14 sm:w-12 sm:h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#007bfc] outline-none text-center text-xl sm:text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
+                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} className="w-10 h-14 sm:w-12 sm:h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#6366f1] outline-none text-center text-xl sm:text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
                   ))}
                 </div>
-                <button onClick={() => handleVerifyOtp()} disabled={otp.some(d => !d)} className="mt-2 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+                <button onClick={() => handleVerifyOtp()} disabled={otp.some(d => !d)} className="mt-2 w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] transition-all disabled:opacity-50 flex items-center justify-center gap-3">
                   VERIFICAR AHORA
                   <Check size={20} />
                 </button>
@@ -345,17 +345,17 @@ export const AuthScreen = () => {
                   <div className="relative group cursor-pointer" onClick={() => document.getElementById('avatar-upload')?.click()}>
                     <input type="file" id="avatar-upload" accept="image/*" className="hidden" onChange={handleImageUpload} />
                     <div className={cn(
-                      "w-32 h-32 bg-wa-bg rounded-full flex items-center justify-center text-wa-text-secondary overflow-hidden border-2 border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner relative",
+                      "w-32 h-32 bg-wa-bg rounded-full flex items-center justify-center text-wa-text-secondary overflow-hidden border-2 border-wa-border group-hover:border-[#6366f1] transition-all shadow-inner relative",
                       isUploadingAvatar && "opacity-50"
                     )}>
                       {avatar ? <img src={avatar} alt="Preview" className="w-full h-full object-cover" /> : <User size={64} />}
                       {isUploadingAvatar && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <Loader2 size={32} className="text-[#007bfc] animate-spin" />
+                          <Loader2 size={32} className="text-[#6366f1] animate-spin" />
                         </div>
                       )}
                     </div>
-                    <div className="absolute bottom-1 right-1 w-10 h-10 bg-[#007bfc] text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <div className="absolute bottom-1 right-1 w-10 h-10 bg-[#6366f1] text-white rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                       <Camera size={20} />
                     </div>
                   </div>
@@ -369,7 +369,7 @@ export const AuthScreen = () => {
                       value={name} 
                       onChange={(e) => setName(e.target.value)} 
                       placeholder="¿Cómo te llamas?" 
-                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#007bfc]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[16px] text-wa-text-primary transition-all shadow-sm focus:shadow-md pr-16" 
+                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#6366f1]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[16px] text-wa-text-primary transition-all shadow-sm focus:shadow-md pr-16" 
                     />
                     <span className={cn(
                       "absolute right-4 bottom-3.5 text-[12px] font-medium transition-colors",
@@ -385,7 +385,7 @@ export const AuthScreen = () => {
                       value={about} 
                       onChange={(e) => setAbout(e.target.value)} 
                       placeholder="Tu estado actual" 
-                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#007bfc]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[15px] text-wa-text-secondary transition-all shadow-sm focus:shadow-md pr-20" 
+                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#6366f1]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[15px] text-wa-text-secondary transition-all shadow-sm focus:shadow-md pr-20" 
                     />
                     <div className="absolute right-3 bottom-3.5 flex items-center gap-2">
                       <span className={cn(
@@ -396,7 +396,7 @@ export const AuthScreen = () => {
                       </span>
                       <button 
                         onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                        className="text-wa-text-secondary hover:text-[#007bfc] transition-colors"
+                        className="text-wa-text-secondary hover:text-[#6366f1] transition-colors"
                       >
                         <Smile size={18} />
                       </button>
@@ -420,7 +420,7 @@ export const AuthScreen = () => {
                     )}
                   </div>
                 </div>
-                <button onClick={handleFinish} disabled={!name.trim()} className="mt-4 w-full bg-[#007bfc] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#005bb5] transition-all disabled:opacity-50">
+                <button onClick={handleFinish} disabled={!name.trim()} className="mt-4 w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] transition-all disabled:opacity-50">
                   COMENZAR A CHATEAR
                 </button>
               </motion.div>

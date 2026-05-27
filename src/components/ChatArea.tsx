@@ -3,13 +3,13 @@ import {
   Send, Smile, ArrowLeft, Image as ImageIcon, 
   X, Reply, Plus, Trash2, 
   FileText, File as FileIcon, Mic, StopCircle, Play, Pause, Download,
-  Lock, Phone, Video, Ban, Search, MoreVertical
+  Lock, Phone, Video, Ban, Search, MoreVertical, AlertCircle
 } from 'lucide-react';
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { uploadImage, uploadFile } from '../utils/upload';
+import { uploadImage, uploadFile, uploadVideo } from '../utils/upload';
 // import { CallView } from './CallView';
 import logo from '../assets/logo.png';
 import { Theme } from 'emoji-picker-react';
@@ -56,6 +56,7 @@ export const ChatArea = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 430);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -168,33 +169,42 @@ export const ChatArea = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'file' | 'audio') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'media' | 'file' | 'audio') => {
     const file = e.target.files?.[0];
     if (file && activeChatId) {
       setIsUploading(true);
       setShowPlusMenu(false);
       try {
-        if (type === 'image') {
-          const imageUrl = await uploadImage(file);
-          sendMessage(activeChatId, undefined, 'image', imageUrl, replyingTo?.id);
+        if (type === 'media') {
+          if (file.type.startsWith('video/')) {
+            const videoUrl = await uploadVideo(file);
+            sendMessage(activeChatId, undefined, 'video', undefined, replyingTo?.id, {
+              url: videoUrl,
+              fileName: file.name,
+              fileType: file.type
+            });
+          } else {
+            const imageUrl = await uploadImage(file);
+            sendMessage(activeChatId, undefined, 'image', imageUrl, replyingTo?.id);
+          }
         } else if (type === 'audio') {
           const audioUrl = await uploadFile(file);
           sendMessage(activeChatId, undefined, 'audio', undefined, replyingTo?.id, {
             url: audioUrl,
-            name: file.name,
-            type: file.type,
+            fileName: file.name,
+            fileType: file.type,
             duration: 0 // Podríamos intentar obtener la duración real si fuera necesario
           });
         } else {
           const fileUrl = await uploadFile(file);
           sendMessage(activeChatId, undefined, 'file', undefined, replyingTo?.id, {
             url: fileUrl,
-            name: file.name,
-            type: file.type
+            fileName: file.name,
+            fileType: file.type
           });
         }
-      } catch (error) {
-        alert('Error al subir el archivo');
+      } catch (error: any) {
+        alert(error.message || 'Error al subir el archivo');
       } finally {
         setIsUploading(false);
         if (e.target) e.target.value = ''; // Reset input
@@ -222,8 +232,8 @@ export const ChatArea = () => {
           const audioUrl = await uploadFile(audioFile);
           sendMessage(activeChatId!, undefined, 'audio', undefined, replyingTo?.id, {
             url: audioUrl,
-            name: 'Nota de voz',
-            type: 'audio/webm',
+            fileName: 'Nota de voz',
+            fileType: 'audio/webm',
             duration: recordingTime
           });
         } catch (error) {
@@ -344,12 +354,12 @@ export const ChatArea = () => {
           </div>
           <div className="flex items-center gap-4 sm:gap-6">
             {/* Branding: Logo y Título con Efecto Glow y Glassmorphism Avanzado */}
-            <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#007bfc]/10 to-purple-500/10 backdrop-blur-xl rounded-full border border-[#007bfc]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#007bfc]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group">
+            <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-purple-500/10 backdrop-blur-xl rounded-full border border-[#6366f1]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#6366f1]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group">
               <div className="relative">
                 <img src={logo} alt="Asicme" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,123,252,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(0,123,252,0.8)] transition-all duration-300" />
                 <div className="absolute inset-0 bg-blue-500/20 blur-[10px] rounded-full -z-10 animate-pulse"></div>
               </div>
-              <span className="text-[14px] font-semibold bg-gradient-to-r from-wa-text-primary to-[#007bfc] bg-clip-text text-transparent tracking-wider uppercase text-xs">ASICME CHAT</span>
+              <span className="text-[14px] font-semibold bg-gradient-to-r from-wa-text-primary to-[#6366f1] bg-clip-text text-transparent tracking-wider uppercase text-xs">ASICME CHAT</span>
             </div>
             {/* Botones de Llamada y Búsqueda */}
             <div className="flex items-center gap-3 sm:gap-4 text-wa-text-secondary mr-1 sm:mr-2">
@@ -479,6 +489,7 @@ export const ChatArea = () => {
                 onReact={(emoji: string) => addReaction(activeChatId, msg.id, emoji)} 
                 onDelete={(forEveryone: boolean) => deleteMessage(activeChatId, msg.id, forEveryone)}
                 onImageClick={setSelectedImage}
+                onVideoClick={setSelectedVideo}
               />
             );
           })}
@@ -491,7 +502,7 @@ export const ChatArea = () => {
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="bg-wa-bg mx-2 mt-2 rounded-lg border-l-4 border-wa-teal overflow-hidden flex">
                 <div className="flex-1 p-2 px-3">
                   <div className="text-[13px] font-bold text-wa-teal mb-0.5">{replyingTo.senderId === currentUser?.id ? 'Tú' : activeChat.name}</div>
-                  <div className="text-[14px] text-wa-text-secondary truncate">{replyingTo.type === 'image' ? '📷 Imagen' : replyingTo.type === 'audio' ? '🎤 Nota de voz' : replyingTo.text}</div>
+                  <div className="text-[14px] text-wa-text-secondary truncate">{replyingTo.type === 'image' ? '📷 Imagen' : replyingTo.type === 'video' ? '🎥 Video' : replyingTo.type === 'audio' ? '🎤 Nota de voz' : replyingTo.text}</div>
                 </div>
                 <button onClick={() => setReplyingTo(null)} className="p-2 text-wa-text-secondary hover:text-wa-text-primary"><X size={18} /></button>
               </motion.div>
@@ -549,7 +560,7 @@ export const ChatArea = () => {
                       <PlusMenuItem 
                         icon={<ImageIcon size={22} />} 
                         label="Fotos y videos" 
-                        bgColor="bg-[#007bfc]" 
+                        bgColor="bg-[#6366f1]" 
                         onClick={() => fileInputRef.current?.click()} 
                       />
                       <PlusMenuItem 
@@ -561,7 +572,7 @@ export const ChatArea = () => {
                     </motion.div>
                   )}
                 </AnimatePresence>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={(e) => handleFileUpload(e, 'image')} />
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={(e) => handleFileUpload(e, 'media')} />
                 <input type="file" ref={docInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'file')} />
                 <input type="file" ref={audioInputRef} className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'audio')} />
               </div>
@@ -587,6 +598,11 @@ export const ChatArea = () => {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {selectedImage && <ImageModal url={selectedImage} onClose={() => setSelectedImage(null)} />}
+        {selectedVideo && <VideoModal url={selectedVideo} onClose={() => setSelectedVideo(null)} />}
+      </AnimatePresence>
     </div>
   );
 };
@@ -600,7 +616,7 @@ const PlusMenuItem = ({ icon, label, onClick, bgColor }: any) => (
   </div>
 );
 
-const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onImageClick }: any) => {
+const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onImageClick, onVideoClick }: any) => {
   const [showActions, setShowActions] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
@@ -624,6 +640,34 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
                 <Search size={24} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
               </div>
             </div>
+            {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>}
+          </div>
+        );
+      case 'video':
+        const isUrlValid = msg.fileUrl && msg.fileUrl.startsWith('data:');
+        return (
+          <div className="space-y-1">
+            {isUrlValid ? (
+              <div 
+                className="relative group/vid cursor-pointer overflow-hidden rounded-lg bg-black/80 flex items-center justify-center min-h-[150px] min-w-[200px]"
+                onClick={() => onVideoClick(msg.fileUrl || null)}
+              >
+                <video src={msg.fileUrl} className="w-full h-auto max-h-[200px] object-cover opacity-50" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">
+                    <Play size={24} className="text-white fill-white ml-1" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="relative cursor-pointer overflow-hidden rounded-lg bg-red-900/40 border border-red-500/30 flex flex-col items-center justify-center min-h-[150px] min-w-[200px] p-4 text-center"
+                onClick={() => onVideoClick(msg.fileUrl || null)} // Permitir abrir modal para ver error detallado
+              >
+                <AlertCircle size={32} className="text-red-400 mb-2" />
+                <span className="text-red-200 text-sm font-medium">Video corrupto o cifrado fallido</span>
+              </div>
+            )}
             {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>}
           </div>
         );
@@ -652,7 +696,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
       <div className={cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px]", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"), msg.isDeleted && "bg-transparent border border-wa-border shadow-none text-wa-text-secondary")}>
         {!msg.isDeleted && <AnimatePresence>{showActions && ( <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> <div className="relative"><button onClick={() => setShowDeleteMenu(!showDeleteMenu)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={16} /></button>{showDeleteMenu && (<div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-xl border border-wa-border overflow-hidden z-50 w-40 flex flex-col"><button onClick={() => { onDelete(false); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full">Eliminar para mí</button>{isMe && <button onClick={() => { onDelete(true); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full text-red-500">Eliminar para todos</button>}</div>)}</div> </motion.div> )}</AnimatePresence>}
         <AnimatePresence>{showReactions && ( <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={cn("absolute bottom-full mb-2 bg-white rounded-full shadow-xl p-1 flex gap-1 z-30 border border-wa-border", isMe ? "right-0" : "left-0")}> {REACTIONS.map(emoji => <button key={emoji} onClick={() => { onReact(emoji); setShowReactions(false); }} className="hover:scale-125 transition-transform p-1 text-xl">{emoji}</button>)} </motion.div> )}</AnimatePresence>
-        {repliedMsg && ( <div className="mb-2 bg-black/5 rounded-lg border-l-4 border-wa-teal p-1.5 px-2 overflow-hidden"> <div className="text-[12px] font-bold text-wa-teal truncate">{repliedMsg.senderId === msg.senderId ? 'Tú' : 'Contacto'}</div> <div className="text-[13px] text-wa-text-secondary truncate italic"> {repliedMsg.type === 'image' ? '📷 Imagen' : repliedMsg.type === 'audio' ? '🎤 Nota de voz' : repliedMsg.type === 'file' ? `📄 ${repliedMsg.fileName}` : repliedMsg.text} </div> </div> )}
+        {repliedMsg && ( <div className="mb-2 bg-black/5 rounded-lg border-l-4 border-wa-teal p-1.5 px-2 overflow-hidden"> <div className="text-[12px] font-bold text-wa-teal truncate">{repliedMsg.senderId === msg.senderId ? 'Tú' : 'Contacto'}</div> <div className="text-[13px] text-wa-text-secondary truncate italic"> {repliedMsg.type === 'image' ? '📷 Imagen' : repliedMsg.type === 'video' ? '🎥 Video' : repliedMsg.type === 'audio' ? '🎤 Nota de voz' : repliedMsg.type === 'file' ? `📄 ${repliedMsg.fileName}` : repliedMsg.text} </div> </div> )}
         {renderContent()}
         <div className="flex items-center justify-end gap-1 mt-0.5"><span className="text-[11px] text-wa-text-secondary uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>{isMe && <div className={cn("flex items-center transition-colors", msg.status === 'read' ? "text-[#53bdeb]" : "text-wa-text-secondary")}><CheckAll size={16} /></div>}</div>
         {msg.reactions && Object.keys(msg.reactions).length > 0 && (
@@ -803,6 +847,71 @@ const ImageModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
           alt="Preview" 
           className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl" 
         />
+      </motion.div>
+      
+      <p className="mt-6 text-white/60 text-sm font-medium tracking-wide">Haz clic fuera para cerrar</p>
+    </motion.div>
+  );
+};
+
+const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
+  const [hasError, setHasError] = useState(false);
+  const isValidUrl = url && url.startsWith('data:');
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 md:p-10"
+      onClick={onClose}
+    >
+      <div className="absolute top-6 right-6 flex gap-4 z-[210]">
+        <a 
+          href={isValidUrl ? url : '#'} 
+          download={isValidUrl ? "video.mp4" : undefined}
+          onClick={(e) => { e.stopPropagation(); if (!isValidUrl) e.preventDefault(); }}
+          className={cn("p-3 rounded-full transition-all backdrop-blur-md text-white", isValidUrl ? "bg-white/10 hover:bg-white/20" : "bg-white/5 opacity-50 cursor-not-allowed")}
+          title={isValidUrl ? "Descargar Video" : "No disponible"}
+        >
+          <Download size={24} />
+        </a>
+        <button 
+          onClick={onClose}
+          className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"
+          title="Cerrar"
+        >
+          <X size={24} />
+        </button>
+      </div>
+
+      <motion.div 
+        initial={{ scale: 0.95, y: 10 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 10 }}
+        className="relative w-full max-w-4xl max-h-[80vh] flex items-center justify-center bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isValidUrl && !hasError ? (
+          <video 
+            src={url} 
+            controls 
+            autoPlay 
+            onError={() => setHasError(true)}
+            className="w-full h-full max-h-[80vh] outline-none"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center p-10 text-center space-y-4">
+            <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center">
+              <AlertCircle size={40} className="text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Video no disponible</h3>
+            <p className="text-white/60 max-w-md">
+              {!isValidUrl 
+                ? "El enlace del video está corrupto o no se pudo descifrar correctamente. Pídele al usuario que lo reenvíe."
+                : "El navegador no soporta este formato de video (ej. formato MKV o AVI). Por favor, usa formatos estándar como MP4."}
+            </p>
+          </div>
+        )}
       </motion.div>
       
       <p className="mt-6 text-white/60 text-sm font-medium tracking-wide">Haz clic fuera para cerrar</p>

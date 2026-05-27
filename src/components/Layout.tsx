@@ -25,9 +25,9 @@ export const Layout = () => {
       link.href = currentUser.avatar;
       document.getElementsByTagName('head')[0].appendChild(link);
       
-      document.title = `${currentUser.name} | Asicme Web`;
+      document.title = `${currentUser.name} | Asicme Chat`;
     } else {
-      document.title = 'Asicme Web';
+      document.title = 'Asicme Chat';
     }
   }, [currentUser?.avatar, currentUser?.name]);
 

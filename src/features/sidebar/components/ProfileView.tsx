@@ -55,7 +55,7 @@ export const ProfileView = () => {
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
       {/* Header Estilo WhatsApp/Asicme */}
-      <div className="h-20 sm:h-[108px] bg-[#007bfc] flex items-end px-4 sm:px-6 pb-4 text-white">
+      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -105,10 +105,10 @@ export const ProfileView = () => {
 
         {/* Sección de Nombre */}
         <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-0.5">
-          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Tu nombre</label>
+          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium">Tu nombre</label>
           <div className="flex items-center justify-between group h-10">
             {isEditingName ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1 animate-in fade-in slide-in-from-bottom-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#6366f1] pb-1 animate-in fade-in slide-in-from-bottom-1">
                 <input 
                   type="text" 
                   value={tempName}
@@ -127,7 +127,7 @@ export const ProfileView = () => {
                 <span className="text-[17px] text-wa-text-primary">{currentUser.name}</span>
                 <Pencil 
                   size={20} 
-                  className="text-wa-text-secondary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
+                  className="text-wa-text-secondary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:text-[#6366f1]" 
                   onClick={() => setIsEditingName(true)}
                 />
               </>
@@ -137,16 +137,16 @@ export const ProfileView = () => {
 
         <div className="px-5 sm:px-8 py-4 mb-7 bg-wa-bg">
           <p className="text-[13.5px] text-wa-text-secondary leading-tight">
-            Este no es un nombre de usuario ni un PIN. Este nombre será visible para tus contactos de Asicme Web.
+            Este no es un nombre de usuario ni un PIN. Este nombre será visible para tus contactos de Asicme Chat.
           </p>
         </div>
 
         {/* Sección de Info */}
         <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
-          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Info.</label>
+          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium">Info.</label>
           <div className="flex items-center justify-between group h-10">
             {isEditingAbout ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1 animate-in fade-in slide-in-from-bottom-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#6366f1] pb-1 animate-in fade-in slide-in-from-bottom-1">
                 <input 
                   type="text" 
                   value={tempAbout}
@@ -165,7 +165,7 @@ export const ProfileView = () => {
                 <span className="text-[17px] text-wa-text-primary line-clamp-1">{currentUser.about}</span>
                 <Pencil 
                   size={20} 
-                  className="text-wa-text-secondary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:text-[#007bfc]" 
+                  className="text-wa-text-secondary cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:text-[#6366f1]" 
                   onClick={() => setIsEditingAbout(true)}
                 />
               </>
@@ -175,7 +175,7 @@ export const ProfileView = () => {
 
         {/* Sección de Teléfono (Solo lectura) */}
         <div className="bg-white px-5 sm:px-8 py-4 shadow-sm">
-          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium">Teléfono</label>
+          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium">Teléfono</label>
           <div className="flex items-center h-10">
             <span className="text-[17px] text-wa-text-primary">{currentUser.phone}</span>
           </div>

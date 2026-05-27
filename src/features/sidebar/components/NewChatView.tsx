@@ -124,7 +124,7 @@ export const NewChatView = () => {
       className="absolute inset-0 z-50 bg-wa-sidebar flex flex-col"
     >
       {/* Header Dinámico */}
-      <div className="bg-[#007bfc] text-white shadow-md">
+      <div className="bg-[#6366f1] text-white shadow-md">
         <div className="h-[60px] flex items-center px-4 sm:px-6 gap-4 sm:gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -229,7 +229,7 @@ export const NewChatView = () => {
                         <img src={getAvatar(contact.user)} className="w-12 h-12 rounded-full object-cover shadow-sm" />
                         <div className="ml-4 flex-1">
                           <h3 className="text-[16px] font-medium text-wa-text-primary">{contact.nickname || contact.user?.name}</h3>
-                          <p className="text-[13px] text-wa-text-secondary truncate">{contact.user?.about || '¡Hola! Estoy usando Asicme Web.'}</p>
+                          <p className="text-[13px] text-wa-text-secondary truncate">{contact.user?.about || '¡Hola! Estoy usando Asicme Chat.'}</p>
                         </div>
                         <MessageSquare size={18} className="text-wa-text-secondary sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" />
                       </div>
@@ -250,7 +250,7 @@ export const NewChatView = () => {
                       ) : (
                         <button 
                           onClick={() => addContact(user)}
-                          className="bg-[#007bfc] text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#0066d4]"
+                          className="bg-[#6366f1] text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#0066d4]"
                         >
                           Agregar
                         </button>
@@ -280,9 +280,9 @@ export const NewChatView = () => {
                   accept="image/*" 
                   onChange={handleImageUpload} 
                 />
-                <div className="w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-wa-bg flex items-center justify-center text-wa-text-secondary border-2 border-dashed border-wa-border group-hover:border-[#007bfc] transition-all shadow-inner overflow-hidden">
+                <div className="w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-wa-bg flex items-center justify-center text-wa-text-secondary border-2 border-dashed border-wa-border group-hover:border-[#6366f1] transition-all shadow-inner overflow-hidden">
                   {isUploading ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007bfc]"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6366f1]"></div>
                   ) : groupAvatar ? (
                     <img src={groupAvatar} alt="Avatar grupo" className="w-full h-full object-cover" />
                   ) : (
@@ -296,12 +296,12 @@ export const NewChatView = () => {
 
               <div className="w-full max-w-sm space-y-8">
                 <div className="space-y-3">
-                  <label className="text-[14px] text-[#007bfc] font-medium px-1 uppercase tracking-wider">Asunto del grupo</label>
+                  <label className="text-[14px] text-[#6366f1] font-medium px-1 uppercase tracking-wider">Asunto del grupo</label>
                   <div className="relative flex items-center">
                     <input 
                       type="text" 
                       placeholder="Ej: Familia, Trabajo..." 
-                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#007bfc] outline-none py-3 text-xl transition-all font-medium"
+                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#6366f1] outline-none py-3 text-xl transition-all font-medium"
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
                       autoFocus
@@ -317,12 +317,12 @@ export const NewChatView = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[14px] text-[#007bfc] font-medium px-1 uppercase tracking-wider">Descripción (Opcional)</label>
+                  <label className="text-[14px] text-[#6366f1] font-medium px-1 uppercase tracking-wider">Descripción (Opcional)</label>
                   <div className="relative flex items-center">
                     <textarea 
                       placeholder="¿De qué trata este grupo?" 
                       rows={2}
-                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#007bfc] outline-none py-2 text-[16px] transition-all resize-none scrollbar-none"
+                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#6366f1] outline-none py-2 text-[16px] transition-all resize-none scrollbar-none"
                       value={groupDescription}
                       onChange={(e) => setGroupDescription(e.target.value)}
                     />

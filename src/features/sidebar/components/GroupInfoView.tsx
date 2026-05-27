@@ -47,7 +47,7 @@ export const GroupInfoView = () => {
         className="absolute inset-0 z-[60] bg-[#f0f2f5] flex items-center justify-center"
       >
         <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#007bfc] border-t-transparent" />
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#6366f1] border-t-transparent" />
           <p className="text-wa-text-secondary text-sm font-medium">Cargando info...</p>
         </div>
       </motion.div>
@@ -133,7 +133,7 @@ export const GroupInfoView = () => {
       className="absolute inset-0 z-[60] bg-wa-bg flex flex-col"
     >
       {/* Header */}
-      <div className="h-[108px] bg-[#007bfc] flex items-end px-6 pb-4 text-white">
+      <div className="h-[108px] bg-[#6366f1] flex items-end px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -164,7 +164,7 @@ export const GroupInfoView = () => {
             )}
             <div className="w-full h-full rounded-full overflow-hidden shadow-xl border-4 border-white transition-all group-hover:opacity-50 bg-gray-200 flex items-center justify-center">
               {isUploading ? (
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007bfc]"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6366f1]"></div>
               ) : (
                 <img 
                   src={currentGroup?.avatar || ''} 
@@ -184,10 +184,10 @@ export const GroupInfoView = () => {
 
         {/* Sección de Nombre */}
         <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
-          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium uppercase tracking-wider">Nombre del grupo</label>
+          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium uppercase tracking-wider">Nombre del grupo</label>
           <div className="flex items-center justify-between group">
             {isEditingName && isAdmin ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#6366f1] pb-1">
                 <input 
                   type="text" 
                   value={tempName}
@@ -214,10 +214,10 @@ export const GroupInfoView = () => {
 
         {/* Sección de Descripción */}
         <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
-          <label className="text-[14px] text-[#007bfc] mb-4 block font-medium uppercase tracking-wider">Descripción</label>
+          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium uppercase tracking-wider">Descripción</label>
           <div className="flex items-center justify-between group">
             {isEditingDescription && isAdmin ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#007bfc] pb-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#6366f1] pb-1">
                 <textarea 
                   value={tempDescription}
                   onChange={(e) => setTempDescription(e.target.value)}
@@ -247,7 +247,7 @@ export const GroupInfoView = () => {
         {/* Sección de Participantes */}
         <div className="bg-white shadow-sm mb-7">
           <div className="px-5 sm:px-8 py-4 flex justify-between items-center border-b border-wa-border">
-            <span className="text-[14px] text-[#007bfc] font-medium uppercase tracking-wider">{participants.length} participantes</span>
+            <span className="text-[14px] text-[#6366f1] font-medium uppercase tracking-wider">{participants.length} participantes</span>
           </div>
 
           {isAdmin && (
@@ -255,7 +255,7 @@ export const GroupInfoView = () => {
               onClick={() => setShowAddMember(true)}
               className="px-5 sm:px-8 py-4 flex items-center gap-4 hover:bg-wa-hover cursor-pointer transition-colors group"
             >
-              <div className="w-12 h-12 rounded-full bg-[#007bfc] flex items-center justify-center text-white shadow-sm">
+              <div className="w-12 h-12 rounded-full bg-[#6366f1] flex items-center justify-center text-white shadow-sm">
                 <UserPlus size={20} />
               </div>
               <span className="text-[16px] text-wa-text-primary font-medium">Añadir participante</span>
@@ -336,7 +336,7 @@ export const GroupInfoView = () => {
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="absolute inset-0 z-[70] bg-white flex flex-col"
           >
-            <div className="h-[60px] bg-[#007bfc] flex items-center px-6 gap-6 text-white shadow-md">
+            <div className="h-[60px] bg-[#6366f1] flex items-center px-6 gap-6 text-white shadow-md">
               <ArrowLeft className="cursor-pointer" onClick={() => setShowAddMember(false)} />
               <h2 className="text-[19px] font-medium">Añadir participante</h2>
             </div>

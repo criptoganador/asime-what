@@ -42,7 +42,7 @@ export interface Message {
   id: string;
   conversationId: string;
   text?: string;
-  type: 'text' | 'image' | 'system' | 'audio' | 'file';
+  type: 'text' | 'image' | 'system' | 'audio' | 'file' | 'video';
   imageUrl?: string;
   fileUrl?: string;
   fileName?: string;
@@ -148,7 +148,7 @@ interface ChatState {
   logout: () => void;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
-  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, name: string, type: string, duration?: number }) => void;
+  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }) => void;
   markMessagesRead: (chatId: string) => void;
   createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
@@ -448,7 +448,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!response.ok) throw new Error('Failed to fetch chats');
       const data = await response.json();
       if (Array.isArray(data)) {
-        set({ chats: data });
+        const { privateKeyJWK } = get();
+        const decryptedChats = await Promise.all(data.map(async (chat) => {
+          if (chat.lastMessage) {
+            try {
+              chat.lastMessage = await decryptSmartMessage(chat.lastMessage, chat.id, chat, privateKeyJWK);
+              // Simplificar multimedia para la vista de lista
+              if (chat.lastMessage.startsWith('data:image/')) chat.lastMessage = '📷 Imagen';
+              if (chat.lastMessage.startsWith('data:video/')) chat.lastMessage = '🎥 Video';
+              if (chat.lastMessage.startsWith('data:audio/')) chat.lastMessage = '🎤 Nota de voz';
+              if (chat.lastMessage.startsWith('data:application/') || chat.lastMessage.startsWith('data:text/')) chat.lastMessage = '📄 Archivo';
+            } catch (e) {
+              console.error('Error decrypting last message for chat', chat.id, e);
+            }
+          }
+          return chat;
+        }));
+        set({ chats: decryptedChats });
       } else {
         console.error('Chats data is not an array:', data);
         set({ chats: [] });
@@ -529,6 +545,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const encryptedImageUrl = await encryptSmartMessage(imageUrl, chatId, chatInfo, state.privateKeyJWK);
     const encryptedFileUrl = await encryptSmartMessage(fileData?.url, chatId, chatInfo, state.privateKeyJWK);
     
+    const { url, ...cleanFileData } = fileData || {};
+    
     socket.emit('send_message', {
       chatId,
       senderId: currentUser.id,
@@ -536,8 +554,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       type,
       imageUrl: encryptedImageUrl,
       replyToId,
-      ...fileData,
-      url: encryptedFileUrl // replace the url in fileData
+      ...cleanFileData,
+      fileUrl: encryptedFileUrl // replace the url in fileData (server expects fileUrl)
     });
     set({ replyingTo: null });
   },
@@ -569,7 +587,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       
       if (notificationsEnabled && Notification.permission === 'granted') {
         new Notification(`Nuevo mensaje`, {
-          body: message.text || (message.type === 'image' ? '📷 Imagen' : message.type === 'audio' ? '🎤 Nota de voz' : '📄 Archivo'),
+          body: message.text || (message.type === 'image' ? '📷 Imagen' : message.type === 'video' ? '🎥 Video' : message.type === 'audio' ? '🎤 Nota de voz' : '📄 Archivo'),
           icon: '/favicon.png'
         });
       }
@@ -593,7 +611,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         chat.id === chatId 
           ? { 
               ...chat, 
-              lastMessage: message.type === 'image' ? '📷 Imagen' : message.type === 'audio' ? '🎤 Nota de voz' : message.type === 'file' ? `📄 ${message.fileName}` : (message.text || ''), 
+              lastMessage: message.type === 'image' ? '📷 Imagen' : message.type === 'video' ? '🎥 Video' : message.type === 'audio' ? '🎤 Nota de voz' : message.type === 'file' ? `📄 ${message.fileName}` : (message.text || ''), 
               timestamp: new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), 
               unreadCount: activeChatId === chatId ? 0 : (chat.unreadCount || 0) + 1 
             }

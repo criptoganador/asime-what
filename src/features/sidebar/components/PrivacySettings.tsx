@@ -27,7 +27,7 @@ export const PrivacySettings = () => {
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
-      <div className="h-[108px] bg-[#007bfc] flex items-end px-6 pb-4 text-white">
+      <div className="h-[108px] bg-[#6366f1] flex items-end px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -39,7 +39,7 @@ export const PrivacySettings = () => {
 
       <div className="flex-1 overflow-y-auto bg-[#f0f2f5]">
         <div className="px-6 py-4">
-          <h3 className="text-[#007bfc] text-[14px] font-medium uppercase mb-4">Quién puede ver mi información personal</h3>
+          <h3 className="text-[#6366f1] text-[14px] font-medium uppercase mb-4">Quién puede ver mi información personal</h3>
           <p className="text-wa-text-secondary text-[13px] mb-6">Si no muestras la hora de tu últ. vez, no podrás ver la hora de últ. vez de los demás.</p>
         </div>
 

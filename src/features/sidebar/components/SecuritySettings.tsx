@@ -13,7 +13,7 @@ export const SecuritySettings = () => {
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
-      <div className="h-20 sm:h-[108px] bg-[#007bfc] flex items-end px-6 pb-4 text-white">
+      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -25,12 +25,12 @@ export const SecuritySettings = () => {
 
       <div className="flex-1 overflow-y-auto bg-wa-bg">
         <div className="p-5 sm:p-8 flex flex-col items-center text-center">
-          <div className="w-24 h-24 bg-[#007bfc]/10 rounded-full flex items-center justify-center text-[#007bfc] mb-6">
+          <div className="w-24 h-24 bg-[#6366f1]/10 rounded-full flex items-center justify-center text-[#6366f1] mb-6">
             <ShieldCheck size={48} />
           </div>
           <h3 className="text-lg font-bold text-wa-text-primary mb-2">Tu privacidad es nuestra prioridad</h3>
           <p className="text-wa-text-secondary text-sm leading-relaxed">
-            Asicme Web protege tus conversaciones con cifrado de extremo a extremo. Esto significa que tus mensajes y llamadas quedan entre tú y la persona con quien te comunicas.
+            Asicme Chat protege tus conversaciones con cifrado de extremo a extremo. Esto significa que tus mensajes y llamadas quedan entre tú y la persona con quien te comunicas.
           </p>
         </div>
 

@@ -69,9 +69,7 @@ const ChatItem = ({ index, style, items, ariaAttributes }: RowComponentProps<Row
         </div>
         <div className="flex justify-between items-center mt-1">
           <p className="text-[14px] text-wa-text-secondary truncate pr-2">
-            {chat.lastMessage?.startsWith('U2FsdGVkX1') 
-              ? decryptMessage(chat.lastMessage, chat.id) 
-              : chat.lastMessage}
+            {chat.lastMessage}
           </p>
           <div className="flex items-center gap-2">
             <Star 
@@ -303,7 +301,7 @@ export const Sidebar = () => {
                       {f === 'groups' && groupsTotal > 0 && (
                         <span className={cn(
                           "text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1.5 shadow-sm transition-colors",
-                          activeFilter === f ? "bg-white text-wa-teal" : "bg-[#007bfc] text-white"
+                          activeFilter === f ? "bg-white text-wa-teal" : "bg-[#6366f1] text-white"
                         )}>{groupsTotal}</span>
                       )}
                     </motion.span>

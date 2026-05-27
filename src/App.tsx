@@ -37,7 +37,7 @@ function App() {
           width: 40,
           height: 40,
           border: '3px solid #e5e7eb',
-          borderTopColor: '#007bfc',
+          borderTopColor: '#6366f1',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite'
         }} />

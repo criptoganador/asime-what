@@ -26,7 +26,7 @@ export const SettingsView = () => {
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
       {/* Header */}
-      <div className="h-20 sm:h-[108px] bg-[#007bfc] flex items-end px-6 pb-4 text-white">
+      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
@@ -64,7 +64,7 @@ export const SettingsView = () => {
         </div>
 
         <div className="text-center py-4 mb-8">
-          <p className="text-[12px] text-wa-text-secondary uppercase font-bold tracking-widest">Asicme Web</p>
+          <p className="text-[12px] text-wa-text-secondary uppercase font-bold tracking-widest">Asicme Chat</p>
           <p className="text-[12px] text-wa-text-secondary/60 mt-1">Versión 1.0.0</p>
         </div>
       </div>
