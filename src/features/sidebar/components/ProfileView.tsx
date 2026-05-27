@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Camera, Pencil, Check, Loader2, X } from 'lucide-react';
+import { ArrowLeft, Camera, Pencil, Check, Loader2, X, Smile } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { uploadImage } from '../../../utils/upload';
+import EmojiPicker from 'emoji-picker-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -18,18 +19,23 @@ export const ProfileView = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [tempName, setTempName] = useState(currentUser?.name || '');
   const [tempAbout, setTempAbout] = useState(currentUser?.about || '');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   if (!currentUser) return null;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('¡Ups! Esta foto pesa más de 2MB. Por favor, elige una más ligera para mantener el chat rápido. 🚀');
+        return;
+      }
       setIsUploading(true);
       try {
         const imageUrl = await uploadImage(file);
         await updateProfile({ avatar: imageUrl });
-      } catch (error) {
-        alert('Error al subir la imagen');
+      } catch (error: any) {
+        alert(error.message || 'Error al subir la imagen');
       } finally {
         setIsUploading(false);
       }
@@ -146,18 +152,41 @@ export const ProfileView = () => {
           <label className="text-[14px] text-[#6366f1] mb-4 block font-medium">Info.</label>
           <div className="flex items-center justify-between group h-10">
             {isEditingAbout ? (
-              <div className="flex-1 flex items-center border-b-2 border-[#6366f1] pb-1 animate-in fade-in slide-in-from-bottom-1">
+              <div className="flex-1 flex items-center border-b-2 border-[#6366f1] pb-1 animate-in fade-in slide-in-from-bottom-1 relative">
                 <input 
                   type="text" 
                   value={tempAbout}
                   onChange={(e) => setTempAbout(e.target.value)}
                   autoFocus
+                  maxLength={130}
                   onKeyDown={(e) => e.key === 'Enter' && saveAbout()}
-                  className="flex-1 outline-none text-[17px] bg-transparent"
+                  className="flex-1 outline-none text-[17px] bg-transparent pr-8"
                 />
+                <Smile 
+                  className="text-wa-text-secondary cursor-pointer hover:text-[#6366f1] transition-colors absolute right-[70px]" 
+                  size={20} 
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                />
+                {showEmojiPicker && (
+                  <div className="absolute z-50 right-0 top-10 shadow-2xl rounded-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)}></div>
+                    <div className="relative z-50">
+                      <EmojiPicker 
+                        onEmojiClick={(emojiData) => {
+                          if (tempAbout.length + emojiData.emoji.length <= 130) {
+                            setTempAbout(prev => prev + emojiData.emoji);
+                          }
+                          setShowEmojiPicker(false);
+                        }}
+                        width={300}
+                        height={400}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-3 ml-2">
-                  <X className="text-wa-text-secondary cursor-pointer hover:text-red-500 transition-colors" size={20} onClick={() => { setTempAbout(currentUser.about); setIsEditingAbout(false); }} />
-                  <Check className="text-wa-teal cursor-pointer hover:scale-110 transition-transform" size={20} onClick={saveAbout} />
+                  <X className="text-wa-text-secondary cursor-pointer hover:text-red-500 transition-colors" size={20} onClick={() => { setTempAbout(currentUser.about); setIsEditingAbout(false); setShowEmojiPicker(false); }} />
+                  <Check className="text-wa-teal cursor-pointer hover:scale-110 transition-transform" size={20} onClick={() => { saveAbout(); setShowEmojiPicker(false); }} />
                 </div>
               </div>
             ) : (

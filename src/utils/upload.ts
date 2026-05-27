@@ -42,3 +42,29 @@ export const uploadVideo = async (file: File): Promise<string> => {
     throw error;
   }
 };
+
+export const uploadAudio = async (file: File): Promise<string> => {
+  try {
+    return await fileToBase64(file, MAX_VIDEO_SIZE);
+  } catch (error) {
+    console.error('Error in uploadAudio:', error);
+    throw error;
+  }
+};
+
+export const getAudioDuration = (file: File): Promise<number> => {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    const url = URL.createObjectURL(file);
+    audio.addEventListener('loadedmetadata', () => {
+      const dur = audio.duration;
+      resolve(Number.isFinite(dur) ? Math.round(dur) : 0);
+      URL.revokeObjectURL(url);
+    });
+    audio.addEventListener('error', () => {
+      resolve(0);
+      URL.revokeObjectURL(url);
+    });
+    audio.src = url;
+  });
+};

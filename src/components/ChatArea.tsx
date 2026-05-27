@@ -9,7 +9,7 @@ import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
-import { uploadImage, uploadFile, uploadVideo } from '../utils/upload';
+import { uploadImage, uploadFile, uploadVideo, uploadAudio, getAudioDuration } from '../utils/upload';
 // import { CallView } from './CallView';
 import logo from '../assets/logo.png';
 import { Theme } from 'emoji-picker-react';
@@ -188,12 +188,13 @@ export const ChatArea = () => {
             sendMessage(activeChatId, undefined, 'image', imageUrl, replyingTo?.id);
           }
         } else if (type === 'audio') {
-          const audioUrl = await uploadFile(file);
+          const audioUrl = await uploadAudio(file);
+          const duration = await getAudioDuration(file);
           sendMessage(activeChatId, undefined, 'audio', undefined, replyingTo?.id, {
             url: audioUrl,
             fileName: file.name,
             fileType: file.type,
-            duration: 0 // Podríamos intentar obtener la duración real si fuera necesario
+            duration: duration
           });
         } else {
           const fileUrl = await uploadFile(file);
@@ -229,12 +230,13 @@ export const ChatArea = () => {
         
         setIsUploading(true);
         try {
-          const audioUrl = await uploadFile(audioFile);
+          const audioUrl = await uploadAudio(audioFile);
+          const duration = await getAudioDuration(audioFile);
           sendMessage(activeChatId!, undefined, 'audio', undefined, replyingTo?.id, {
             url: audioUrl,
             fileName: 'Nota de voz',
             fileType: 'audio/webm',
-            duration: recordingTime
+            duration: duration
           });
         } catch (error) {
           alert('Error al enviar la nota de voz');
@@ -737,18 +739,28 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(msg.duration || 0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const { chats } = useChatStore();
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const { chats, currentUser } = useChatStore();
 
+  const isMe = msg.senderId === currentUser?.id;
   const chat = chats.find(c => c.id === msg.conversationId);
-  const avatar = msg.senderId === useChatStore.getState().currentUser?.id 
-    ? useChatStore.getState().currentUser?.avatar 
-    : chat?.avatar || 'https://i.pravatar.cc/150?u=voice';
+  const avatar = isMe ? currentUser?.avatar : chat?.avatar || 'https://i.pravatar.cc/150?u=voice';
 
   const togglePlay = () => {
     if (audioRef.current) {
       if (isPlaying) audioRef.current.pause();
       else audioRef.current.play();
       setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (progressRef.current && audioRef.current && duration) {
+      const rect = progressRef.current.getBoundingClientRect();
+      const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const newTime = percent * duration;
+      audioRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
     }
   };
 
@@ -759,37 +771,53 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = (currentTime / (duration || 1)) * 100;
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const themeColor = isMe ? "bg-emerald-600" : "bg-[#6366f1]";
 
   return (
-    <div className="flex items-center gap-3 min-w-[240px] py-1">
-      <div className="relative">
-        <img src={avatar} className="w-12 h-12 rounded-full object-cover border border-wa-border shadow-sm" alt="" />
-        <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-wa-teal">
-          <Mic size={14} />
+    <div className="flex items-center gap-3.5 min-w-[260px] py-1.5 px-1 select-none">
+      <div className="relative shrink-0">
+        <img src={avatar} className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm" alt="Avatar" draggable={false} />
+        <div className={cn("absolute -bottom-1 -right-1 rounded-full p-1 shadow-md text-white border border-white", themeColor)}>
+          <Mic size={12} />
         </div>
       </div>
       
       <button 
         onClick={togglePlay} 
-        className="text-wa-text-secondary hover:text-wa-text-primary transition-all active:scale-90"
+        className={cn(
+          "shrink-0 w-[42px] h-[42px] flex items-center justify-center rounded-full transition-transform active:scale-95 text-white shadow-md hover:shadow-lg",
+          themeColor
+        )}
       >
-        {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
+        {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
       </button>
 
-      <div className="flex-1 flex flex-col gap-1">
-        <div className="h-1 bg-wa-text-secondary/20 rounded-full relative overflow-hidden cursor-pointer group">
+      <div className="flex-1 flex flex-col justify-center gap-1.5 mt-0.5">
+        <div 
+          ref={progressRef}
+          onClick={handleSeek}
+          className="h-2 bg-black/10 rounded-full relative cursor-pointer group flex items-center"
+        >
+          {/* Active Track */}
           <div 
-            className="absolute h-full bg-wa-teal transition-all duration-100 ease-linear"
+            className={cn("absolute h-full transition-all duration-75 ease-linear rounded-full", themeColor)}
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
-          <div className="absolute h-full w-full bg-transparent group-hover:bg-wa-teal/10" />
+          {/* Drag Knob */}
+          <div 
+            className={cn(
+              "absolute w-3.5 h-3.5 rounded-full shadow-md transition-all duration-75 ease-linear transform -translate-x-1/2 scale-100",
+              themeColor
+            )}
+            style={{ left: `${Math.min(progress, 100)}%` }}
+          />
         </div>
         <div className="flex justify-between items-center px-0.5">
-          <span className="text-[10px] text-wa-text-secondary font-mono tracking-tighter">
+          <span className="text-[11px] font-semibold text-black/50 tabular-nums">
             {formatTime(currentTime)}
           </span>
-          <span className="text-[10px] text-wa-text-secondary font-mono tracking-tighter">
+          <span className="text-[11px] font-semibold text-black/50 tabular-nums">
             {formatTime(duration)}
           </span>
         </div>

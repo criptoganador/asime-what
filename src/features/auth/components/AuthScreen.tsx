@@ -76,6 +76,10 @@ export const AuthScreen = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('¡Ups! Esta foto pesa más de 2MB. Por favor, elige una más ligera para mantener el chat rápido. 🚀');
+        return;
+      }
       setIsUploadingAvatar(true);
       try {
         const imageUrl = await uploadImage(file);
@@ -256,7 +260,7 @@ export const AuthScreen = () => {
                           setCountryCode(e.target.value);
                           setPhone(formatWithLib(phone, e.target.value));
                         }}
-                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#6366f1] outline-none py-3.5 px-3 text-[17px] rounded-t-xl transition-all appearance-none cursor-pointer font-medium"
+                        className="w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3.5 px-4 text-[17px] rounded-xl transition-all duration-300 appearance-none cursor-pointer font-medium shadow-sm focus:shadow-lg"
                       >
                         <option value="+34">🇪🇸 +34</option>
                         <option value="+58">🇻🇪 +58</option>
@@ -274,7 +278,7 @@ export const AuthScreen = () => {
                         value={phone}
                         onChange={(e) => setPhone(formatWithLib(e.target.value, countryCode))}
                         placeholder="Número de móvil"
-                        className="w-full bg-wa-bg border-b-2 border-transparent focus:border-[#6366f1] outline-none py-3.5 pl-12 pr-12 text-[18px] rounded-t-xl transition-all"
+                        className="w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 focus:shadow-lg outline-none py-3.5 pl-12 pr-12 text-[18px] rounded-xl transition-all duration-300 shadow-sm"
                       />
                       <div className="absolute right-4 top-1/2 -translate-y-1/2">
                         {isChecking ? (
@@ -329,7 +333,7 @@ export const AuthScreen = () => {
                 </div>
                 <div className="flex justify-center gap-3">
                   {otp.map((digit, i) => (
-                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} className="w-10 h-14 sm:w-12 sm:h-16 bg-wa-bg border-b-2 border-wa-border focus:border-[#6366f1] outline-none text-center text-xl sm:text-2xl font-bold rounded-t-xl transition-all shadow-sm" />
+                    <input key={i} id={`otp-${i}`} type="text" maxLength={1} value={digit} onPaste={handlePaste} onChange={(e) => handleOtpChange(i, e.target.value)} onKeyDown={(e) => handleKeyDown(i, e)} className="w-10 h-14 sm:w-12 sm:h-16 bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none text-center text-xl sm:text-2xl font-bold rounded-xl transition-all duration-300 shadow-sm focus:shadow-lg" />
                   ))}
                 </div>
                 <button onClick={() => handleVerifyOtp()} disabled={otp.some(d => !d)} className="mt-2 w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] transition-all disabled:opacity-50 flex items-center justify-center gap-3">
@@ -369,7 +373,7 @@ export const AuthScreen = () => {
                       value={name} 
                       onChange={(e) => setName(e.target.value)} 
                       placeholder="¿Cómo te llamas?" 
-                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#6366f1]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[16px] text-wa-text-primary transition-all shadow-sm focus:shadow-md pr-16" 
+                      className="w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 focus:shadow-lg outline-none py-3.5 px-4 rounded-xl text-[16px] text-wa-text-primary transition-all duration-300 shadow-sm pr-16" 
                     />
                     <span className={cn(
                       "absolute right-4 bottom-3.5 text-[12px] font-medium transition-colors",
@@ -385,7 +389,7 @@ export const AuthScreen = () => {
                       value={about} 
                       onChange={(e) => setAbout(e.target.value)} 
                       placeholder="Tu estado actual" 
-                      className="w-full bg-[#f4f7fa] border-2 border-transparent focus:border-[#6366f1]/30 focus:bg-white outline-none py-3.5 px-4 rounded-xl text-[15px] text-wa-text-secondary transition-all shadow-sm focus:shadow-md pr-20" 
+                      className="w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 focus:shadow-lg outline-none py-3.5 px-4 rounded-xl text-[15px] text-wa-text-secondary transition-all duration-300 shadow-sm pr-20" 
                     />
                     <div className="absolute right-3 bottom-3.5 flex items-center gap-2">
                       <span className={cn(
