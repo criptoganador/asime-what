@@ -48,7 +48,7 @@ export const Layout = () => {
       )}>
         <AnimatePresence mode="wait">
           {/* Todas estas vistas comparten el Sidebar como contenedor base */}
-          {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info' || view === 'security') && (
+          {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info' || view === 'security' || view === 'create-group') && (
             <motion.div 
               key="sidebar-group"
               initial={{ opacity: 0, x: -20 }}

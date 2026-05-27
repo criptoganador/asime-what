@@ -4,6 +4,7 @@ import { ArrowLeft, Search, UserPlus, MessageSquare, Check, Users, X } from 'luc
 import { useChatStore } from '../store/useChatStore';
 import { AddContactView } from './AddContactView';
 import { API_URL } from '../../../config';
+import { compressAvatar } from '../../../utils/upload';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -11,7 +12,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const NewChatView = () => {
+export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | 'group-name' } = {}) => {
   const { setView, currentUser, contacts, fetchContacts, startChat, createGroup } = useChatStore();
   const [tab, setTab] = useState<'contacts' | 'search'>('contacts');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -21,7 +22,7 @@ export const NewChatView = () => {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   
   // Estados para el flujo interno de creación de grupo
-  const [step, setStep] = useState<'list' | 'group-name'>('list');
+  const [step, setStep] = useState<'list' | 'group-name'>(initialStep);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
@@ -72,23 +73,21 @@ export const NewChatView = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-      const response = await fetch(`${API_URL}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      setGroupAvatar(data.imageUrl);
-    } catch (error) {
-      console.error('Error uploading image:', error);
-    } finally {
-      setIsUploading(false);
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('La imagen es demasiado grande. Selecciona una menor a 10MB.');
+        return;
+      }
+      setIsUploading(true);
+      try {
+        const base64Avatar = await compressAvatar(file);
+        setGroupAvatar(base64Avatar);
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        alert('El archivo es demasiado grande o hubo un error.');
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 

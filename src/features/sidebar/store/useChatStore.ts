@@ -118,7 +118,7 @@ interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>;
   activeChatId: string | null;
-  view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security';
+  view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security' | 'create-group';
   viewingGroup: Chat | null;
   isAuthenticated: boolean;
   isValidatingSession: boolean;
@@ -132,7 +132,7 @@ interface ChatState {
   isDarkMode: boolean;
   privateKeyJWK: string | null;
   toggleDarkMode: () => void;
-  setView: (view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security') => void;
+  setView: (view: 'chats' | 'status' | 'settings' | 'profile' | 'new-chat' | 'add-contact' | 'group-info' | 'privacy' | 'security' | 'create-group') => void;
   setViewingGroup: (group: Chat | null) => void;
   setActiveChat: (id: string | null) => void;
   setChats: (chats: Chat[]) => void;
@@ -152,6 +152,7 @@ interface ChatState {
   markMessagesRead: (chatId: string) => void;
   createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
+  clearChat: (chatId: string) => void;
   updateGroup: (chatId: string, data: { name?: string; avatar?: string; description?: string }) => Promise<void>;
   updateProfile: (data: { name?: string; avatar?: string; about?: string }) => Promise<void>;
   statuses: GroupedStatus[];
@@ -623,6 +624,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     });
     set({ replyingTo: null });
   },
+  clearChat: (chatId: string) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    socket.emit('clear_chat', { chatId, userId: currentUser.id });
+  },
   deleteMessage: (chatId, messageId, forEveryone) => {
     const { currentUser } = get();
     if (!currentUser) return;
@@ -724,6 +730,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       setView('chats');
     } catch (error) {
       console.error('Error creating group:', error);
+      alert('Error al crear el grupo. Es posible que la foto sea demasiado grande o haya un problema de conexión.');
     }
   },
   deleteChat: async (chatId) => {
@@ -967,6 +974,12 @@ socket.on('message_deleted', ({ chatId, messageId, forEveryone, userId }) => {
       }));
     }
   }
+});
+
+socket.on('chat_cleared', ({ chatId }) => {
+  useChatStore.setState((state) => ({
+    messages: { ...state.messages, [chatId]: [] }
+  }));
 });
 
 socket.on('incoming_call', (call) => {

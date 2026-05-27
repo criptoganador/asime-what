@@ -1,4 +1,4 @@
-import { MessageSquare, CircleDashed, Settings, UserCircle, LogOut } from 'lucide-react';
+import { MessageSquare, CircleDashed, Settings, UserCircle, LogOut, Users } from 'lucide-react';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -68,6 +68,12 @@ export const NavRail = () => {
           active={view === 'status'} 
           onClick={() => setView('status')} 
           tooltip="Estados" 
+        />
+        <NavItem 
+          icon={Users} 
+          active={view === 'create-group'} 
+          onClick={() => setView('create-group')} 
+          tooltip="Crear Grupo" 
         />
       </div>
       

@@ -67,7 +67,7 @@ app.use(compression());
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  maxHttpBufferSize: 1e7, // 10 MB payload limit for E2EE Base64 Media
+  maxHttpBufferSize: 5e7, // 50 MB payload limit for E2EE Base64 Media
   cors: {
     origin: process.env.ALLOWED_ORIGIN || [
       "http://localhost:5173",
@@ -86,7 +86,8 @@ app.use(cors({
   ],
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Anti-Spam Nivel Enterprise: Rate Limiting para APIs REST
 const apiLimiter = rateLimit({
@@ -251,6 +252,20 @@ io.on('connection', (socket) => {
       io.to(chatId).emit('message_reaction', { chatId, messageId, emoji, userId });
     } catch (error) {
       console.error('Error al guardar reacción:', error);
+    }
+  });
+
+  socket.on('clear_chat', async ({ chatId, userId }) => {
+    try {
+      await db.execute(sql`
+        UPDATE "messages" 
+        SET "deleted_for" = COALESCE("deleted_for", '[]'::jsonb) || ${JSON.stringify([userId])}::jsonb 
+        WHERE "conversation_id" = ${chatId} 
+        AND NOT (COALESCE("deleted_for", '[]'::jsonb) @> ${JSON.stringify(userId)}::jsonb)
+      `);
+      io.to(userId).emit('chat_cleared', { chatId });
+    } catch (error) {
+      console.error('Error al vaciar chat:', error);
     }
   });
 

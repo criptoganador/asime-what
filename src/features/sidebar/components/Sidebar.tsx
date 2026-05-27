@@ -391,6 +391,7 @@ export const Sidebar = () => {
       >
         {view === 'profile' && <ProfileView />}
         {view === 'new-chat' && <NewChatView />}
+        {view === 'create-group' && <NewChatView initialStep="group-name" />}
         {view === 'add-contact' && <AddContactView onBack={() => setView('chats')} />}
         {view === 'group-info' && <GroupInfoView />}
 

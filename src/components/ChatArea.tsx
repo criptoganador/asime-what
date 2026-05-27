@@ -3,7 +3,7 @@ import {
   Send, Smile, ArrowLeft, Image as ImageIcon, 
   X, Reply, Plus, Trash2, 
   FileText, File as FileIcon, Mic, StopCircle, Play, Pause, Download,
-  Lock, Phone, PhoneOff, Video, Ban, Search, MoreVertical, AlertCircle
+  Lock, Phone, PhoneOff, Video, Ban, Search, MoreVertical, AlertCircle, Info
 } from 'lucide-react';
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -341,9 +341,12 @@ export const ChatArea = () => {
         </div>
 
         <div className="h-[56px] sm:h-[60px] bg-wa-sidebar flex items-center justify-between px-2 sm:px-4 py-2 shadow-sm z-10 border-b border-wa-border relative">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <ArrowLeft className="md:hidden cursor-pointer" onClick={closeChat} />
-            <div className="relative cursor-pointer" onClick={() => { if (activeChat.isGroup) { setViewingGroup(activeChat); setView('group-info'); } }}>
+          <div 
+            className={cn("flex items-center gap-2 sm:gap-3", activeChat.isGroup && "cursor-pointer hover:bg-black/5 p-1 -ml-1 rounded-lg transition-colors")} 
+            onClick={() => { if (activeChat.isGroup) { setViewingGroup(activeChat); setView('group-info'); } }}
+          >
+            <ArrowLeft className="md:hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); closeChat(); }} />
+            <div className="relative">
               <img src={activeChat.avatar} className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover" alt="" />
               {activeChat.isOnline && !activeChat.isGroup && <div className="absolute bottom-0 right-0 w-3 h-3 bg-wa-green border-2 border-white rounded-full"></div>}
             </div>
@@ -365,7 +368,7 @@ export const ChatArea = () => {
             </div>
             {/* Botones de Llamada y Búsqueda */}
             <div className="flex items-center gap-3 sm:gap-4 text-wa-text-secondary mr-1 sm:mr-2">
-              {!isSmallScreen ? (
+              {!isSmallScreen && (
                 <>
                   <Search 
                     size={20} 
@@ -377,60 +380,96 @@ export const ChatArea = () => {
                   />
                   <Video size={20} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => callUser(activeChatId!, 'video', activeChat?.name, activeChat?.avatar)} />
                   <Phone size={19} className="cursor-pointer hover:text-wa-teal transition-colors" onClick={() => callUser(activeChatId!, 'voice', activeChat?.name, activeChat?.avatar)} />
+                  {activeChat.isGroup && (
+                    <Info 
+                      size={20} 
+                      className="cursor-pointer hover:text-wa-teal transition-colors ml-1" 
+                      onClick={() => { setViewingGroup(activeChat); setView('group-info'); }}
+                    />
+                  )}
                 </>
-              ) : (
-                <div className="relative">
-                  <MoreVertical 
-                    size={20} 
-                    className="cursor-pointer hover:text-wa-teal transition-colors" 
-                    onClick={() => setShowHeaderMenu(!showHeaderMenu)} 
-                  />
-                  <AnimatePresence>
-                    {showHeaderMenu && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
-                        <motion.div 
-                          initial={{ opacity: 0, scale: 0.9, y: -10, x: 10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-                          exit={{ opacity: 0, scale: 0.9, y: -10, x: 10 }}
-                          className="absolute top-10 right-0 w-48 bg-white rounded-xl shadow-2xl py-2 z-50 border border-wa-border overflow-hidden"
-                        >
-                          <button 
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
-                            onClick={() => {
-                              setIsSearching(!isSearching);
-                              setShowHeaderMenu(false);
-                            }}
-                          >
-                            <Search size={18} />
-                            <span>Buscar en el chat</span>
-                          </button>
-                          <button 
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
-                            onClick={() => {
-                              callUser(activeChatId!, 'video', activeChat?.name, activeChat?.avatar);
-                              setShowHeaderMenu(false);
-                            }}
-                          >
-                            <Video size={18} />
-                            <span>Video llamada</span>
-                          </button>
-                          <button 
-                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
-                            onClick={() => {
-                              callUser(activeChatId!, 'voice', activeChat?.name, activeChat?.avatar);
-                              setShowHeaderMenu(false);
-                            }}
-                          >
-                            <Phone size={18} />
-                            <span>Llamada de voz</span>
-                          </button>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
               )}
+              
+              <div className="relative ml-2 sm:ml-4">
+                <MoreVertical 
+                  size={20} 
+                  className="cursor-pointer hover:text-wa-teal transition-colors" 
+                  onClick={() => setShowHeaderMenu(!showHeaderMenu)} 
+                />
+                <AnimatePresence>
+                  {showHeaderMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowHeaderMenu(false)} />
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.9, y: -10, x: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: -10, x: 10 }}
+                        className="absolute top-10 right-0 w-48 bg-white rounded-xl shadow-2xl py-2 z-50 border border-wa-border overflow-hidden"
+                      >
+                        {isSmallScreen && activeChat.isGroup && (
+                          <button 
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                            onClick={() => {
+                              setShowHeaderMenu(false);
+                              setViewingGroup(activeChat); 
+                              setView('group-info');
+                            }}
+                          >
+                            <Info size={16} />
+                            <span>Info. del grupo</span>
+                          </button>
+                        )}
+                        {isSmallScreen && (
+                          <>
+                            <button 
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                              onClick={() => {
+                                setIsSearching(!isSearching);
+                                setShowHeaderMenu(false);
+                              }}
+                            >
+                              <Search size={18} />
+                              <span>Buscar en el chat</span>
+                            </button>
+                            <button 
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                              onClick={() => {
+                                callUser(activeChatId!, 'video', activeChat?.name, activeChat?.avatar);
+                                setShowHeaderMenu(false);
+                              }}
+                            >
+                              <Video size={18} />
+                              <span>Video llamada</span>
+                            </button>
+                            <button 
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-wa-bg text-wa-text-primary text-[14.5px] transition-colors"
+                              onClick={() => {
+                                callUser(activeChatId!, 'voice', activeChat?.name, activeChat?.avatar);
+                                setShowHeaderMenu(false);
+                              }}
+                            >
+                              <Phone size={18} />
+                              <span>Llamada de voz</span>
+                            </button>
+                          </>
+                        )}
+                        <button 
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 text-red-500 text-[14.5px] transition-colors"
+                          onClick={() => {
+                            setShowHeaderMenu(false);
+                            if (window.confirm('¿Estás seguro de vaciar el chat? Se eliminarán todos los mensajes solo para ti.')) {
+                              useChatStore.getState().clearChat(activeChatId!);
+                            }
+                          }}
+                        >
+                          <Trash2 size={16} />
+                          <span>Vaciar chat</span>
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </div>
