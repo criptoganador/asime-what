@@ -1,5 +1,5 @@
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
-const MAX_VIDEO_SIZE = 16 * 1024 * 1024; // 16 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10 MB limit in server (maxHttpBufferSize)
 
 const fileToBase64 = (file: File, maxSize: number = MAX_FILE_SIZE): Promise<string> => {
   return new Promise((resolve, reject) => {

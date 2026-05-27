@@ -478,7 +478,7 @@ export const ChatArea = () => {
           )}
           {filteredMessages.map((msg, index) => {
             const isMe = msg.senderId === currentUser?.id;
-            const showTail = index === 0 || currentMessages[index - 1].senderId !== msg.senderId;
+            const showTail = index === 0 || filteredMessages[index - 1].senderId !== msg.senderId;
             const repliedMsg = msg.replyToId ? currentMessages.find(m => m.id === msg.replyToId) : null;
             return (
               <MessageBubble 
@@ -492,6 +492,7 @@ export const ChatArea = () => {
                 onDelete={(forEveryone: boolean) => deleteMessage(activeChatId, msg.id, forEveryone)}
                 onImageClick={setSelectedImage}
                 onVideoClick={setSelectedVideo}
+                searchQuery={searchQuery}
               />
             );
           })}
@@ -575,7 +576,7 @@ export const ChatArea = () => {
                   )}
                 </AnimatePresence>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*,video/*" onChange={(e) => handleFileUpload(e, 'media')} />
-                <input type="file" ref={docInputRef} className="hidden" onChange={(e) => handleFileUpload(e, 'file')} />
+                <input type="file" ref={docInputRef} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv" onChange={(e) => handleFileUpload(e, 'file')} />
                 <input type="file" ref={audioInputRef} className="hidden" accept="audio/*" onChange={(e) => handleFileUpload(e, 'audio')} />
               </div>
             </div>
@@ -680,12 +681,26 @@ const PlusMenuItem = ({ icon, label, onClick, bgColor }: any) => (
   </div>
 );
 
-const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onImageClick, onVideoClick }: any) => {
+const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onImageClick, onVideoClick, searchQuery }: any) => {
   const [showActions, setShowActions] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const renderHighlightedText = (text: string) => {
+    if (!searchQuery || !text) return text;
+    const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) => 
+          part.toLowerCase() === searchQuery.toLowerCase() 
+            ? <span key={i} className="bg-yellow-400 text-black px-0.5 rounded">{part}</span> 
+            : part
+        )}
+      </>
+    );
+  };
 
   const renderContent = () => {
     if (msg.isDeleted) {
@@ -732,7 +747,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
                 <span className="text-red-200 text-sm font-medium">Video corrupto o cifrado fallido</span>
               </div>
             )}
-            {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>}
+            {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{renderHighlightedText(msg.text)}</p>}
           </div>
         );
       case 'file':
@@ -757,7 +772,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
           </div>
         );
       default:
-        return <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>;
+        return <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text ? renderHighlightedText(msg.text) : ''}</p>;
     }
   };
 

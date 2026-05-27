@@ -227,9 +227,34 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         style={{ height: '100vh' }}
       >
         <ParticipantMonitor onCallEmpty={handleCallEmptyGraceful} onParticipantsChange={setActiveParticipantNames} />
-        <div className={`lk-video-wrapper w-full h-full ${isMinimized ? 'pointer-events-none' : ''}`}>
-          <VideoConference />
-        </div>
+        {video ? (
+          <div className={`lk-video-wrapper w-full h-full ${isMinimized ? 'pointer-events-none' : ''}`}>
+            <VideoConference />
+          </div>
+        ) : (
+          <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0b141a] to-[#111b21] ${isMinimized ? 'pointer-events-none' : ''}`}>
+            <div className="relative flex flex-col items-center">
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1] }} 
+                transition={{ duration: 2, repeat: Infinity }} 
+                className="absolute inset-0 bg-wa-teal/20 rounded-full blur-xl" 
+              />
+              <img 
+                src={chatAvatar} 
+                className={`${isMinimized ? 'w-24 h-24' : 'w-40 h-40'} rounded-full object-cover border-4 border-wa-teal/30 relative z-10 shadow-2xl transition-all`} 
+                alt="" 
+              />
+              {!isMinimized && (
+                <>
+                  <h2 className="text-3xl font-semibold text-white mt-6">{chatName}</h2>
+                  <p className="text-wa-teal font-medium mt-2">
+                    {activeParticipantNames.length > 1 ? `${activeParticipantNames.length} participantes en llamada` : 'Llamada de voz en curso'}
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         <RoomAudioRenderer />
         
         {!isMinimized && (
