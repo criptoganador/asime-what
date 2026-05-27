@@ -27,7 +27,8 @@ app.set('trust proxy', 1); // Confiar en el proxy de Render
 // Seguridad: Helmet
 app.use(helmet({
   contentSecurityPolicy: false, // Desactivar CSP si causa problemas con LiveKit/Socket.io, o configurar específicamente
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false // Permitir cargar imágenes cross-origin
 }));
 
 // Rendimiento: Gzip Compression
@@ -336,10 +337,11 @@ app.get('/api/get-livekit-token', async (req, res) => {
     return res.status(400).json({ error: 'Faltan parámetros roomName o participantName' });
   }
 
-  const apiKey = process.env.LIVEKIT_API_KEY;
-  const apiSecret = process.env.LIVEKIT_API_SECRET;
+  const apiKey = process.env.LIVEKIT_API_KEY?.trim();
+  const apiSecret = process.env.LIVEKIT_API_SECRET?.trim();
 
   if (!apiKey || !apiSecret) {
+    console.error('Faltan claves de LiveKit en el .env');
     return res.status(500).json({ error: 'LiveKit no está configurado en las variables de entorno' });
   }
 

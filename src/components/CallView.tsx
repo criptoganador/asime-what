@@ -62,8 +62,9 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         setStatus('Conectando...');
 
         // 3. Fetch token only if hardware is OK
+        const safeParticipantName = participantName.replace(/[^a-zA-Z0-9_-]/g, '_');
         const resp = await fetch(
-          `${API_URL}/api/get-livekit-token?roomName=${roomName}&participantName=${participantName}`
+          `${API_URL}/api/get-livekit-token?roomName=${roomName}&participantName=${encodeURIComponent(safeParticipantName)}`
         );
         const data = await resp.json();
         setToken(data.token);

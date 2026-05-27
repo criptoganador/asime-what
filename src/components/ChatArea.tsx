@@ -284,7 +284,7 @@ export const ChatArea = () => {
             AsicMe Chat
           </span>
         </div>
-        <h1 className="text-3xl font-light text-wa-text-primary mb-4 relative z-10 mt-10">Asicme Web</h1>
+        <h1 className="text-3xl font-light text-wa-text-primary mb-4 relative z-10 mt-10">Asicme Chat</h1>
         <p className="text-wa-text-secondary max-w-md leading-relaxed relative z-10">
           Envía y recibe mensajes sin necesidad de mantener tu teléfono conectado.
         </p>
