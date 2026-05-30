@@ -71,7 +71,7 @@ const io = new Server(httpServer, {
   cors: {
     origin: process.env.ALLOWED_ORIGIN || [
       "http://localhost:5173",
-      "https://asimechat-frontend.onrender.com"
+      "https://asime-what-frontend.onrender.com"
     ],
     methods: ["GET", "POST"]
   }
@@ -82,7 +82,7 @@ const port = process.env.PORT || 3001;
 app.use(cors({
   origin: process.env.ALLOWED_ORIGIN || [
     "http://localhost:5173",
-    "https://asimechat-frontend.onrender.com"
+    "https://asime-what-frontend.onrender.com"
   ],
   credentials: true
 }));
@@ -988,7 +988,7 @@ app.post('/api/admin/cleanup', async (req, res) => {
 });
 
 httpServer.listen(port, () => {
-  const url = process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`;
+  const url = process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend-shfl.onrender.com' : `http://localhost:${port}`;
   console.log(`🚀 Servidor Asicme Chat Real-Time corriendo en ${url}`);
 });
 
