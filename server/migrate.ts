@@ -1,33 +1,17 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import pg from 'pg';
+import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
-
 dotenv.config();
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL must be set');
-}
+const sql = neon(process.env.DATABASE_URL!);
 
-const client = new pg.Client({
-  connectionString: process.env.DATABASE_URL,
-});
-
-async function main() {
-  console.log('🚀 Iniciando migración de base de datos con Node-Postgres...');
+async function migrate() {
+  console.log('Migrando base de datos...');
   try {
-    await client.connect();
-    const db = drizzle(client);
-    await migrate(db, {
-      migrationsFolder: './drizzle',
-    });
-    console.log('✅ Migraciones aplicadas con éxito.');
-  } catch (error) {
-    console.error('❌ Error durante la migración:', error);
-    process.exit(1);
-  } finally {
-    await client.end();
+    await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "hashed_recovery_phrase" text;`;
+    await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "recovery_encrypted_private_key" text;`;
+    console.log('✅ Migración exitosa');
+  } catch (e) {
+    console.error('Error:', e);
   }
 }
-
-main();
+migrate();

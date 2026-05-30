@@ -199,16 +199,21 @@ export const AuthScreen = () => {
 
   const handleFinish = async () => {
     if (!name.trim()) return;
+    const phrase = bip39.generateMnemonic(128, undefined, bip39.wordlists.spanish || bip39.wordlists.english);
+    setRecoveryPhrase(phrase);
+    setStep('recovery_phrase_display');
+  };
+
+  const handleFinalizeRegistration = async () => {
+    setIsChecking(true);
     const cleanPhone = phone.replace(/\s+/g, '');
     const pinString = otp.join('');
     const fullPhone = `${countryCode}${cleanPhone}`;
     
-    setIsChecking(true);
-
     try {
-      // Generar claves E2EE
       const keys = await generateECDHKeyPair();
       const encryptedPrivateKey = encryptPrivateKeyWithPIN(keys.privateKey, pinString);
+      const recoveryEncryptedPrivateKey = encryptPrivateKeyWithPhrase(keys.privateKey, recoveryPhrase);
 
       const res = await login({
         name: name.trim(),
@@ -217,11 +222,14 @@ export const AuthScreen = () => {
         avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=007bfc&color=fff`,
         about: about,
         publicKey: keys.publicKey,
-        encryptedPrivateKey: encryptedPrivateKey
+        encryptedPrivateKey: encryptedPrivateKey,
+        recoveryPhrase: recoveryPhrase,
+        recoveryEncryptedPrivateKey: recoveryEncryptedPrivateKey
       });
       setIsChecking(false);
       if (!res?.success) {
         alert(res?.error || 'Error al crear cuenta');
+        setStep('profile');
       }
     } catch (error) {
       console.error('Error generando claves E2EE:', error);
@@ -230,8 +238,49 @@ export const AuthScreen = () => {
     }
   };
 
+  const handleRecover = async () => {
+    const pinString = newPinInput.join('');
+    if (pinString.length !== 6 || !recoveryInput.trim()) return;
+    
+    setIsChecking(true);
+    const fullPhone = `${countryCode}${phone.replace(/\\s+/g, '')}`;
+    const { verifyRecoveryPhrase, resetPin } = useChatStore.getState();
+    
+    const cleanPhrase = recoveryInput.trim().toLowerCase().replace(/\\s+/g, ' ');
+    
+    const verifyRes = await verifyRecoveryPhrase(fullPhone, cleanPhrase);
+    if (!verifyRes.success) {
+      alert(verifyRes.error || 'Frase incorrecta o servidor inactivo');
+      setIsChecking(false);
+      return;
+    }
+    
+    const recoveryEncryptedPrivateKey = verifyRes.data.recoveryEncryptedPrivateKey;
+    const privateKeyJWK = decryptPrivateKeyWithPhrase(recoveryEncryptedPrivateKey, cleanPhrase);
+    
+    if (!privateKeyJWK) {
+      alert('No se pudo desencriptar tu cuenta. Es posible que la frase sea incorrecta.');
+      setIsChecking(false);
+      return;
+    }
+    
+    const newEncryptedPrivateKey = encryptPrivateKeyWithPIN(privateKeyJWK, pinString);
+    
+    const resetRes = await resetPin({
+      phone: fullPhone,
+      recoveryPhrase: cleanPhrase,
+      newPin: pinString,
+      newEncryptedPrivateKey
+    });
+    
+    setIsChecking(false);
+    if (!resetRes.success) {
+      alert(resetRes.error || 'Error al restablecer tu PIN.');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#f0f2f5]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#f0f2f5] p-4">
       <div className="absolute inset-0 z-0">
         <div className="absolute top-0 w-full h-[220px] bg-[#6366f1] shadow-lg"></div>
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")' }}></div>
@@ -240,7 +289,7 @@ export const AuthScreen = () => {
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="relative z-10 w-[95vw] max-w-[450px] bg-white shadow-2xl rounded-2xl overflow-hidden flex flex-col min-h-[480px] sm:min-h-[520px]"
+        className="relative z-10 w-full max-w-[450px] max-h-[100%] bg-white shadow-2xl rounded-2xl overflow-y-auto flex flex-col min-h-fit sm:min-h-[520px] custom-scrollbar"
       >
         <div className="p-6 sm:p-10 text-center flex flex-col items-center">
           <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-2xl border border-wa-border p-1 overflow-hidden">
@@ -344,6 +393,11 @@ export const AuthScreen = () => {
                   VERIFICAR AHORA
                   <Check size={20} />
                 </button>
+                {userExists && (
+                  <button onClick={() => setStep('recovery_input')} className="mt-2 text-[13px] text-wa-text-secondary hover:text-[#6366f1] underline transition-colors">
+                    ¿Olvidaste tu PIN? Recupéralo aquí
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -430,6 +484,85 @@ export const AuthScreen = () => {
                 </div>
                 <button onClick={handleFinish} disabled={!name.trim()} className="mt-4 w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] transition-all disabled:opacity-50">
                   COMENZAR A CHATEAR
+                </button>
+              </motion.div>
+            )}
+
+            {step === 'recovery_phrase_display' && (
+              <motion.div key="recovery_phrase_display" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col gap-6 text-center">
+                <div className="flex justify-center mb-2">
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-500">
+                    <ShieldCheck size={32} />
+                  </div>
+                </div>
+                <h3 className="text-[22px] font-bold text-wa-text-primary">Tu frase de recuperación</h3>
+                <p className="text-[14px] text-wa-text-secondary">Escribe estas 12 palabras en un papel y guárdalas en un lugar seguro. Son la <b>única forma</b> de recuperar tus chats si olvidas tu PIN.</p>
+                
+                <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 grid grid-cols-3 gap-3">
+                  {recoveryPhrase.split(' ').map((word, i) => (
+                    <div key={i} className="flex gap-1.5 items-center bg-white px-2 py-1.5 rounded shadow-sm border border-slate-100">
+                      <span className="text-[10px] text-slate-400 font-mono">{i + 1}.</span>
+                      <span className="text-[13px] font-bold text-slate-700 break-all">{word}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <button onClick={() => { navigator.clipboard.writeText(recoveryPhrase); alert("Frase copiada al portapapeles"); }} className="text-[#6366f1] text-[14px] font-bold hover:underline flex items-center justify-center gap-2">
+                  <Copy size={16} /> COPIAR FRASE
+                </button>
+
+                <button onClick={handleFinalizeRegistration} disabled={isChecking} className="mt-2 w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] transition-all flex justify-center items-center gap-2">
+                  {isChecking ? <Loader2 className="animate-spin" size={20} /> : "ENTENDIDO, YA LA GUARDÉ"}
+                </button>
+              </motion.div>
+            )}
+
+            {step === 'recovery_input' && (
+              <motion.div key="recovery_input" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col gap-6 text-center relative">
+                <button 
+                  onClick={() => setStep('otp')}
+                  className="absolute -top-2 left-0 p-2 text-wa-text-secondary hover:text-[#6366f1] transition-colors rounded-full hover:bg-[#6366f1]/10"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div className="space-y-2 mt-4">
+                  <h3 className="text-[22px] font-bold text-wa-text-primary">Recuperar Cuenta</h3>
+                  <p className="text-[14px] text-wa-text-secondary">Ingresa tus 12 palabras y crea un nuevo PIN de 6 dígitos.</p>
+                </div>
+                
+                <textarea 
+                  value={recoveryInput}
+                  onChange={(e) => setRecoveryInput(e.target.value)}
+                  placeholder="ej. manzana gato mesa..."
+                  className="w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none p-4 rounded-xl text-[14px] text-wa-text-primary transition-all duration-300 shadow-sm resize-none h-24"
+                />
+
+                <div className="flex justify-center gap-2 mt-2">
+                  {newPinInput.map((digit, i) => (
+                    <input key={`new-pin-${i}`} id={`new-pin-${i}`} type="text" maxLength={1} value={digit} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!/^\d*$/.test(val)) return;
+                        const newPin = [...newPinInput];
+                        newPin[i] = val.slice(-1);
+                        setNewPinInput(newPin);
+                        if (val && i < 5) document.getElementById(`new-pin-${i + 1}`)?.focus();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && !newPinInput[i] && i > 0) {
+                          const newPin = [...newPinInput];
+                          newPin[i - 1] = '';
+                          setNewPinInput(newPin);
+                          document.getElementById(`new-pin-${i - 1}`)?.focus();
+                        }
+                      }}
+                      className="w-10 h-12 bg-slate-50 border-2 border-slate-200 focus:border-[#6366f1] outline-none text-center text-xl font-bold rounded-xl" 
+                    />
+                  ))}
+                </div>
+
+                <button onClick={handleRecover} disabled={newPinInput.some(d => !d) || !recoveryInput.trim() || isChecking} className="w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold shadow-lg hover:bg-[#4f46e5] disabled:opacity-50 transition-all flex justify-center items-center gap-2 mt-2">
+                  {isChecking ? <Loader2 className="animate-spin" size={20} /> : "RESTAURAR CUENTA"}
                 </button>
               </motion.div>
             )}

@@ -141,7 +141,7 @@ export const encryptMessageE2EE = async (text: string, sharedKey: CryptoKey) => 
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, sharedKey, data);
   return JSON.stringify({
-    iv: arrayBufferToBase64(iv),
+    iv: arrayBufferToBase64(iv.buffer),
     ciphertext: arrayBufferToBase64(ciphertext)
   });
 };

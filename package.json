@@ -19,6 +19,7 @@
     "@types/crypto-js": "^4.2.2",
     "@types/react-window": "^1.8.8",
     "bip39": "^3.1.0",
+    "buffer": "^6.0.3",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "emoji-picker-react": "^4.19.1",
