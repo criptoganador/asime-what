@@ -36,7 +36,7 @@ export const encryptSmartMessage = async (plaintext: string | undefined, chatId:
   return encryptMessage(plaintext, chatId);
 };
 
-const socket: Socket = io(API_URL);
+export const socket: Socket = io(API_URL);
 
 export interface Message {
   id: string;
@@ -99,8 +99,9 @@ export interface Contact {
   nickname: string;
   user: {
     id: string;
+    username: string;
     name: string;
-    phone: string;
+    phone?: string;
     avatar: string;
     about: string;
   };
@@ -124,8 +125,9 @@ interface ChatState {
   isValidatingSession: boolean;
   currentUser: {
     id: string;
+    username: string;
     name: string;
-    phone: string;
+    phone?: string;
     avatar: string;
     about: string;
   } | null;
@@ -810,11 +812,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser } = get();
     if (!currentUser) return;
     try {
-      const response = await fetch(`${API_URL}/api/auth`, {
-        method: 'POST',
+      const response = await fetch(`${API_URL}/api/users/profile`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...currentUser, ...data })
+        body: JSON.stringify({ id: currentUser.id, ...data })
       });
+      if (!response.ok) {
+        throw new Error('Error updating profile');
+      }
       const updatedUser = await response.json();
       localStorage.setItem('asicme_user', JSON.stringify(updatedUser));
       set({ currentUser: updatedUser });

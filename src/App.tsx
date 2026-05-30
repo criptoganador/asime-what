@@ -1,9 +1,16 @@
+import { useEffect } from 'react'
 import { Layout } from './components/Layout'
 import { AuthScreen } from './features/auth/components/AuthScreen'
-import { useChatStore } from './features/sidebar/store/useChatStore'
+import { useChatStore, socket } from './features/sidebar/store/useChatStore'
 
 function App() {
-  const { isAuthenticated, isValidatingSession } = useChatStore();
+  const { isAuthenticated, isValidatingSession, currentUser } = useChatStore();
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser?.id) {
+      socket.emit('user_connected', currentUser.id);
+    }
+  }, [isAuthenticated, currentUser?.id]);
 
   // Mientras se valida la sesión contra la BD, mostrar splash de carga
   if (isValidatingSession) {

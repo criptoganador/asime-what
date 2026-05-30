@@ -2,8 +2,9 @@ import { pgTable, text, timestamp, integer, boolean, uuid, jsonb } from 'drizzle
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  phone: text('phone').notNull().unique(),
-  pin: text('pin').notNull(),
+  username: text('username').unique(),
+  phone: text('phone').unique(),
+  pin: text('pin'),
   name: text('name').notNull(),
   avatar: text('avatar'),
   about: text('about').default('¡Hola! Estoy usando Asicme Chat.'),
@@ -11,6 +12,11 @@ export const users = pgTable('users', {
   encryptedPrivateKey: text('encrypted_private_key'),
   hashedRecoveryPhrase: text('hashed_recovery_phrase'),
   recoveryEncryptedPrivateKey: text('recovery_encrypted_private_key'),
+  credentialID: text('credential_id'),
+  credentialPublicKey: text('credential_public_key'),
+  counter: integer('counter').default(0),
+  transports: jsonb('transports').default([]),
+  currentChallenge: text('current_challenge'),
   failedLoginAttempts: integer('failed_login_attempts').default(0),
   lockedUntil: timestamp('locked_until'),
   lastSeen: timestamp('last_seen'),

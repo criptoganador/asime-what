@@ -1,53 +1,67 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Search, UserPlus, Loader2, User } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { API_URL } from '../../../config';
 
 export const AddContactView = ({ onBack }: { onBack: () => void }) => {
-  const { currentUser, fetchContacts } = useChatStore();
-  const [name, setName] = useState('');
-  const [countryCode, setCountryCode] = useState('+34');
-  const [phone, setPhone] = useState('');
+  const { currentUser, fetchContacts, contacts } = useChatStore();
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
+  const [addingId, setAddingId] = useState<string | null>(null);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!query.trim()) return;
+    
     setLoading(true);
     setError('');
+    setResults([]);
     
     try {
-      const cleanPhone = phone.replace(/\s+/g, '');
-      const fullPhone = `${countryCode}${cleanPhone}`;
-      
-      const res = await fetch(`${API_URL}/api/users/search?query=${encodeURIComponent(fullPhone)}&currentUserId=${currentUser?.id}`);
+      const res = await fetch(`${API_URL}/api/users/search?query=${encodeURIComponent(query.trim())}&currentUserId=${currentUser?.id}`);
       const found = await res.json();
       
       if (found.length === 0) {
-        setError('Este número no existe en la app.');
-        setLoading(false);
-        return;
+        setError('No encontramos a nadie con ese nombre o usuario.');
+      } else {
+        setResults(found);
       }
+    } catch (err) {
+      setError('Error de conexión al buscar.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleAdd = async (contactUser: any) => {
+    // Verificar si ya es contacto
+    if (contacts.some(c => c.contactId === contactUser.id)) {
+      alert('Este usuario ya está en tus contactos.');
+      return;
+    }
+
+    setAddingId(contactUser.id);
+    try {
       await fetch(`${API_URL}/api/contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ownerId: currentUser?.id,
-          contactId: found[0].id,
-          nickname: name
+          contactId: contactUser.id,
+          nickname: contactUser.name // Por defecto guardamos su nombre real
         })
       });
 
       if (currentUser?.id) await fetchContacts(currentUser.id);
-      setSuccess(true);
-      setTimeout(onBack, 1000);
+      alert('¡Contacto agregado con éxito!');
+      onBack();
     } catch (err) {
-      setError('Error de conexión.');
+      alert('Error al agregar contacto.');
     } finally {
-      setLoading(false);
+      setAddingId(null);
     }
   };
 
@@ -57,72 +71,83 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="absolute inset-0 z-[999] bg-wa-bg flex flex-col"
+      className="absolute inset-0 z-[999] bg-[#f0f2f5] flex flex-col"
     >
       {/* Header */}
-      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white">
+      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white shadow-md z-10">
         <div className="flex items-center gap-6">
-          <ArrowLeft className="cursor-pointer hover:scale-110 transition-transform" onClick={onBack} />
-          <h2 className="text-[19px] font-medium">Agregar nuevo contacto</h2>
+          <button onClick={onBack} className="p-1 hover:bg-white/10 rounded-full transition-colors">
+            <ArrowLeft size={24} />
+          </button>
+          <h2 className="text-[19px] font-semibold">Buscar Contacto</h2>
         </div>
       </div>
 
-      <div className="p-5 sm:p-8 flex-1">
-        {success ? (
-          <div className="bg-white p-6 rounded-xl shadow-sm text-center">
-            <p className="text-green-600 font-bold text-lg">¡Guardado con éxito!</p>
+      <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-hidden">
+        {/* Barra de Búsqueda */}
+        <form onSubmit={handleSearch} className="mb-6 relative shrink-0">
+          <input 
+            type="text" 
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por @username o Nombre..."
+            className="w-full bg-white border-none shadow-sm focus:ring-2 focus:ring-[#6366f1] outline-none py-3.5 pl-12 pr-12 rounded-xl text-[16px] text-slate-800 transition-all duration-300 placeholder-slate-400"
+          />
+          <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
+          <button 
+            type="submit"
+            disabled={loading || !query.trim()}
+            className="absolute right-2 top-2 bg-[#6366f1] text-white p-1.5 rounded-lg hover:bg-[#4f46e5] transition-colors disabled:opacity-50"
+          >
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
+          </button>
+        </form>
+
+        {error && (
+          <div className="bg-red-50 text-red-500 p-4 rounded-xl text-sm font-medium text-center border border-red-100 mb-4 shrink-0">
+            {error}
           </div>
-        ) : (
-          <form onSubmit={handleSave} className="space-y-8 bg-white p-5 sm:p-6 rounded-xl shadow-sm">
-            <div className="border-b-2 border-gray-100 py-2">
-              <label className="text-xs text-[#6366f1] font-bold uppercase">Nombre Completo</label>
-              <input 
-                type="text" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-transparent outline-none py-2 text-lg text-wa-text-primary"
-                placeholder="Ej: Mi Amigo"
-                required
-              />
-            </div>
-
-            <div className="border-b-2 border-gray-100 py-2">
-              <label className="text-xs text-[#6366f1] font-bold uppercase">Número de Teléfono</label>
-              <div className="flex gap-2 items-center">
-                <select 
-                  value={countryCode} 
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="bg-transparent outline-none py-2 text-lg text-wa-text-primary font-medium cursor-pointer border-r border-gray-100 pr-2"
-                >
-                  <option value="+34">🇪🇸 +34</option>
-                  <option value="+58">🇻🇪 +58</option>
-                  <option value="+1">🇺🇸 +1</option>
-                  <option value="+52">🇲🇽 +52</option>
-                  <option value="+54">🇦🇷 +54</option>
-                  <option value="+57">🇨🇴 +57</option>
-                </select>
-                <input 
-                  type="tel" 
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-transparent outline-none py-2 text-lg text-wa-text-primary"
-                  placeholder="000 000 000"
-                  required
-                />
-              </div>
-            </div>
-
-            {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
-
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold hover:bg-[#4f46e5] transition-colors shadow-md disabled:opacity-50"
-            >
-              {loading ? 'BUSCANDO...' : 'GUARDAR CONTACTO'}
-            </button>
-          </form>
         )}
+
+        {/* Resultados */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-white rounded-2xl shadow-sm border border-slate-100">
+          {results.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {results.map((user) => (
+                <div key={user.id} className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors">
+                  <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="text-indigo-400" size={24} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-slate-800 text-[15px] truncate">{user.name}</h4>
+                    <p className="text-[13px] text-[#6366f1] font-medium truncate">@{user.username}</p>
+                  </div>
+                  <button 
+                    onClick={() => handleAdd(user)}
+                    disabled={addingId === user.id}
+                    className="flex-shrink-0 w-10 h-10 bg-indigo-50 text-[#6366f1] rounded-full flex items-center justify-center hover:bg-[#6366f1] hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    {addingId === user.id ? <Loader2 size={20} className="animate-spin" /> : <UserPlus size={20} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : !loading && query && !error ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center gap-3">
+              <Search size={48} className="text-slate-200" />
+              <p>No encontramos a nadie. Verifica el nombre o el username.</p>
+            </div>
+          ) : !query && !loading ? (
+             <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center gap-3">
+              <UserPlus size={48} className="text-slate-200" />
+              <p>Escribe un nombre o @username arriba para buscar nuevos amigos.</p>
+            </div>
+          ) : null}
+        </div>
       </div>
     </motion.div>
   );

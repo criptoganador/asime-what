@@ -176,9 +176,10 @@ export const Sidebar = () => {
       const contactResults = contacts
         .filter(c => {
           const nameMatch = (c.nickname || c.user.name).toLowerCase().includes(searchQuery.toLowerCase());
-          const phoneMatch = c.user.phone.includes(searchQuery);
+          const phoneMatch = c.user.phone ? c.user.phone.includes(searchQuery) : false;
+          const usernameMatch = c.user.username ? c.user.username.toLowerCase().includes(searchQuery.toLowerCase()) : false;
           const alreadyHasChat = chats.some(chat => chat.name === (c.nickname || c.user.name));
-          return (nameMatch || phoneMatch) && !alreadyHasChat;
+          return (nameMatch || phoneMatch || usernameMatch) && !alreadyHasChat;
         })
         .map(c => ({
           id: `contact-${c.contactId}`,

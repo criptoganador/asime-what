@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Camera, Pencil, Check, Loader2, X, Smile } from 'lucide-react';
+import { ArrowLeft, Camera, Pencil, Check, Loader2, X, Smile, Copy } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { uploadImage } from '../../../utils/upload';
 import EmojiPicker from 'emoji-picker-react';
@@ -202,11 +202,21 @@ export const ProfileView = () => {
           </div>
         </div>
 
-        {/* Sección de Teléfono (Solo lectura) */}
-        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm">
-          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium">Teléfono</label>
-          <div className="flex items-center h-10">
-            <span className="text-[17px] text-wa-text-primary">{currentUser.phone}</span>
+        {/* Sección de Username (Solo lectura y copiable) */}
+        <div className="bg-white px-5 sm:px-8 py-4 shadow-sm mb-7">
+          <label className="text-[14px] text-[#6366f1] mb-4 block font-medium">Nombre de usuario</label>
+          <div className="flex items-center justify-between group h-10">
+            <span className="text-[17px] text-[#6366f1] font-medium">@{currentUser.username}</span>
+            <button 
+              className="text-wa-text-secondary cursor-pointer hover:text-[#6366f1] transition-colors p-1 rounded-full hover:bg-slate-50" 
+              onClick={() => {
+                navigator.clipboard.writeText(`@${currentUser.username}`);
+                alert('¡Nombre de usuario copiado!');
+              }}
+              title="Copiar usuario"
+            >
+              <Copy size={20} />
+            </button>
           </div>
         </div>
       </div>

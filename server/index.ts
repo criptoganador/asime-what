@@ -15,6 +15,12 @@ import helmet from 'helmet';
 import bcrypt from 'bcryptjs';
 import compression from 'compression';
 import crypto from 'crypto';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
 
 // Encriptación simétrica AES-256 para teléfonos (Determinista con IV estático para búsquedas exactas)
 const ENCRYPTION_KEY = process.env.PHONE_ENCRYPTION_KEY || 'AsicmeSecretKeyForPhones2024!@#$'; // Exactamente 32 bytes
@@ -373,12 +379,160 @@ io.on('connection', (socket) => {
   });
 });
 
+// --- WEBAUTHN (PASSKEYS) ENDPOINTS ---
+const rpName = 'Asicme Chat';
+const rpID = process.env.NODE_ENV === 'production' ? 'asime-what-frontend.onrender.com' : 'localhost';
+const expectedOrigin = process.env.NODE_ENV === 'production' ? 'https://asime-what-frontend.onrender.com' : 'http://localhost:5173';
+
+app.post('/api/auth/generate-registration-options', authLimiter, async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username es requerido' });
+
+  let user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  
+  if (user && user.credentialID) {
+    return res.status(400).json({ error: 'El usuario ya está registrado con este username.' });
+  }
+
+  if (!user) {
+    // Registro inicial: creamos usuario sin llave hasta verificar
+    const [newUser] = await db.insert(users).values({ 
+      username, 
+      name: username
+    }).returning();
+    user = newUser;
+  }
+
+  try {
+    const options = await generateRegistrationOptions({
+      rpName,
+      rpID,
+      userID: Buffer.from(user.id, 'utf-8'),
+      userName: username,
+      attestationType: 'none',
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',
+        residentKey: 'required',
+        userVerification: 'preferred',
+      },
+    });
+
+    await db.update(users).set({ currentChallenge: options.challenge }).where(eq(users.id, user.id));
+    res.json(options);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/verify-registration', authLimiter, async (req, res) => {
+  const { username, body, publicKey, encryptedPrivateKey, recoveryPhrase, recoveryEncryptedPrivateKey } = req.body;
+  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  if (!user || !user.currentChallenge) return res.status(400).json({ error: 'Usuario no válido' });
+
+  try {
+    const verification = await verifyRegistrationResponse({
+      response: body,
+      expectedChallenge: user.currentChallenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+    });
+
+    const { verified, registrationInfo } = verification;
+    if (verified && registrationInfo) {
+      const { id: credentialID, publicKey: credentialPublicKey, counter } = registrationInfo.credential;
+      
+      let hashedRecoveryPhrase = null;
+      if (recoveryPhrase) hashedRecoveryPhrase = await bcrypt.hash(recoveryPhrase, 10);
+
+      const [updatedUser] = await db.update(users).set({
+        credentialID: credentialID,
+        credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
+        counter,
+        currentChallenge: null,
+        publicKey,
+        encryptedPrivateKey,
+        hashedRecoveryPhrase,
+        recoveryEncryptedPrivateKey,
+      }).where(eq(users.id, user.id)).returning();
+
+      const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
+      return res.json({ verified: true, user: safeUser });
+    }
+  } catch (error: any) {
+    console.error('Error verifyRegistrationResponse:', error);
+    return res.status(400).send({ error: error.message });
+  }
+  return res.status(400).json({ error: 'Fallo al verificar el registro' });
+});
+
+app.post('/api/auth/generate-authentication-options', authLimiter, async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username es requerido' });
+
+  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  if (!user || !user.credentialID) {
+    return res.status(404).json({ error: 'Usuario no encontrado o sin passkey configurado' });
+  }
+
+  try {
+    const options = await generateAuthenticationOptions({
+      rpID,
+      allowCredentials: [{
+        id: user.credentialID,
+      }],
+      userVerification: 'preferred',
+    });
+
+    await db.update(users).set({ currentChallenge: options.challenge }).where(eq(users.id, user.id));
+    res.json(options);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/verify-authentication', authLimiter, async (req, res) => {
+  const { username, body } = req.body;
+  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  if (!user || !user.currentChallenge || !user.credentialPublicKey || !user.credentialID) {
+    return res.status(400).json({ error: 'Usuario no válido para autenticación' });
+  }
+
+  try {
+    const verification = await verifyAuthenticationResponse({
+      response: body,
+      expectedChallenge: user.currentChallenge,
+      expectedOrigin,
+      expectedRPID: rpID,
+      credential: {
+        id: user.credentialID,
+        publicKey: Buffer.from(user.credentialPublicKey, 'base64url'),
+        counter: user.counter || 0,
+      },
+    });
+
+    const { verified, authenticationInfo } = verification;
+    if (verified) {
+      const [updatedUser] = await db.update(users).set({
+        counter: authenticationInfo.newCounter,
+        currentChallenge: null,
+      }).where(eq(users.id, user.id)).returning();
+
+      const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
+      return res.json({ verified: true, user: safeUser });
+    }
+  } catch (error: any) {
+    console.error('Error verifyAuthenticationResponse:', error);
+    return res.status(400).send({ error: error.message });
+  }
+  return res.status(400).json({ error: 'Fallo al verificar autenticación' });
+});
+
 app.post('/api/auth', authLimiter, async (req, res) => {
   const { phone, pin, name, avatar, about, publicKey, encryptedPrivateKey, recoveryPhrase, recoveryEncryptedPrivateKey } = req.body;
   if (!phone || !pin) return res.status(400).json({ error: 'Teléfono y PIN son obligatorios' });
   
   try {
-    const encryptedPhone = encryptPhone(phone);
+    const encryptedPhone = encryptPhone(phone!);
     let user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
     if (!user) {
       if (!publicKey || !encryptedPrivateKey) {
@@ -411,7 +565,7 @@ app.post('/api/auth', authLimiter, async (req, res) => {
         return res.status(403).json({ error: `Cuenta bloqueada. Intente de nuevo en ${minutesLeft} minutos.` });
       }
 
-      const isMatch = await bcrypt.compare(pin, user.pin);
+      const isMatch = await bcrypt.compare(pin, user.pin!);
       if (!isMatch) {
         const newAttempts = (user.failedLoginAttempts || 0) + 1;
         let updateData: any = { failedLoginAttempts: newAttempts };
@@ -441,11 +595,32 @@ app.post('/api/auth', authLimiter, async (req, res) => {
     
     // Remover el pin del objeto retornado por seguridad y descifrar teléfono
     const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = user;
-    safeUser.phone = decryptPhone(safeUser.phone);
+    safeUser.phone = decryptPhone(safeUser.phone!);
     res.json(safeUser);
   } catch (error) {
     console.error('❌ Error en /api/auth:', error);
     res.status(500).json({ error: 'Error en auth' });
+  }
+});
+
+// Endpoint dedicado para actualizar el perfil del usuario
+app.put('/api/users/profile', authLimiter, async (req, res) => {
+  const { id, name, avatar, about } = req.body;
+  if (!id) return res.status(400).json({ error: 'ID del usuario es requerido' });
+
+  try {
+    const [updatedUser] = await db.update(users)
+      .set({ name, avatar, about })
+      .where(eq(users.id, id))
+      .returning();
+      
+    if (!updatedUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
+    res.json(safeUser);
+  } catch (error: any) {
+    console.error('❌ Error actualizando perfil:', error);
+    res.status(500).json({ error: 'Error interno actualizando el perfil' });
   }
 });
 
@@ -455,7 +630,7 @@ app.post('/api/auth/verify-phrase', authLimiter, async (req, res) => {
   if (!phone || !recoveryPhrase) return res.status(400).json({ error: 'Teléfono y frase son obligatorios' });
 
   try {
-    const encryptedPhone = encryptPhone(phone);
+    const encryptedPhone = encryptPhone(phone!);
     const user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (!user.hashedRecoveryPhrase) return res.status(400).json({ error: 'Este usuario no tiene frase de recuperación configurada' });
@@ -478,7 +653,7 @@ app.post('/api/auth/reset-pin', authLimiter, async (req, res) => {
   }
 
   try {
-    const encryptedPhone = encryptPhone(phone);
+    const encryptedPhone = encryptPhone(phone!);
     const user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (!user.hashedRecoveryPhrase) return res.status(400).json({ error: 'Este usuario no tiene frase de recuperación configurada' });
@@ -496,7 +671,7 @@ app.post('/api/auth/reset-pin', authLimiter, async (req, res) => {
     }).where(eq(users.id, user.id)).returning();
 
     const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
-    safeUser.phone = decryptPhone(safeUser.phone);
+    safeUser.phone = decryptPhone(safeUser.phone!);
     res.json(safeUser);
   } catch (error) {
     console.error('❌ Error reseteando PIN:', error);
@@ -514,7 +689,7 @@ app.get('/api/users/check/:phone', authLimiter, async (req, res) => {
     
     if (user) {
       const { pin: _pin, ...safeUser } = user;
-      safeUser.phone = decryptPhone(safeUser.phone);
+      safeUser.phone = decryptPhone(safeUser.phone!);
       res.json(safeUser);
     } else {
       res.json(null);
@@ -530,17 +705,19 @@ app.get('/api/users/search', async (req, res) => {
   const currentUserId = req.query.currentUserId as string;
   if (!query) return res.json([]);
   try {
-    const encryptedQuery = encryptPhone(query);
+    // Buscar coincidencia exacta por @username (sin el @ si lo pusieron)
+    const cleanQuery = query.replace('@', '').toLowerCase();
+    
     const results = await db.query.users.findMany({
       where: or(
-        eq(users.phone, encryptedQuery),
+        eq(users.username, cleanQuery),
         ilike(users.name, `%${query}%`)
       )
     });
-    // Excluir al usuario actual de los resultados y desencriptar
+    // Excluir al usuario actual de los resultados
     const filtered = results.filter(u => u.id !== currentUserId).map(u => {
       const { pin: _pin, ...safeUser } = u;
-      safeUser.phone = decryptPhone(safeUser.phone);
+      if (safeUser.phone) safeUser.phone = decryptPhone(safeUser.phone);
       return safeUser;
     });
     res.json(filtered);
@@ -557,7 +734,7 @@ app.get('/api/users/validate/:id', async (req, res) => {
     const user = await db.query.users.findFirst({ where: eq(users.id, id) });
     if (!user) return res.status(404).json({ valid: false });
     const { pin: _pin, ...safeUser } = user;
-    safeUser.phone = decryptPhone(safeUser.phone);
+    safeUser.phone = decryptPhone(safeUser.phone!);
     res.json({ valid: true, user: safeUser });
   } catch (error) {
     res.status(500).json({ valid: false, error: 'Error al validar usuario' });
