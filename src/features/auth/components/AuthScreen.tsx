@@ -240,7 +240,7 @@ export const AuthScreen = () => {
       >
         <div className="p-6 sm:p-10 text-center flex flex-col items-center">
           <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-2xl border border-wa-border p-1 overflow-hidden">
-            <img src="/favicon.png" alt="Asicme Logo" className="w-full h-full object-cover rounded-xl" />
+            <img src="/favicon.png" alt="Asicme Chat Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
           <h2 className="text-[32px] font-bold text-[#6366f1] mb-1 tracking-tight">Asicme Chat</h2>
           <p className="text-wa-text-secondary text-[15px]">Conectando tu mundo con estilo</p>

@@ -6,7 +6,7 @@ export const users = pgTable('users', {
   pin: text('pin').notNull(),
   name: text('name').notNull(),
   avatar: text('avatar'),
-  about: text('about').default('¡Hola! Estoy usando Asicme Web.'),
+  about: text('about').default('¡Hola! Estoy usando Asicme Chat.'),
   publicKey: text('public_key'),
   encryptedPrivateKey: text('encrypted_private_key'),
   failedLoginAttempts: integer('failed_login_attempts').default(0),

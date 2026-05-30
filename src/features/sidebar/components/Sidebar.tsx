@@ -183,7 +183,7 @@ export const Sidebar = () => {
         .map(c => ({
           id: `contact-${c.contactId}`,
           name: c.nickname || c.user.name,
-          lastMessage: 'Contacto de Asicme',
+          lastMessage: 'Contacto de Asicme Chat',
           avatar: c.user.avatar,
           unreadCount: 0,
           timestamp: '',

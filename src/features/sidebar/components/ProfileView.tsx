@@ -60,7 +60,7 @@ export const ProfileView = () => {
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
-      {/* Header Estilo WhatsApp/Asicme */}
+      {/* Header Estilo WhatsApp/Asicme Chat */}
       <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white">
         <div className="flex items-center gap-6">
           <ArrowLeft 

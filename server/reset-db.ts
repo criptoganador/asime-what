@@ -21,7 +21,7 @@ async function resetDB() {
     "phone" text NOT NULL,
     "name" text NOT NULL,
     "avatar" text,
-    "about" text DEFAULT '¡Hola! Estoy usando Asicme Web.',
+    "about" text DEFAULT '¡Hola! Estoy usando Asicme Chat.',
     "created_at" timestamp DEFAULT now(),
     CONSTRAINT "users_phone_unique" UNIQUE("phone")
   )`;

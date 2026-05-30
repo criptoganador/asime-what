@@ -989,7 +989,7 @@ app.post('/api/admin/cleanup', async (req, res) => {
 
 httpServer.listen(port, () => {
   const url = process.env.NODE_ENV === 'production' ? 'https://asime-chat-backend.onrender.com' : `http://localhost:${port}`;
-  console.log(`🚀 Servidor Asicme Real-Time corriendo en ${url}`);
+  console.log(`🚀 Servidor Asicme Chat Real-Time corriendo en ${url}`);
 });
 
 // Manejo de Cierre Gracioso (Graceful Shutdown)

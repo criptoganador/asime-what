@@ -309,7 +309,7 @@ export const GroupInfoView = () => {
                     </div>
                   )}
                 </div>
-                <p className="text-[13px] text-wa-text-secondary truncate">{p.about || '¡Hola! Estoy usando Asicme.'}</p>
+                <p className="text-[13px] text-wa-text-secondary truncate">{p.about || '¡Hola! Estoy usando Asicme Chat.'}</p>
               </div>
             </div>
           ))}

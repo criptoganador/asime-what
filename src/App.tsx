@@ -31,7 +31,7 @@ function App() {
           overflow: 'hidden',
           padding: 8
         }}>
-          <img src="/favicon.png" alt="Asicme" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} />
+          <img src="/favicon.png" alt="Asicme Chat" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} />
         </div>
         <div style={{
           width: 40,

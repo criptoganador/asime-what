@@ -361,7 +361,7 @@ export const ChatArea = () => {
             {/* Branding: Logo y Título con Efecto Glow y Glassmorphism Avanzado */}
             <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-purple-500/10 backdrop-blur-xl rounded-full border border-[#6366f1]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#6366f1]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group">
               <div className="relative">
-                <img src={logo} alt="Asicme" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,123,252,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(0,123,252,0.8)] transition-all duration-300" />
+                <img src={logo} alt="Asicme Chat" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,123,252,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(0,123,252,0.8)] transition-all duration-300" />
                 <div className="absolute inset-0 bg-blue-500/20 blur-[10px] rounded-full -z-10 animate-pulse"></div>
               </div>
               <span className="text-[14px] font-semibold bg-gradient-to-r from-wa-text-primary to-[#6366f1] bg-clip-text text-transparent tracking-wider uppercase text-xs">ASICME CHAT</span>
