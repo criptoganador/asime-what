@@ -62,6 +62,24 @@ export const decryptPrivateKeyWithPIN = (encryptedPrivateKey: string, pin: strin
   }
 };
 
+// --- ENCRIPTACIÓN DE RESPALDO (CON FRASE DE 12 PALABRAS) ---
+
+export const encryptPrivateKeyWithPhrase = (privateKeyJwk: string, phrase: string): string => {
+  return CryptoJS.AES.encrypt(privateKeyJwk, phrase).toString();
+};
+
+export const decryptPrivateKeyWithPhrase = (encryptedPrivateKey: string, phrase: string): string | null => {
+  try {
+    const bytes = CryptoJS.AES.decrypt(encryptedPrivateKey, phrase);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    if (!decrypted) return null;
+    return decrypted;
+  } catch (error) {
+    console.error('Error desencriptando la llave privada con la frase', error);
+    return null;
+  }
+};
+
 // --- CIFRADO DE EXTREMO A EXTREMO (ASIMÉTRICO ECDH + AES-GCM) ---
 
 const ALGO_ECDH = { name: 'ECDH', namedCurve: 'P-256' };

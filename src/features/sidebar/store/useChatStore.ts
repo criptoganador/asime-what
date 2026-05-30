@@ -146,6 +146,8 @@ interface ChatState {
   closeChat: () => void;
   login: (userData: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  verifyRecoveryPhrase: (phone: string, recoveryPhrase: string) => Promise<{ success: boolean; data?: any; error?: string }>;
+  resetPin: (data: any) => Promise<{ success: boolean; error?: string }>;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
   sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }) => void;
@@ -460,6 +462,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chats: [],
       messages: {} 
     });
+  },
+  verifyRecoveryPhrase: async (phone, recoveryPhrase) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/verify-phrase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, recoveryPhrase })
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error };
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: 'Error de red' };
+    }
+  },
+  resetPin: async (userData) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/reset-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const data = await response.json();
+      if (!response.ok) return { success: false, error: data.error };
+      
+      const { newPin, newEncryptedPrivateKey } = userData;
+      let privateKeyJWK = decryptPrivateKeyWithPIN(newEncryptedPrivateKey, newPin);
+      if (privateKeyJWK) {
+        sessionStorage.setItem('asicme_private_key', privateKeyJWK);
+      }
+      
+      localStorage.setItem('asicme_user', JSON.stringify(data));
+      set({ isAuthenticated: true, currentUser: data, privateKeyJWK });
+      socket.emit('user_connected', data.id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: 'Error de red' };
+    }
   },
   setChats: (chats) => set({ chats }),
   contacts: [],

@@ -6,14 +6,15 @@ import EmojiPicker from 'emoji-picker-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { parsePhoneNumberFromString, AsYouType, CountryCode } from 'libphonenumber-js';
-import { generateECDHKeyPair, encryptPrivateKeyWithPIN } from '../../../utils/crypto';
+import { generateECDHKeyPair, encryptPrivateKeyWithPIN, encryptPrivateKeyWithPhrase, decryptPrivateKeyWithPhrase } from '../../../utils/crypto';
+import * as bip39 from 'bip39';
 import { uploadImage } from '../../../utils/upload';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type AuthStep = 'phone' | 'otp' | 'profile';
+type AuthStep = 'phone' | 'otp' | 'profile' | 'recovery_phrase_display' | 'recovery_input';
 
 const CALLING_CODE_TO_ISO: Record<string, CountryCode> = {
   '+34': 'ES',
@@ -70,6 +71,9 @@ export const AuthScreen = () => {
   const [isChecking, setIsChecking] = useState(false);
   const [userExists, setUserExists] = useState<boolean | null>(null);
   const [isRateLimited, setIsRateLimited] = useState(false);
+  const [recoveryPhrase, setRecoveryPhrase] = useState('');
+  const [recoveryInput, setRecoveryInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState(['', '', '', '', '', '']);
 
   const { login, checkUser } = useChatStore();
 

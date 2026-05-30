@@ -374,7 +374,7 @@ io.on('connection', (socket) => {
 });
 
 app.post('/api/auth', authLimiter, async (req, res) => {
-  const { phone, pin, name, avatar, about, publicKey, encryptedPrivateKey } = req.body;
+  const { phone, pin, name, avatar, about, publicKey, encryptedPrivateKey, recoveryPhrase, recoveryEncryptedPrivateKey } = req.body;
   if (!phone || !pin) return res.status(400).json({ error: 'Teléfono y PIN son obligatorios' });
   
   try {
@@ -386,6 +386,11 @@ app.post('/api/auth', authLimiter, async (req, res) => {
       }
       // Registro de usuario nuevo
       const hashedPin = await bcrypt.hash(pin, 10);
+      let hashedRecoveryPhrase = null;
+      if (recoveryPhrase) {
+        hashedRecoveryPhrase = await bcrypt.hash(recoveryPhrase, 10);
+      }
+      
       const [newUser] = await db.insert(users).values({ 
         phone: encryptedPhone, 
         pin: hashedPin, 
@@ -393,7 +398,9 @@ app.post('/api/auth', authLimiter, async (req, res) => {
         avatar, 
         about,
         publicKey,
-        encryptedPrivateKey
+        encryptedPrivateKey,
+        hashedRecoveryPhrase,
+        recoveryEncryptedPrivateKey
       }).returning();
       user = newUser;
     } else {
@@ -433,12 +440,67 @@ app.post('/api/auth', authLimiter, async (req, res) => {
     }
     
     // Remover el pin del objeto retornado por seguridad y descifrar teléfono
-    const { pin: _pin, ...safeUser } = user;
+    const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = user;
     safeUser.phone = decryptPhone(safeUser.phone);
     res.json(safeUser);
   } catch (error) {
     console.error('❌ Error en /api/auth:', error);
     res.status(500).json({ error: 'Error en auth' });
+  }
+});
+
+// Paso 1 de Recuperación: Verificar frase y obtener llave privada encriptada de respaldo
+app.post('/api/auth/verify-phrase', authLimiter, async (req, res) => {
+  const { phone, recoveryPhrase } = req.body;
+  if (!phone || !recoveryPhrase) return res.status(400).json({ error: 'Teléfono y frase son obligatorios' });
+
+  try {
+    const encryptedPhone = encryptPhone(phone);
+    const user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user.hashedRecoveryPhrase) return res.status(400).json({ error: 'Este usuario no tiene frase de recuperación configurada' });
+
+    const isMatch = await bcrypt.compare(recoveryPhrase, user.hashedRecoveryPhrase);
+    if (!isMatch) return res.status(401).json({ error: 'Frase de recuperación incorrecta' });
+
+    res.json({ recoveryEncryptedPrivateKey: user.recoveryEncryptedPrivateKey });
+  } catch (error) {
+    console.error('❌ Error verificando frase:', error);
+    res.status(500).json({ error: 'Error al verificar frase de recuperación' });
+  }
+});
+
+// Paso 2 de Recuperación: Establecer nuevo PIN
+app.post('/api/auth/reset-pin', authLimiter, async (req, res) => {
+  const { phone, recoveryPhrase, newPin, newEncryptedPrivateKey } = req.body;
+  if (!phone || !recoveryPhrase || !newPin || !newEncryptedPrivateKey) {
+    return res.status(400).json({ error: 'Faltan datos requeridos' });
+  }
+
+  try {
+    const encryptedPhone = encryptPhone(phone);
+    const user = await db.query.users.findFirst({ where: eq(users.phone, encryptedPhone) });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (!user.hashedRecoveryPhrase) return res.status(400).json({ error: 'Este usuario no tiene frase de recuperación configurada' });
+
+    const isMatch = await bcrypt.compare(recoveryPhrase, user.hashedRecoveryPhrase);
+    if (!isMatch) return res.status(401).json({ error: 'Frase de recuperación incorrecta' });
+
+    const hashedPin = await bcrypt.hash(newPin, 10);
+    
+    const [updatedUser] = await db.update(users).set({
+      pin: hashedPin,
+      encryptedPrivateKey: newEncryptedPrivateKey,
+      failedLoginAttempts: 0,
+      lockedUntil: null
+    }).where(eq(users.id, user.id)).returning();
+
+    const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
+    safeUser.phone = decryptPhone(safeUser.phone);
+    res.json(safeUser);
+  } catch (error) {
+    console.error('❌ Error reseteando PIN:', error);
+    res.status(500).json({ error: 'Error al resetear PIN' });
   }
 });
 

@@ -9,6 +9,8 @@ export const users = pgTable('users', {
   about: text('about').default('¡Hola! Estoy usando Asicme Chat.'),
   publicKey: text('public_key'),
   encryptedPrivateKey: text('encrypted_private_key'),
+  hashedRecoveryPhrase: text('hashed_recovery_phrase'),
+  recoveryEncryptedPrivateKey: text('recovery_encrypted_private_key'),
   failedLoginAttempts: integer('failed_login_attempts').default(0),
   lockedUntil: timestamp('locked_until'),
   lastSeen: timestamp('last_seen'),
