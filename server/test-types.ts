@@ -14,5 +14,5 @@ const x: Parameters<typeof verifyAuthenticationResponse>[0] = {
 
 const y: Parameters<typeof generateAuthenticationOptions>[0] = {
   rpID: '',
-  allowCredentials: [{ id: '', type: 'public-key' }]
+  allowCredentials: [{ id: '' }]
 };
