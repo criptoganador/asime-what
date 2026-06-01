@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { encryptMessage, decryptMessage, importPrivateKey, importPublicKey, deriveSharedKey, encryptMessageE2EE, decryptMessageE2EE, decryptPrivateKeyWithPIN } from '../../../utils/crypto';
 import { API_URL } from '../../../config';
+import { Network } from '@capacitor/network';
+import { App as CapacitorApp } from '@capacitor/app';
 
 export const decryptSmartMessage = async (encryptedText: string, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!encryptedText) return encryptedText;
@@ -36,7 +38,13 @@ export const encryptSmartMessage = async (plaintext: string | undefined, chatId:
   return encryptMessage(plaintext, chatId);
 };
 
-export const socket: Socket = io(API_URL);
+export const socket: Socket = io(API_URL, {
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000,
+});
 
 export interface Message {
   id: string;
@@ -123,6 +131,9 @@ interface ChatState {
   viewingGroup: Chat | null;
   isAuthenticated: boolean;
   isValidatingSession: boolean;
+  isOnline: boolean;
+  socketConnected: boolean;
+  initializeNetworkListeners: () => void;
   currentUser: {
     id: string;
     username: string;
@@ -234,6 +245,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   viewingGroup: null,
   isAuthenticated: false,
   isValidatingSession: !!restoredUser,
+  isOnline: true,
+  socketConnected: false,
   currentUser: restoredUser,
   isDarkMode: initialSettings.isDarkMode,
   chatWallpaper: initialSettings.chatWallpaper,
@@ -254,6 +267,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
   activeCall: null,
   outgoingCall: null,
   
+  initializeNetworkListeners: () => {
+    socket.on('connect', () => {
+      set({ socketConnected: true });
+      const current = get().currentUser;
+      const active = get().activeChatId;
+      if (current) socket.emit('user_connected', current.id);
+      if (active) socket.emit('join_chat', active);
+    });
+
+    socket.on('disconnect', () => {
+      set({ socketConnected: false });
+    });
+
+    Network.addListener('networkStatusChange', status => {
+      set({ isOnline: status.connected });
+      if (status.connected && !socket.connected) socket.connect();
+    });
+    
+    Network.getStatus().then(status => set({ isOnline: status.connected })).catch(() => {});
+
+    CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+      if (isActive) {
+        try {
+          const status = await Network.getStatus();
+          set({ isOnline: status.connected });
+          if (status.connected && !socket.connected) socket.connect();
+          
+          const current = get().currentUser;
+          const active = get().activeChatId;
+          if (current) {
+            await get().fetchChats(current.id);
+            if (active) await get().fetchMessages(active);
+          }
+        } catch (e) {
+          console.error('Error on app resume', e);
+        }
+      }
+    });
+  },
+
   setIncomingCall: (call) => set({ incomingCall: call }),
   setActiveCall: (call) => set({ activeCall: call }),
   setOutgoingCall: (call) => set({ outgoingCall: call }),

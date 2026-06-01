@@ -6,6 +6,12 @@ import { useChatStore, socket } from './features/sidebar/store/useChatStore'
 function App() {
   const { isAuthenticated, isValidatingSession, currentUser } = useChatStore();
 
+  const { initializeNetworkListeners } = useChatStore();
+
+  useEffect(() => {
+    initializeNetworkListeners();
+  }, [initializeNetworkListeners]);
+
   useEffect(() => {
     if (isAuthenticated && currentUser?.id) {
       socket.emit('user_connected', currentUser.id);

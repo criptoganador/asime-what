@@ -13,6 +13,8 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+import { NavRail } from '../../../components/NavRail';
+
 export const StatusSidebar = () => {
   const { currentUser, updateProfile, statuses, fetchStatuses, createStatus } = useChatStore();
   const [showCreateMenu, setShowCreateMenu] = useState(false);
@@ -77,6 +79,11 @@ export const StatusSidebar = () => {
         <div className="flex gap-4 text-wa-text-secondary">
           <MoreVertical size={20} className="cursor-pointer hover:bg-wa-hover rounded-full transition-colors" />
         </div>
+      </div>
+
+      {/* NavRail Móvil */}
+      <div className="md:hidden w-full flex-shrink-0 border-b border-wa-border bg-wa-sidebar z-20">
+        <NavRail />
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-hide">

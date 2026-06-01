@@ -12,6 +12,7 @@ import { SecuritySettings } from './SecuritySettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { NavRail } from '../../../components/NavRail';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -345,6 +346,11 @@ export const Sidebar = () => {
                 </AnimatePresence>
               </div>
             )}
+          </div>
+
+          {/* NavRail Móvil */}
+          <div className="md:hidden w-full flex-shrink-0 border-b border-wa-border bg-wa-sidebar z-20">
+            <NavRail />
           </div>
 
           {/* Lista de Chats */}

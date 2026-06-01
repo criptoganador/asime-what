@@ -3,7 +3,8 @@ import {
   LiveKitRoom,
   VideoConference,
   RoomAudioRenderer,
-  useParticipants
+  useParticipants,
+  useConnectionState
 } from '@livekit/components-react';
 import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +41,22 @@ const ParticipantMonitor = ({ onCallEmpty, onParticipantsChange }: { onCallEmpty
   return null;
 };
 
+const ConnectionStatusIndicator = () => {
+  const connectionState = useConnectionState();
+  if (connectionState === 'reconnecting') {
+    return (
+      <div className="absolute inset-0 z-[200] bg-black/80 flex flex-col items-center justify-center backdrop-blur-sm">
+        <div className="w-12 h-12 border-4 border-wa-teal border-t-transparent rounded-full animate-spin mb-4" />
+        <h3 className="text-white text-xl font-bold">Reconectando llamada...</h3>
+        <p className="text-gray-400 mt-2 text-center max-w-xs">
+          Tu conexión cambió de red o es inestable. Mantente en línea.
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const CallView = ({ roomName, participantName, chatName, chatAvatar, onClose, onCallEmpty, video }: CallViewProps) => {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -52,6 +69,14 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
   const { contacts, inviteToCall } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
+
+  const roomOptions = {
+    adaptiveStream: true, // Baja la calidad si el internet es lento
+    dynacast: true, // Optimiza el ancho de banda
+    publishDefaults: {
+      simulcast: true, // Envía múltiples resoluciones de video
+    }
+  };
 
   const availableContacts = contacts.filter(contact => {
     const safeContactName = (contact.user?.name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -220,12 +245,14 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         audio={true}
         token={token}
         serverUrl={serverUrl}
+        options={roomOptions}
         connect={!isDisconnecting}
         onDisconnected={handleDisconnected}
         onError={handleMediaError}
         data-lk-theme="default"
         style={{ height: '100vh' }}
       >
+        <ConnectionStatusIndicator />
         <ParticipantMonitor onCallEmpty={handleCallEmptyGraceful} onParticipantsChange={setActiveParticipantNames} />
         {video ? (
           <div className={`lk-video-wrapper w-full h-full ${isMinimized ? 'pointer-events-none' : ''}`}>

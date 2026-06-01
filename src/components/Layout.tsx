@@ -8,13 +8,14 @@ import { useChatStore } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { AnimatePresence, motion } from 'framer-motion';
+import { WifiOff, Loader2 } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export const Layout = () => {
-  const { view, activeChatId, currentUser } = useChatStore();
+  const { view, activeChatId, currentUser, isOnline, socketConnected } = useChatStore();
 
   // Actualizar el icono de la pestaña (favicon) dinámicamente con el avatar del usuario
   React.useEffect(() => {
@@ -32,11 +33,30 @@ export const Layout = () => {
   }, [currentUser?.avatar, currentUser?.name]);
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-wa-bg">
-      {/* NavRail: Lateral en desktop, inferior en móviles (solo cuando no hay chat activo) */}
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-wa-bg relative">
+      {/* Indicador de red global */}
+      {(!isOnline || !socketConnected) && (
+        <div className="absolute top-0 left-0 w-full z-50 flex justify-center p-1 pointer-events-none">
+          <div className="bg-red-500/90 text-white text-xs font-medium px-3 py-1 rounded-full flex items-center gap-2 shadow-lg backdrop-blur-sm">
+            {!isOnline ? (
+              <>
+                <WifiOff className="w-3 h-3" />
+                <span>Sin conexión a internet</span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Conectando...</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* NavRail: Lateral en desktop, oculto en móviles (ahora vive dentro de los sidebars) */}
       <div className={cn(
         "h-full z-30",
-        activeChatId ? "hidden md:flex" : "flex order-2 md:order-none"
+        activeChatId ? "hidden md:flex" : "hidden md:flex"
       )}>
         <NavRail />
       </div>
