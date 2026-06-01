@@ -201,7 +201,7 @@ export const BiometricAuth: React.FC = () => {
               Nombre de usuario
             </label>
             <div className="flex gap-2">
-              <div className="relative group min-w-[60px] flex items-center justify-center bg-slate-50/50 rounded-xl border-2 border-slate-200/60 text-slate-500 font-bold">
+              <div className="relative group min-w-[50px] sm:min-w-[60px] flex items-center justify-center bg-slate-50/50 rounded-xl border-2 border-slate-200/60 text-slate-500 font-bold">
                 @
               </div>
               <input
@@ -209,7 +209,7 @@ export const BiometricAuth: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
                 placeholder="juanperez"
-                className="flex-1 bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3.5 px-4 text-[17px] rounded-xl transition-all duration-300 font-medium placeholder-slate-400"
+                className="flex-1 w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3 sm:py-3.5 px-3 sm:px-4 text-[16px] sm:text-[17px] rounded-xl transition-all duration-300 font-medium placeholder-slate-400"
               />
             </div>
             {error && (

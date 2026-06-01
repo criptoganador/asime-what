@@ -75,21 +75,20 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   maxHttpBufferSize: 5e7, // 50 MB payload limit for E2EE Base64 Media
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || [
-      "http://localhost:5173",
-      "https://asime-what-frontend.onrender.com"
-    ],
-    methods: ["GET", "POST"]
+    origin: process.env.NODE_ENV === 'production' 
+      ? (process.env.ALLOWED_ORIGIN || "https://asime-what-frontend.onrender.com")
+      : true, // Allow all origins in dev (e.g. 192.168.x.x)
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 const port = process.env.PORT || 3001;
 
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || [
-    "http://localhost:5173",
-    "https://asime-what-frontend.onrender.com"
-  ],
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.ALLOWED_ORIGIN || "https://asime-what-frontend.onrender.com")
+    : true, // Allow all origins in dev
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' }));
@@ -381,8 +380,23 @@ io.on('connection', (socket) => {
 
 // --- WEBAUTHN (PASSKEYS) ENDPOINTS ---
 const rpName = 'Asicme Chat';
-const rpID = process.env.NODE_ENV === 'production' ? 'asime-what-frontend.onrender.com' : 'localhost';
-const expectedOrigin = process.env.NODE_ENV === 'production' ? 'https://asime-what-frontend.onrender.com' : 'http://localhost:5173';
+
+// Helper to get dynamic origins and rpID based on the request
+const getWebAuthnConfig = (req: express.Request) => {
+  if (process.env.NODE_ENV === 'production') {
+    return {
+      rpID: 'asime-what-frontend.onrender.com',
+      expectedOrigin: 'https://asime-what-frontend.onrender.com'
+    };
+  }
+  // For local development, allow the current hostname of the request (e.g., 192.168.x.x)
+  const origin = req.headers.origin || 'http://localhost:5173';
+  const url = new URL(origin);
+  return {
+    rpID: url.hostname,
+    expectedOrigin: origin
+  };
+};
 
 app.post('/api/auth/generate-registration-options', authLimiter, async (req, res) => {
   const { username } = req.body;
@@ -404,6 +418,7 @@ app.post('/api/auth/generate-registration-options', authLimiter, async (req, res
   }
 
   try {
+    const { rpID } = getWebAuthnConfig(req);
     const options = await generateRegistrationOptions({
       rpName,
       rpID,
@@ -430,6 +445,7 @@ app.post('/api/auth/verify-registration', authLimiter, async (req, res) => {
   if (!user || !user.currentChallenge) return res.status(400).json({ error: 'Usuario no válido' });
 
   try {
+    const { expectedOrigin, rpID } = getWebAuthnConfig(req);
     const verification = await verifyRegistrationResponse({
       response: body,
       expectedChallenge: user.currentChallenge,
@@ -475,6 +491,7 @@ app.post('/api/auth/generate-authentication-options', authLimiter, async (req, r
   }
 
   try {
+    const { rpID } = getWebAuthnConfig(req);
     const options = await generateAuthenticationOptions({
       rpID,
       allowCredentials: [{
@@ -498,6 +515,7 @@ app.post('/api/auth/verify-authentication', authLimiter, async (req, res) => {
   }
 
   try {
+    const { expectedOrigin, rpID } = getWebAuthnConfig(req);
     const verification = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge: user.currentChallenge,
