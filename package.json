@@ -11,8 +11,10 @@
     "build:android": "npm run build && npx cap sync android"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^10.0.0",
     "@capacitor/android": "^8.3.4",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/device": "^8.0.2",
     "@livekit/components-react": "^2.9.21",
     "@livekit/components-styles": "^1.2.0",
     "@simplewebauthn/browser": "^13.3.0",
@@ -21,6 +23,7 @@
     "@types/react-window": "^1.8.8",
     "bip39": "^3.1.0",
     "buffer": "^6.0.3",
+    "capacitor-secure-storage-plugin": "^0.13.0",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "emoji-picker-react": "^4.19.1",

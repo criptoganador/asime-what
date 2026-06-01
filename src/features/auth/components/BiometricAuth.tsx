@@ -8,10 +8,46 @@ import { generateECDHKeyPair, encryptPrivateKeyWithPIN, encryptPrivateKeyWithPhr
 import { uploadImage } from '../../../utils/upload';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Capacitor } from '@capacitor/core';
+import { BiometricAuth as NativeBiometric } from '@aparajita/capacitor-biometric-auth';
+import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const verifyNativeBiometric = async () => {
+  try {
+    const info = await NativeBiometric.checkBiometry();
+    if (!info.isAvailable) throw new Error('Biometría no disponible.');
+    await NativeBiometric.authenticate({ reason: 'Por favor autentícate para continuar' });
+    return true;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+};
+
+const generateHardwareKeyPair = async () => {
+  const keyPair = await window.crypto.subtle.generateKey(
+    { name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']
+  );
+  const publicKeyBuffer = await window.crypto.subtle.exportKey('spki', keyPair.publicKey);
+  const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKeyBuffer)));
+  const privateKeyJwk = await window.crypto.subtle.exportKey('jwk', keyPair.privateKey);
+  return { publicKeyBase64, privateKeyJwk };
+};
+
+const signChallenge = async (privateKeyJwk: any, challengeHex: string) => {
+  const privateKey = await window.crypto.subtle.importKey(
+    'jwk', privateKeyJwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']
+  );
+  const challengeBuffer = new Uint8Array(challengeHex.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
+  const signatureBuffer = await window.crypto.subtle.sign(
+    { name: 'ECDSA', hash: { name: 'SHA-256' } }, privateKey, challengeBuffer
+  );
+  return btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+};
 
 export const BiometricAuth: React.FC = () => {
   const [step, setStep] = useState<'auth' | 'profile'>('auth');
@@ -56,46 +92,75 @@ export const BiometricAuth: React.FC = () => {
     setError(null);
 
     try {
-      const resp = await fetch(`${API_URL}/api/auth/generate-registration-options`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim() })
-      });
-      const options = await resp.json();
+      const isMobile = Capacitor.isNativePlatform();
+      let keys = await generateECDHKeyPair();
+      let encryptedPrivateKey = encryptPrivateKeyWithPIN(keys.privateKey, virtualPIN);
+      let recoveryEncryptedPrivateKey = encryptPrivateKeyWithPhrase(keys.privateKey, 'dummy_recovery_phrase');
+      
+      let verificationJSON;
 
-      if (!resp.ok) throw new Error(options.error || 'Error al obtener opciones');
+      if (isMobile) {
+        // --- NATIVE MOBILE REGISTRATION ---
+        const authResult = await verifyNativeBiometric();
+        if (!authResult) throw new Error('Autenticación biométrica fallida o cancelada.');
 
-      let attResp;
-      try {
-        attResp = await startRegistration({ optionsJSON: options });
-      } catch (err: any) {
-        if (err.name === 'InvalidStateError') throw new Error('Ya tienes un dispositivo registrado en esta cuenta.');
-        if (err.name === 'NotAllowedError') throw new Error('Cancelaste la solicitud biométrica.');
-        throw err;
+        const { publicKeyBase64, privateKeyJwk } = await generateHardwareKeyPair();
+        
+        await SecureStoragePlugin.set({ key: 'hardware_private_key', value: JSON.stringify(privateKeyJwk) });
+
+        const verificationResp = await fetch(`${API_URL}/api/auth/mobile-register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            username: username.trim(),
+            hardwarePublicKey: publicKeyBase64,
+            publicKey: keys.publicKey,
+            encryptedPrivateKey,
+            recoveryEncryptedPrivateKey
+          })
+        });
+
+        verificationJSON = await verificationResp.json();
+      } else {
+        // --- WEBAUTHN REGISTRATION ---
+        const resp = await fetch(`${API_URL}/api/auth/generate-registration-options`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim() })
+        });
+        const options = await resp.json();
+
+        if (!resp.ok) throw new Error(options.error || 'Error al obtener opciones');
+
+        let attResp;
+        try {
+          attResp = await startRegistration({ optionsJSON: options });
+        } catch (err: any) {
+          if (err.name === 'InvalidStateError') throw new Error('Ya tienes un dispositivo registrado en esta cuenta.');
+          if (err.name === 'NotAllowedError') throw new Error('Cancelaste la solicitud biométrica.');
+          throw err;
+        }
+
+        const verificationResp = await fetch(`${API_URL}/api/auth/verify-registration`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            username: username.trim(),
+            body: attResp,
+            publicKey: keys.publicKey,
+            encryptedPrivateKey,
+            recoveryEncryptedPrivateKey
+          })
+        });
+
+        verificationJSON = await verificationResp.json();
       }
 
-      const keys = await generateECDHKeyPair();
-      const encryptedPrivateKey = encryptPrivateKeyWithPIN(keys.privateKey, virtualPIN);
-      const recoveryEncryptedPrivateKey = encryptPrivateKeyWithPhrase(keys.privateKey, 'dummy_recovery_phrase');
-
-      const verificationResp = await fetch(`${API_URL}/api/auth/verify-registration`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          username: username.trim(),
-          body: attResp,
-          publicKey: keys.publicKey,
-          encryptedPrivateKey,
-          recoveryEncryptedPrivateKey
-        })
-      });
-
-      const verificationJSON = await verificationResp.json();
       if (verificationJSON.verified) {
         setTempUser(verificationJSON.user);
         setName(verificationJSON.user.username);
         setTempDecryptedKey(keys.privateKey);
-        setStep('profile'); // En lugar de loguear directo, pasamos al perfil
+        setStep('profile');
       } else {
         throw new Error(verificationJSON.error || 'Fallo en la verificación del registro');
       }
@@ -115,30 +180,61 @@ export const BiometricAuth: React.FC = () => {
     setError(null);
 
     try {
-      const resp = await fetch(`${API_URL}/api/auth/generate-authentication-options`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim() })
-      });
-      const options = await resp.json();
+      const isMobile = Capacitor.isNativePlatform();
+      let verificationJSON;
 
-      if (!resp.ok) throw new Error(options.error || 'Usuario no encontrado');
+      if (isMobile) {
+        // --- NATIVE MOBILE LOGIN ---
+        const authResult = await verifyNativeBiometric();
+        if (!authResult) throw new Error('Autenticación biométrica fallida o cancelada.');
 
-      let asseResp;
-      try {
-        asseResp = await startAuthentication({ optionsJSON: options });
-      } catch (err: any) {
-        if (err.name === 'NotAllowedError') throw new Error('Autenticación cancelada o denegada.');
-        throw err;
+        const challengeResp = await fetch(`${API_URL}/api/auth/mobile-login-challenge`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim() })
+        });
+        const challengeData = await challengeResp.json();
+        if (!challengeResp.ok) throw new Error(challengeData.error || 'Usuario no encontrado');
+
+        const { value: storedKeyStr } = await SecureStoragePlugin.get({ key: 'hardware_private_key' });
+        if (!storedKeyStr) throw new Error('Credenciales de hardware no encontradas en este dispositivo.');
+        
+        const signatureBase64 = await signChallenge(JSON.parse(storedKeyStr), challengeData.challenge);
+
+        const verificationResp = await fetch(`${API_URL}/api/auth/mobile-verify-signature`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim(), signature: signatureBase64 })
+        });
+        verificationJSON = await verificationResp.json();
+      } else {
+        // --- WEBAUTHN LOGIN ---
+        const resp = await fetch(`${API_URL}/api/auth/generate-authentication-options`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim() })
+        });
+        const options = await resp.json();
+
+        if (!resp.ok) throw new Error(options.error || 'Usuario no encontrado');
+
+        let asseResp;
+        try {
+          asseResp = await startAuthentication({ optionsJSON: options });
+        } catch (err: any) {
+          if (err.name === 'NotAllowedError') throw new Error('Autenticación cancelada o denegada.');
+          throw err;
+        }
+
+        const verificationResp = await fetch(`${API_URL}/api/auth/verify-authentication`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username.trim(), body: asseResp })
+        });
+
+        verificationJSON = await verificationResp.json();
       }
 
-      const verificationResp = await fetch(`${API_URL}/api/auth/verify-authentication`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), body: asseResp })
-      });
-
-      const verificationJSON = await verificationResp.json();
       if (verificationJSON.verified) {
         useChatStore.setState({ 
           currentUser: verificationJSON.user,

@@ -545,6 +545,93 @@ app.post('/api/auth/verify-authentication', authLimiter, async (req, res) => {
   return res.status(400).json({ error: 'Fallo al verificar autenticación' });
 });
 
+// --- NATIVE MOBILE AUTHENTICATION ---
+app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
+  const { username, hardwarePublicKey, publicKey, encryptedPrivateKey, recoveryEncryptedPrivateKey } = req.body;
+  if (!username || !hardwarePublicKey) return res.status(400).json({ error: 'Username y Hardware Key son requeridos' });
+
+  let user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  
+  if (user && user.hardwarePublicKey) {
+    return res.status(400).json({ error: 'El usuario ya está registrado con este username en móvil.' });
+  }
+
+  try {
+    if (!user) {
+      const [newUser] = await db.insert(users).values({ 
+        username, 
+        name: username,
+        hardwarePublicKey,
+        publicKey,
+        encryptedPrivateKey,
+        recoveryEncryptedPrivateKey
+      }).returning();
+      user = newUser;
+    } else {
+      const [updatedUser] = await db.update(users).set({
+        hardwarePublicKey,
+        publicKey,
+        encryptedPrivateKey,
+        recoveryEncryptedPrivateKey
+      }).where(eq(users.id, user.id)).returning();
+      user = updatedUser;
+    }
+
+    const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = user;
+    res.json({ verified: true, user: safeUser });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/mobile-login-challenge', authLimiter, async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'Username es requerido' });
+
+  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  if (!user || !user.hardwarePublicKey) {
+    return res.status(404).json({ error: 'Usuario no encontrado o no registrado desde móvil' });
+  }
+
+  const challenge = crypto.randomBytes(32).toString('hex');
+  await db.update(users).set({ currentChallenge: challenge }).where(eq(users.id, user.id));
+  
+  res.json({ challenge });
+});
+
+app.post('/api/auth/mobile-verify-signature', authLimiter, async (req, res) => {
+  const { username, signature } = req.body;
+  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  if (!user || !user.currentChallenge || !user.hardwarePublicKey) {
+    return res.status(400).json({ error: 'Usuario no válido para autenticación móvil' });
+  }
+
+  try {
+    const verify = crypto.createVerify('SHA256');
+    verify.update(user.currentChallenge);
+    verify.end();
+    
+    // PEM format for public key
+    const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${user.hardwarePublicKey}\n-----END PUBLIC KEY-----`;
+    
+    const isValid = verify.verify(publicKeyPem, signature, 'base64');
+
+    if (isValid) {
+      const [updatedUser] = await db.update(users).set({
+        currentChallenge: null,
+      }).where(eq(users.id, user.id)).returning();
+
+      const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
+      return res.json({ verified: true, user: safeUser });
+    } else {
+      return res.status(401).json({ error: 'Firma digital inválida' });
+    }
+  } catch (error: any) {
+    console.error('Error verify mobile signature:', error);
+    return res.status(400).send({ error: error.message });
+  }
+});
+
 app.post('/api/auth', authLimiter, async (req, res) => {
   const { phone, pin, name, avatar, about, publicKey, encryptedPrivateKey, recoveryPhrase, recoveryEncryptedPrivateKey } = req.body;
   if (!phone || !pin) return res.status(400).json({ error: 'Teléfono y PIN son obligatorios' });

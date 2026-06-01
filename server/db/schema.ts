@@ -14,6 +14,7 @@ export const users = pgTable('users', {
   recoveryEncryptedPrivateKey: text('recovery_encrypted_private_key'),
   credentialID: text('credential_id'),
   credentialPublicKey: text('credential_public_key'),
+  hardwarePublicKey: text('hardware_public_key'),
   counter: integer('counter').default(0),
   transports: jsonb('transports').default([]),
   currentChallenge: text('current_challenge'),
