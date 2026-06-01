@@ -1,9 +1,5 @@
 {
   "appId": "com.asicme.chat",
   "appName": "Asicme Chat",
-  "webDir": "dist",
-  "server": {
-    "url": "https://asime-what-frontend.onrender.com",
-    "cleartext": true
-  }
+  "webDir": "dist"
 }
