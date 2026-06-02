@@ -15,6 +15,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { FileOpener } from '@capawesome-team/capacitor-file-opener';
 import logo from '../assets/logo.png';
 import { Theme } from 'emoji-picker-react';
 
@@ -905,14 +906,20 @@ async function handleNativeDownload(url: string, fileName: string) {
     // alert("Archivo guardado en caché temporal: " + savedFile.uri);
 
     try {
-      await Share.share({
-        title: fileName,
-        url: savedFile.uri,
-        dialogTitle: 'Abrir o guardar archivo'
+      await FileOpener.openFile({
+        path: savedFile.uri
       });
-    } catch (shareError: any) {
-      console.warn('Share.share falló:', shareError);
-      alert(`El archivo se descargó, pero tu dispositivo no tiene ninguna aplicación instalada capaz de abrir archivos tipo ${fileName} (Ej: no tienes Excel o visor de PDF).`);
+    } catch (openerError: any) {
+      console.warn('FileOpener falló, intentando con Share:', openerError);
+      try {
+        await Share.share({
+          title: fileName,
+          url: savedFile.uri,
+          dialogTitle: 'Abrir archivo'
+        });
+      } catch (shareError) {
+        alert(`Tu dispositivo no tiene ninguna aplicación instalada capaz de abrir el archivo ${fileName} (Ej: instala Excel o un visor de PDF).`);
+      }
     }
 
   } catch (error: any) {
