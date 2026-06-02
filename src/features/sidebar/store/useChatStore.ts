@@ -8,6 +8,10 @@ import { App as CapacitorApp } from '@capacitor/app';
 export const decryptSmartMessage = async (encryptedText: string, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!encryptedText) return encryptedText;
   
+  if (encryptedText.startsWith('data:') || encryptedText.startsWith('blob:')) {
+    return encryptedText;
+  }
+  
   if (chatInfo && !chatInfo.isGroup && chatInfo.otherUserPublicKey && privateKeyJWK) {
     if (encryptedText.includes('ciphertext') && encryptedText.includes('iv')) {
       try {
@@ -39,6 +43,11 @@ export const fetchIfR2Url = async (content: string | undefined): Promise<string 
 
 export const encryptSmartMessage = async (plaintext: string | undefined, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!plaintext) return plaintext;
+
+  // Evitar encriptar cadenas base64 muy grandes (ej. videos) para prevenir Crash por Memoria en móviles
+  if (plaintext.startsWith('data:') && plaintext.length > 1024 * 1024) {
+    return plaintext;
+  }
   if (chatInfo && !chatInfo.isGroup && chatInfo.otherUserPublicKey && privateKeyJWK) {
     try {
       const myPrivateKey = await importPrivateKey(privateKeyJWK);
