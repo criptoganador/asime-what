@@ -125,11 +125,7 @@ export const GroupInfoView = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ x: '-100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '-100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+    <div 
       className="absolute inset-0 z-[60] bg-wa-bg flex flex-col"
     >
       {/* Header */}
@@ -365,6 +361,6 @@ export const GroupInfoView = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 };

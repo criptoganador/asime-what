@@ -826,7 +826,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
                 onClick={() => !isSending && onVideoClick(msg.fileUrl || null)}
               >
                 {sendingOverlay}
-                <video src={msg.fileUrl} className="w-full h-auto max-h-[200px] object-cover opacity-50" />
+                <video src={`${msg.fileUrl}#t=0.001`} preload="metadata" className="w-full h-auto max-h-[200px] object-cover" />
                 {!isSending && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">

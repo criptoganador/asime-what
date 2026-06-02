@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+
 import { ArrowLeft, Camera, Pencil, Check, Loader2, X, Smile, Copy } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { uploadImage } from '../../../utils/upload';
@@ -53,11 +53,7 @@ export const ProfileView = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ x: '-100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '-100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+    <div 
       className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
     >
       {/* Header Estilo WhatsApp/Asicme Chat */}
@@ -220,6 +216,6 @@ export const ProfileView = () => {
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

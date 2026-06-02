@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { ArrowLeft, Search, UserPlus, Loader2, User } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { API_URL } from '../../../config';
@@ -66,11 +65,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <motion.div 
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+    <div 
       className="absolute inset-0 z-[999] bg-[#f0f2f5] flex flex-col"
     >
       {/* Header */}
@@ -149,6 +144,6 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
           ) : null}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

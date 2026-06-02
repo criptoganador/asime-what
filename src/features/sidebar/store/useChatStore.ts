@@ -731,12 +731,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error loading more messages:', error);
     }
   },
-  sendMessage: async (chatId, text, type = 'text', imageUrl, replyToId, fileData) => {
+  sendMessage: async (chatId, text, type = 'text', imageUrl, replyToId, fileData, overrideMessageId) => {
     const state = get();
     const { currentUser } = state;
     if (!currentUser) return;
     
-    const messageId = crypto.randomUUID();
+    const messageId = overrideMessageId || crypto.randomUUID();
     
     // 1. Optimistic UI: Crear y agregar mensaje local inmediatamente
     const tempMessage: Message = {
