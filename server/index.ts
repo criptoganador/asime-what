@@ -317,6 +317,21 @@ io.on('connection', (socket) => {
         WHERE "conversation_id" = ${chatId} 
         AND NOT (COALESCE("deleted_for", '[]'::jsonb) @> ${JSON.stringify(userId)}::jsonb)
       `);
+
+      // Optimización de espacio: Borrar físicamente si TODOS los participantes ya lo borraron
+      const participants = await db.query.conversationParticipants.findMany({ 
+        where: eq(conversationParticipants.conversationId, chatId) 
+      });
+      const numParticipants = participants.length;
+
+      if (numParticipants > 0) {
+        await db.execute(sql`
+          DELETE FROM "messages"
+          WHERE "conversation_id" = ${chatId}
+          AND jsonb_array_length(COALESCE("deleted_for", '[]'::jsonb)) >= ${numParticipants}
+        `);
+      }
+
       io.to(userId).emit('chat_cleared', { chatId });
     } catch (error) {
       console.error('Error al vaciar chat:', error);
@@ -326,16 +341,24 @@ io.on('connection', (socket) => {
   socket.on('delete_message', async ({ chatId, messageId, forEveryone, userId }) => {
     try {
       if (forEveryone) {
-        await db.update(messages)
-          .set({ isDeleted: true, text: 'Este mensaje fue eliminado', imageUrl: null, fileUrl: null, fileName: null, duration: null })
-          .where(eq(messages.id, messageId));
+        await db.delete(messages).where(eq(messages.id, messageId));
       } else {
         const msg = await db.query.messages.findFirst({ where: eq(messages.id, messageId) });
         if (msg) {
           const deletedFor = (msg.deletedFor as string[]) || [];
           if (!deletedFor.includes(userId)) {
             deletedFor.push(userId);
-            await db.update(messages).set({ deletedFor }).where(eq(messages.id, messageId));
+            
+            // Verificar si todos los participantes ya lo han borrado
+            const participants = await db.query.conversationParticipants.findMany({ 
+              where: eq(conversationParticipants.conversationId, chatId) 
+            });
+            
+            if (deletedFor.length >= participants.length && participants.length > 0) {
+              await db.delete(messages).where(eq(messages.id, messageId));
+            } else {
+              await db.update(messages).set({ deletedFor }).where(eq(messages.id, messageId));
+            }
           }
         }
       }
