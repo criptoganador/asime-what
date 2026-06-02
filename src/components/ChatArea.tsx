@@ -46,7 +46,7 @@ export const ChatArea = () => {
     activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, 
     markMessagesRead, setViewingGroup, chatWallpaper, typingUsers, sendTypingStatus,
     addReaction, replyingTo, setReplyingTo,
-    hasMoreMessages, loadMoreMessages, deleteMessage,
+    hasMoreMessages, loadMoreMessages, deleteMessage, addMessage,
     activeCall, incomingCall, outgoingCall, callUser, answerCall, endCall, leaveCall
   } = useChatStore();
   
@@ -173,23 +173,45 @@ export const ChatArea = () => {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'media' | 'file' | 'audio') => {
     const file = e.target.files?.[0];
-    if (file && activeChatId) {
-      setIsUploading(true);
+    if (file && activeChatId && currentUser) {
       setShowPlusMenu(false);
+      
+      const messageId = crypto.randomUUID();
+      const localUrl = URL.createObjectURL(file);
+      const isVideo = file.type.startsWith('video/');
+      const actualType = type === 'media' ? (isVideo ? 'video' : 'image') : type;
+      
+      addMessage(activeChatId, {
+        id: messageId,
+        conversationId: activeChatId,
+        senderId: currentUser.id,
+        text: '',
+        type: actualType,
+        imageUrl: actualType === 'image' ? localUrl : undefined,
+        fileUrl: actualType !== 'image' ? localUrl : undefined,
+        fileName: file.name,
+        fileType: file.type,
+        status: 'sending',
+        isDeleted: false,
+        deletedFor: [],
+        timestamp: new Date().toISOString(),
+        reactions: {}
+      });
+
+      if (e.target) e.target.value = ''; // Reset input immediately
+
       try {
-        if (type === 'media') {
-          if (file.type.startsWith('video/')) {
-            const videoUrl = await uploadVideo(file);
-            sendMessage(activeChatId, undefined, 'video', undefined, replyingTo?.id, {
-              url: videoUrl,
-              fileName: file.name,
-              fileType: file.type
-            });
-          } else {
-            const imageUrl = await uploadImage(file);
-            sendMessage(activeChatId, undefined, 'image', imageUrl, replyingTo?.id);
-          }
-        } else if (type === 'audio') {
+        if (actualType === 'video') {
+          const videoUrl = await uploadVideo(file);
+          sendMessage(activeChatId, undefined, 'video', undefined, replyingTo?.id, {
+            url: videoUrl,
+            fileName: file.name,
+            fileType: file.type
+          }, messageId);
+        } else if (actualType === 'image') {
+          const imageUrl = await uploadImage(file);
+          sendMessage(activeChatId, undefined, 'image', imageUrl, replyingTo?.id, undefined, messageId);
+        } else if (actualType === 'audio') {
           const audioUrl = await uploadAudio(file);
           const duration = await getAudioDuration(file);
           sendMessage(activeChatId, undefined, 'audio', undefined, replyingTo?.id, {
@@ -197,20 +219,18 @@ export const ChatArea = () => {
             fileName: file.name,
             fileType: file.type,
             duration: duration
-          });
+          }, messageId);
         } else {
           const fileUrl = await uploadFile(file);
           sendMessage(activeChatId, undefined, 'file', undefined, replyingTo?.id, {
             url: fileUrl,
             fileName: file.name,
             fileType: file.type
-          });
+          }, messageId);
         }
       } catch (error: any) {
+        console.error('Upload error:', error);
         alert(error.message || 'Error al subir el archivo');
-      } finally {
-        setIsUploading(false);
-        if (e.target) e.target.value = ''; // Reset input
       }
     }
   };
@@ -230,21 +250,42 @@ export const ChatArea = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], 'voice_note.webm', { type: 'audio/webm' });
         
-        setIsUploading(true);
-        try {
-          const audioUrl = await uploadAudio(audioFile);
-          const duration = await getAudioDuration(audioFile);
-          sendMessage(activeChatId!, undefined, 'audio', undefined, replyingTo?.id, {
-            url: audioUrl,
+        if (currentUser && activeChatId) {
+          const messageId = crypto.randomUUID();
+          const localUrl = URL.createObjectURL(audioFile);
+          
+          addMessage(activeChatId, {
+            id: messageId,
+            conversationId: activeChatId,
+            senderId: currentUser.id,
+            text: '',
+            type: 'audio',
+            fileUrl: localUrl,
             fileName: 'Nota de voz',
             fileType: 'audio/webm',
-            duration: duration
+            duration: 0,
+            status: 'sending',
+            isDeleted: false,
+            deletedFor: [],
+            timestamp: new Date().toISOString(),
+            reactions: {}
           });
-        } catch (error) {
-          alert('Error al enviar la nota de voz');
-        } finally {
-          setIsUploading(false);
+
           setRecordingTime(0);
+
+          try {
+            const audioUrl = await uploadAudio(audioFile);
+            const duration = await getAudioDuration(audioFile);
+            sendMessage(activeChatId, undefined, 'audio', undefined, replyingTo?.id, {
+              url: audioUrl,
+              fileName: 'Nota de voz',
+              fileType: 'audio/webm',
+              duration: duration
+            }, messageId);
+          } catch (error) {
+            console.error('Audio upload error:', error);
+            alert('Error al enviar la nota de voz');
+          }
         }
         
         stream.getTracks().forEach(track => track.stop());
@@ -750,14 +791,23 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
     if (msg.isDeleted) {
       return <div className="flex items-center gap-2 text-wa-text-secondary italic opacity-80"><Ban size={16} /> <span className="text-[14.5px]">Este mensaje fue eliminado</span></div>;
     }
+    
+    const isSending = msg.status === 'sending';
+    const sendingOverlay = isSending ? (
+      <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] flex items-center justify-center z-20 rounded-lg">
+        <div className="w-8 h-8 border-4 border-[#6366f1] border-t-transparent rounded-full animate-spin shadow-md" />
+      </div>
+    ) : null;
+
     switch (msg.type) {
       case 'image':
         return (
-          <div className="space-y-1">
+          <div className="space-y-1 relative">
             <div 
-              className="relative group/img cursor-pointer overflow-hidden rounded-lg"
-              onClick={() => onImageClick(msg.imageUrl || null)}
+              className={cn("relative group/img cursor-pointer overflow-hidden rounded-lg", isSending && "pointer-events-none opacity-80")}
+              onClick={() => !isSending && onImageClick(msg.imageUrl || null)}
             >
+              {sendingOverlay}
               <img src={msg.imageUrl} alt="Sent" className="max-w-full hover:scale-[1.02] transition-transform duration-500" />
               <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
                 <Search size={24} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
@@ -767,20 +817,23 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
           </div>
         );
       case 'video':
-        const isUrlValid = msg.fileUrl && msg.fileUrl.startsWith('data:');
+        const isUrlValid = msg.fileUrl && msg.fileUrl.startsWith('data:') || msg.fileUrl?.startsWith('blob:');
         return (
-          <div className="space-y-1">
+          <div className="space-y-1 relative">
             {isUrlValid ? (
               <div 
-                className="relative group/vid cursor-pointer overflow-hidden rounded-lg bg-black/80 flex items-center justify-center min-h-[150px] min-w-[200px]"
-                onClick={() => onVideoClick(msg.fileUrl || null)}
+                className={cn("relative group/vid cursor-pointer overflow-hidden rounded-lg bg-black/80 flex items-center justify-center min-h-[150px] min-w-[200px]", isSending && "pointer-events-none opacity-80")}
+                onClick={() => !isSending && onVideoClick(msg.fileUrl || null)}
               >
+                {sendingOverlay}
                 <video src={msg.fileUrl} className="w-full h-auto max-h-[200px] object-cover opacity-50" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">
-                    <Play size={24} className="text-white fill-white ml-1" />
+                {!isSending && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">
+                      <Play size={24} className="text-white fill-white ml-1" />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <div 
@@ -796,19 +849,25 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         );
       case 'file':
         return (
-          <div className="flex items-center gap-3 p-1 bg-black/5 rounded-lg border border-black/5 min-w-[200px]">
+          <div className={cn("flex items-center gap-3 p-1 bg-black/5 rounded-lg border border-black/5 min-w-[200px] relative", isSending && "opacity-70 pointer-events-none")}>
+            {sendingOverlay}
             <div className={cn("w-10 h-12 flex items-center justify-center rounded-lg shadow-sm bg-gray-400 text-white", msg.fileName?.endsWith('.pdf') && "bg-red-500", msg.fileName?.match(/\.(doc|docx)$/i) && "bg-blue-500", msg.fileName?.match(/\.(xls|xlsx)$/i) && "bg-green-600")}>
               <FileText size={24} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[14px] font-medium text-wa-text-primary truncate">{msg.fileName}</p>
-              <p className="text-[11px] text-wa-text-secondary uppercase">Archivo</p>
+              <p className="text-[11px] text-wa-text-secondary uppercase">{isSending ? 'Subiendo...' : 'Archivo'}</p>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleNativeDownload(msg.fileUrl, msg.fileName, msg.fileType); }} className="p-2 text-wa-text-secondary hover:text-wa-teal transition-colors cursor-pointer"><Download size={20} /></button>
+            {!isSending && <button onClick={(e) => { e.stopPropagation(); handleNativeDownload(msg.fileUrl, msg.fileName, msg.fileType); }} className="p-2 text-wa-text-secondary hover:text-wa-teal transition-colors cursor-pointer z-10 relative"><Download size={20} /></button>}
           </div>
         );
       case 'audio':
-        return <AudioPlayer msg={msg} />;
+        return (
+          <div className={cn("relative", isSending && "opacity-70 pointer-events-none")}>
+            {sendingOverlay}
+            <AudioPlayer msg={msg} />
+          </div>
+        );
       case 'system':
         return (
           <div className="flex items-center justify-center py-0.5">

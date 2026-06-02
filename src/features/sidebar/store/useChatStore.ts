@@ -178,7 +178,7 @@ interface ChatState {
   resetPin: (data: any) => Promise<{ success: boolean; error?: string }>;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
-  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }) => void;
+  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }, overrideMessageId?: string) => void;
   markMessagesRead: (chatId: string) => void;
   createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
