@@ -196,7 +196,13 @@ export const BiometricAuth: React.FC = () => {
         const challengeData = await challengeResp.json();
         if (!challengeResp.ok) throw new Error(challengeData.error || 'Usuario no encontrado');
 
-        const { value: storedKeyStr } = await SecureStoragePlugin.get({ key: 'hardware_private_key' });
+        let storedKeyStr;
+        try {
+          const res = await SecureStoragePlugin.get({ key: 'hardware_private_key' });
+          storedKeyStr = res.value;
+        } catch (e) {
+          throw new Error('No se encontraron las llaves en este teléfono. ¿Desinstalaste la app? Registra un nuevo usuario por ahora.');
+        }
         if (!storedKeyStr) throw new Error('Credenciales de hardware no encontradas en este dispositivo.');
         
         const signatureBase64 = await signChallenge(JSON.parse(storedKeyStr), challengeData.challenge);

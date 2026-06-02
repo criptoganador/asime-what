@@ -73,11 +73,12 @@ export interface Message {
   senderId: string;
   sender?: 'me' | 'other';
   timestamp: string;
-  status: 'sent' | 'delivered' | 'read';
+  status: 'sending' | 'sent' | 'delivered' | 'read';
   reactions?: Record<string, string[]>;
   replyToId?: string;
   replyTo?: Message;
   isDeleted?: boolean;
+  deletedFor?: string[];
 }
 
 export interface Chat {
@@ -726,6 +727,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { currentUser } = state;
     if (!currentUser) return;
     
+    const messageId = crypto.randomUUID();
+    
+    // 1. Optimistic UI: Crear y agregar mensaje local inmediatamente
+    const tempMessage: Message = {
+      id: messageId,
+      conversationId: chatId,
+      senderId: currentUser.id,
+      text: text || '',
+      type,
+      imageUrl, // Usamos la URL local cruda (blob o base64) para renderizar instantáneamente
+      fileUrl: fileData?.url || '',
+      fileName: fileData?.fileName || '',
+      fileType: fileData?.fileType || '',
+      duration: fileData?.duration || 0,
+      replyToId,
+      status: 'sending',
+      isDeleted: false,
+      deletedFor: [],
+      timestamp: new Date().toISOString(),
+      reactions: {}
+    };
+    
+    get().addMessage(chatId, tempMessage);
+
+    // 2. Proceso en segundo plano: Cifrar y enviar
     const chatInfo = state.chats.find(c => c.id === chatId);
     const encryptedText = await encryptSmartMessage(text, chatId, chatInfo, state.privateKeyJWK);
     const encryptedImageUrl = await encryptSmartMessage(imageUrl, chatId, chatInfo, state.privateKeyJWK);
@@ -734,6 +760,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const { url, ...cleanFileData } = fileData || {};
     
     socket.emit('send_message', {
+      id: messageId,
       chatId,
       senderId: currentUser.id,
       text: encryptedText,
@@ -791,12 +818,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set((state) => {
       const currentMsgs = state.messages[chatId] || [];
-      if (currentMsgs.some(m => m.id === message.id)) return state;
+      const existingIndex = currentMsgs.findIndex(m => m.id === message.id);
 
-      const newMessages = {
-        ...state.messages,
-        [chatId]: [...currentMsgs, message]
-      };
+      let newMessages;
+      if (existingIndex !== -1) {
+        const updatedMsgs = [...currentMsgs];
+        updatedMsgs[existingIndex] = message;
+        newMessages = { ...state.messages, [chatId]: updatedMsgs };
+      } else {
+        newMessages = { ...state.messages, [chatId]: [...currentMsgs, message] };
+      }
 
       const updatedChats = state.chats.map(chat => 
         chat.id === chatId 

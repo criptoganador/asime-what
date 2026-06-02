@@ -3,7 +3,8 @@ import {
   Send, Smile, ArrowLeft, Image as ImageIcon, 
   X, Reply, Plus, Trash2, 
   FileText, File as FileIcon, Mic, StopCircle, Play, Pause, Download,
-  Lock, Phone, PhoneOff, Video, Ban, Search, MoreVertical, AlertCircle, Info
+  Lock, Phone, PhoneOff, Video, Ban, Search, MoreVertical, AlertCircle, Info,
+  Clock, Check
 } from 'lucide-react';
 import { useChatStore, Message } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -829,7 +830,11 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         {msg.type !== 'system' && (
           <div className="flex items-center justify-end gap-1 mt-0.5">
             <span className="text-[11px] text-wa-text-secondary uppercase">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-            {isMe && <div className={cn("flex items-center transition-colors", msg.status === 'read' ? "text-[#53bdeb]" : "text-wa-text-secondary")}><CheckAll size={16} /></div>}
+            {isMe && <div className={cn("flex items-center transition-colors", msg.status === 'read' ? "text-[#53bdeb]" : "text-wa-text-secondary")}>
+              {msg.status === 'sending' ? <Clock size={12} className="opacity-70" /> : 
+               msg.status === 'sent' ? <Check size={16} /> : 
+               <CheckAll size={16} />}
+            </div>}
           </div>
         )}
         {msg.reactions && Object.keys(msg.reactions).length > 0 && (

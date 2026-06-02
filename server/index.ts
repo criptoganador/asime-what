@@ -168,7 +168,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send_message', async (data) => {
-    const { chatId, senderId, text, type, imageUrl, fileUrl, fileName, fileType, duration, replyToId } = data;
+    const { id, chatId, senderId, text, type, imageUrl, fileUrl, fileName, fileType, duration, replyToId } = data;
     
     // Anti-Spam Check
     const now = Date.now();
@@ -214,6 +214,7 @@ io.on('connection', (socket) => {
       }
 
       const [newMsg] = await db.insert(messages).values({
+        id: id || undefined, // Uses client-provided ID if available, else DB generates
         conversationId: chatId,
         senderId,
         text,
