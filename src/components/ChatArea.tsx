@@ -877,10 +877,13 @@ async function handleNativeDownload(url: string, fileName: string) {
   }
 
   try {
+    // alert("Iniciando descarga: " + fileName);
     let base64Data = url;
     if (url.startsWith('data:')) {
       base64Data = url.split(',')[1];
+      // alert("Base64 procesado correctamente (longitud: " + base64Data.length + ")");
     } else if (url.startsWith('http')) {
+      // alert("Descargando desde URL externa...");
       const response = await fetch(url);
       const blob = await response.blob();
       const reader = new FileReader();
@@ -891,6 +894,7 @@ async function handleNativeDownload(url: string, fileName: string) {
         };
         reader.readAsDataURL(blob);
       });
+      // alert("URL externa convertida a Base64.");
     }
 
     const savedFile = await Filesystem.writeFile({
@@ -898,15 +902,22 @@ async function handleNativeDownload(url: string, fileName: string) {
       data: base64Data as string,
       directory: Directory.Cache,
     });
+    // alert("Archivo guardado en caché temporal: " + savedFile.uri);
 
-    await Share.share({
-      title: fileName,
-      url: savedFile.uri,
-      dialogTitle: 'Guardar o compartir archivo'
-    });
-  } catch (error) {
+    try {
+      await Share.share({
+        title: fileName,
+        url: savedFile.uri,
+        dialogTitle: 'Abrir o guardar archivo'
+      });
+    } catch (shareError: any) {
+      console.warn('Share.share falló:', shareError);
+      alert(`El archivo se descargó, pero tu dispositivo no tiene ninguna aplicación instalada capaz de abrir archivos tipo ${fileName} (Ej: no tienes Excel o visor de PDF).`);
+    }
+
+  } catch (error: any) {
     console.error('Error downloading file:', error);
-    alert('Error al intentar descargar el archivo.');
+    alert('Error en descarga: ' + error.message);
   }
 };
 
