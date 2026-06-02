@@ -804,7 +804,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
               <p className="text-[14px] font-medium text-wa-text-primary truncate">{msg.fileName}</p>
               <p className="text-[11px] text-wa-text-secondary uppercase">Archivo</p>
             </div>
-            <button onClick={(e) => { e.stopPropagation(); handleNativeDownload(msg.fileUrl, msg.fileName); }} className="p-2 text-wa-text-secondary hover:text-wa-teal transition-colors cursor-pointer"><Download size={20} /></button>
+            <button onClick={(e) => { e.stopPropagation(); handleNativeDownload(msg.fileUrl, msg.fileName, msg.fileType); }} className="p-2 text-wa-text-secondary hover:text-wa-teal transition-colors cursor-pointer"><Download size={20} /></button>
           </div>
         );
       case 'audio':
@@ -868,7 +868,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
   );
 };
 
-async function handleNativeDownload(url: string, fileName: string) {
+async function handleNativeDownload(url: string, fileName: string, mimeType?: string) {
   if (!Capacitor.isNativePlatform()) {
     const a = document.createElement('a');
     a.href = url;
@@ -907,7 +907,8 @@ async function handleNativeDownload(url: string, fileName: string) {
 
     try {
       await FileOpener.openFile({
-        path: savedFile.uri
+        path: savedFile.uri,
+        mimeType: mimeType
       });
     } catch (openerError: any) {
       console.warn('FileOpener falló, intentando con Share:', openerError);
@@ -1046,7 +1047,7 @@ const ImageModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
     >
       <div className="absolute top-6 right-6 flex gap-4 z-[210]">
         <button 
-          onClick={(e) => { e.stopPropagation(); handleNativeDownload(url, 'imagen.jpg'); }}
+          onClick={(e) => { e.stopPropagation(); handleNativeDownload(url, 'imagen.jpg', 'image/jpeg'); }}
           className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"
           title="Descargar"
         >
@@ -1093,7 +1094,7 @@ const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
     >
       <div className="absolute top-6 right-6 flex gap-4 z-[210]">
         <button 
-          onClick={(e) => { e.stopPropagation(); if (isValidUrl) handleNativeDownload(url, 'video.mp4'); else e.preventDefault(); }}
+          onClick={(e) => { e.stopPropagation(); if (isValidUrl) handleNativeDownload(url, 'video.mp4', 'video/mp4'); else e.preventDefault(); }}
           className={cn("p-3 rounded-full transition-all backdrop-blur-md text-white", isValidUrl ? "bg-white/10 hover:bg-white/20" : "bg-white/5 opacity-50 cursor-not-allowed")}
           title={isValidUrl ? "Descargar Video" : "No disponible"}
         >
