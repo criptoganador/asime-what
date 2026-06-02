@@ -12,6 +12,9 @@ import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { uploadImage, uploadFile, uploadVideo, uploadAudio, getAudioDuration } from '../utils/upload';
 import { ErrorBoundary } from './ErrorBoundary';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import logo from '../assets/logo.png';
 import { Theme } from 'emoji-picker-react';
 
@@ -800,7 +803,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
               <p className="text-[14px] font-medium text-wa-text-primary truncate">{msg.fileName}</p>
               <p className="text-[11px] text-wa-text-secondary uppercase">Archivo</p>
             </div>
-            <a href={msg.fileUrl} download={msg.fileName} className="p-2 text-wa-text-secondary hover:text-wa-teal transition-colors"><Download size={20} /></a>
+            <button onClick={(e) => { e.stopPropagation(); handleNativeDownload(msg.fileUrl, msg.fileName); }} className="p-2 text-wa-text-secondary hover:text-wa-teal transition-colors cursor-pointer"><Download size={20} /></button>
           </div>
         );
       case 'audio':
@@ -862,6 +865,49 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
       </div>
     </div>
   );
+};
+
+async function handleNativeDownload(url: string, fileName: string) {
+  if (!Capacitor.isNativePlatform()) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    return;
+  }
+
+  try {
+    let base64Data = url;
+    if (url.startsWith('data:')) {
+      base64Data = url.split(',')[1];
+    } else if (url.startsWith('http')) {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      base64Data = await new Promise((resolve) => {
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    const savedFile = await Filesystem.writeFile({
+      path: fileName,
+      data: base64Data as string,
+      directory: Directory.Cache,
+    });
+
+    await Share.share({
+      title: fileName,
+      url: savedFile.uri,
+      dialogTitle: 'Guardar o compartir archivo'
+    });
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    alert('Error al intentar descargar el archivo.');
+  }
 };
 
 const CheckAll = ({ size }: { size: number }) => (
@@ -981,15 +1027,13 @@ const ImageModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
       onClick={onClose}
     >
       <div className="absolute top-6 right-6 flex gap-4 z-[210]">
-        <a 
-          href={url} 
-          download 
-          onClick={(e) => e.stopPropagation()}
+        <button 
+          onClick={(e) => { e.stopPropagation(); handleNativeDownload(url, 'imagen.jpg'); }}
           className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"
           title="Descargar"
         >
           <Download size={24} />
-        </a>
+        </button>
         <button 
           onClick={onClose}
           className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"
@@ -1030,15 +1074,13 @@ const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
       onClick={onClose}
     >
       <div className="absolute top-6 right-6 flex gap-4 z-[210]">
-        <a 
-          href={isValidUrl ? url : '#'} 
-          download={isValidUrl ? "video.mp4" : undefined}
-          onClick={(e) => { e.stopPropagation(); if (!isValidUrl) e.preventDefault(); }}
+        <button 
+          onClick={(e) => { e.stopPropagation(); if (isValidUrl) handleNativeDownload(url, 'video.mp4'); else e.preventDefault(); }}
           className={cn("p-3 rounded-full transition-all backdrop-blur-md text-white", isValidUrl ? "bg-white/10 hover:bg-white/20" : "bg-white/5 opacity-50 cursor-not-allowed")}
           title={isValidUrl ? "Descargar Video" : "No disponible"}
         >
           <Download size={24} />
-        </a>
+        </button>
         <button 
           onClick={onClose}
           className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all backdrop-blur-md"

@@ -4,7 +4,6 @@ import { Search, Filter, Plus, Star, MoreVertical, Moon, Sun, Trash2 } from 'luc
 import { useChatStore, Chat } from '../store/useChatStore';
 import { decryptMessage } from '../../../utils/crypto';
 import { ProfileView } from './ProfileView';
-import { NewChatView } from './NewChatView';
 import { AddContactView } from './AddContactView';
 import { GroupInfoView } from './GroupInfoView';
 
@@ -225,11 +224,6 @@ export const Sidebar = () => {
               >
                 {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
               </div>
-              <Plus 
-                size={20} 
-                className="cursor-pointer hover:bg-wa-hover rounded-full p-0.5" 
-                onClick={() => setView('new-chat')}
-              />
               <div className="relative" ref={menuRef}>
                 <MoreVertical 
                   size={20} 
@@ -245,7 +239,6 @@ export const Sidebar = () => {
                       className="absolute right-0 top-10 w-[200px] bg-white shadow-xl rounded-xl py-2 z-50 border border-wa-border origin-top-right"
                     >
                       <ul className="text-[14.5px] text-wa-text-primary">
-                        <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('new-chat'); setShowMenu(false); }}>Nuevo chat</li>
                         <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('profile'); setShowMenu(false); }}>Perfil</li>
                         <li className="px-6 py-2.5 hover:bg-wa-bg cursor-pointer transition-colors" onClick={() => { setView('settings'); setShowMenu(false); }}>Configuración</li>
                       </ul>
@@ -397,8 +390,6 @@ export const Sidebar = () => {
         className="absolute inset-0 z-[100] bg-white h-full overflow-hidden"
       >
         {view === 'profile' && <ProfileView />}
-        {view === 'new-chat' && <NewChatView />}
-        {view === 'create-group' && <NewChatView initialStep="group-name" />}
         {view === 'add-contact' && <AddContactView onBack={() => setView('chats')} />}
         {view === 'group-info' && <GroupInfoView />}
 
