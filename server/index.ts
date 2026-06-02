@@ -15,6 +15,8 @@ import helmet from 'helmet';
 import bcrypt from 'bcryptjs';
 import compression from 'compression';
 import crypto from 'crypto';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -57,6 +59,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config();
+
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  },
+});
+
+const uploadToR2 = async (base64OrString: string): Promise<string> => {
+  const fileName = `${uuidv4()}.txt`;
+  
+  // Si recibimos E2EE, es simplemente un string.
+  const buffer = Buffer.from(base64OrString, 'utf-8');
+
+  const command = new PutObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: fileName,
+    Body: buffer,
+    ContentType: 'text/plain',
+  });
+
+  await s3Client.send(command);
+  return `${process.env.R2_PUBLIC_DOMAIN}/${fileName}`;
+};
 
 const app = express();
 app.set('trust proxy', 1); // Confiar en el proxy de Render
@@ -165,13 +193,33 @@ io.on('connection', (socket) => {
       const otherParticipants = participants.filter(p => p.userId !== senderId);
       const isRecipientOnline = otherParticipants.some(p => activeUsers.has(p.userId));
       
+      let finalImageUrl = imageUrl;
+      let finalFileUrl = fileUrl;
+
+      // Upload to R2 if content is provided
+      if (imageUrl && imageUrl.length > 500) {
+        try {
+          finalImageUrl = await uploadToR2(imageUrl);
+        } catch (e) {
+          console.error('Error uploading image to R2:', e);
+        }
+      }
+
+      if (fileUrl && fileUrl.length > 500) {
+        try {
+          finalFileUrl = await uploadToR2(fileUrl);
+        } catch (e) {
+          console.error('Error uploading file to R2:', e);
+        }
+      }
+
       const [newMsg] = await db.insert(messages).values({
         conversationId: chatId,
         senderId,
         text,
         type: type || 'text',
-        imageUrl,
-        fileUrl,
+        imageUrl: finalImageUrl,
+        fileUrl: finalFileUrl,
         fileName,
         fileType,
         duration,

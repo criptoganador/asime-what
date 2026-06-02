@@ -23,6 +23,20 @@ export const decryptSmartMessage = async (encryptedText: string, chatId: string,
   return decryptMessage(encryptedText, chatId);
 };
 
+export const fetchIfR2Url = async (content: string | undefined): Promise<string | undefined> => {
+  if (content && content.startsWith('http') && content.includes('.r2.dev')) {
+    try {
+      const res = await fetch(content);
+      if (res.ok) {
+        return await res.text();
+      }
+    } catch (e) {
+      console.error('Error fetching R2 content', e);
+    }
+  }
+  return content;
+};
+
 export const encryptSmartMessage = async (plaintext: string | undefined, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!plaintext) return plaintext;
   if (chatInfo && !chatInfo.isGroup && chatInfo.otherUserPublicKey && privateKeyJWK) {
@@ -646,12 +660,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const { chats, privateKeyJWK } = get();
       const chatInfo = chats.find(c => c.id === chatId);
       
-      data = await Promise.all(data.map(async (msg: Message) => ({ 
-        ...msg, 
-        text: await decryptSmartMessage(msg.text || '', chatId, chatInfo, privateKeyJWK),
-        imageUrl: await decryptSmartMessage(msg.imageUrl || '', chatId, chatInfo, privateKeyJWK),
-        fileUrl: await decryptSmartMessage(msg.fileUrl || '', chatId, chatInfo, privateKeyJWK)
-      })));
+      data = await Promise.all(data.map(async (msg: Message) => {
+        const rawText = await fetchIfR2Url(msg.text);
+        const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
+        const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
+
+        return { 
+          ...msg, 
+          text: await decryptSmartMessage(rawText || '', chatId, chatInfo, privateKeyJWK),
+          imageUrl: await decryptSmartMessage(rawImageUrl || '', chatId, chatInfo, privateKeyJWK),
+          fileUrl: await decryptSmartMessage(rawFileUrl || '', chatId, chatInfo, privateKeyJWK)
+        };
+      }));
 
       set((state) => ({
         messages: { ...state.messages, [chatId]: data },
@@ -674,12 +694,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
       let data = await response.json();
       
       const chatInfo = state.chats.find(c => c.id === chatId);
-      data = await Promise.all(data.map(async (msg: Message) => ({ 
-        ...msg, 
-        text: await decryptSmartMessage(msg.text || '', chatId, chatInfo, state.privateKeyJWK),
-        imageUrl: await decryptSmartMessage(msg.imageUrl || '', chatId, chatInfo, state.privateKeyJWK),
-        fileUrl: await decryptSmartMessage(msg.fileUrl || '', chatId, chatInfo, state.privateKeyJWK)
-      })));
+      data = await Promise.all(data.map(async (msg: Message) => {
+        const rawText = await fetchIfR2Url(msg.text);
+        const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
+        const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
+
+        return { 
+          ...msg, 
+          text: await decryptSmartMessage(rawText || '', chatId, chatInfo, state.privateKeyJWK),
+          imageUrl: await decryptSmartMessage(rawImageUrl || '', chatId, chatInfo, state.privateKeyJWK),
+          fileUrl: await decryptSmartMessage(rawFileUrl || '', chatId, chatInfo, state.privateKeyJWK)
+        };
+      }));
       
       set((state) => ({
         messages: { 
@@ -957,9 +983,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 socket.on('receive_message', async (message: Message) => {
   const state = useChatStore.getState();
   const chatInfo = state.chats.find(c => c.id === message.conversationId);
-  const decryptedText = await decryptSmartMessage(message.text || '', message.conversationId, chatInfo, state.privateKeyJWK);
-  const decryptedImageUrl = await decryptSmartMessage(message.imageUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);
-  const decryptedFileUrl = await decryptSmartMessage(message.fileUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);
+  
+  const rawText = await fetchIfR2Url(message.text);
+  const rawImageUrl = await fetchIfR2Url(message.imageUrl);
+  const rawFileUrl = await fetchIfR2Url(message.fileUrl);
+
+  const decryptedText = await decryptSmartMessage(rawText || '', message.conversationId, chatInfo, state.privateKeyJWK);
+  const decryptedImageUrl = await decryptSmartMessage(rawImageUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);
+  const decryptedFileUrl = await decryptSmartMessage(rawFileUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);
   
   const decryptedMessage = { 
     ...message, 
