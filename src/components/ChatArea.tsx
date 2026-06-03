@@ -812,7 +812,7 @@ export const ChatArea = () => {
                           onEmojiClick={onEmojiClick}
                           autoFocusSearch={false}
                           theme={Theme.LIGHT}
-                          width={Math.min(350, window.innerWidth - 32)}
+                          width={Math.min(350, Math.max(200, window.innerWidth - 32))}
                           height={400}
                           lazyLoadEmojis={true}
                         />

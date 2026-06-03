@@ -37,8 +37,9 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
   };
 
   const handleAdd = async (contactUser: any) => {
-    // Verificar si ya es contacto
-    if (contacts.some(c => c.contactId === contactUser.id)) {
+    // Verificar si ya es contacto de forma segura
+    const safeContacts = Array.isArray(contacts) ? contacts : [];
+    if (safeContacts.some(c => c.contactId === contactUser.id)) {
       alert('Este usuario ya está en tus contactos.');
       return;
     }
@@ -60,8 +61,10 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
         throw new Error(errorData.error || 'Error al agregar en el servidor');
       }
 
-      if (currentUser?.id) await fetchContacts(currentUser.id);
-      alert('¡Contacto agregado con éxito!');
+      if (currentUser?.id) {
+        await fetchContacts(currentUser.id);
+      }
+      
       // onBack(); // Removemos auto-cierre para mejor UX
     } catch (err: any) {
       alert(err.message || 'Error al agregar contacto.');
@@ -70,12 +73,14 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  const safeContacts = Array.isArray(contacts) ? contacts : [];
+
   return (
     <div 
-      className="absolute inset-0 z-[999] bg-[#f0f2f5] flex flex-col"
+      className="w-full h-full absolute inset-0 z-[100] bg-[#f0f2f5] flex flex-col overflow-hidden"
     >
       {/* Header */}
-      <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white shadow-md z-10">
+      <div className="h-[80px] sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white shadow-md z-10 shrink-0">
         <div className="flex items-center gap-6">
           <button onClick={onBack} className="p-1 hover:bg-white/10 rounded-full transition-colors">
             <ArrowLeft size={24} />
@@ -129,10 +134,10 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
                   </div>
                   <button 
                     onClick={() => handleAdd(user)}
-                    disabled={addingId === user.id || contacts.some(c => c.contactId === user.id)}
+                    disabled={addingId === user.id || safeContacts.some(c => c.contactId === user.id)}
                     className="flex-shrink-0 w-10 h-10 bg-indigo-50 text-[#6366f1] rounded-full flex items-center justify-center hover:bg-[#6366f1] hover:text-white transition-colors disabled:opacity-50 disabled:bg-green-50 disabled:text-green-500"
                   >
-                    {addingId === user.id ? <Loader2 size={20} className="animate-spin" /> : contacts.some(c => c.contactId === user.id) ? <Check size={20} className="text-green-500" /> : <UserPlus size={20} />}
+                    {addingId === user.id ? <Loader2 size={20} className="animate-spin" /> : safeContacts.some(c => c.contactId === user.id) ? <Check size={20} className="text-green-500" /> : <UserPlus size={20} />}
                   </button>
                 </div>
               ))}
