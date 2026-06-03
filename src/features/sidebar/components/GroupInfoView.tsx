@@ -126,7 +126,7 @@ export const GroupInfoView = () => {
 
   return (
     <div 
-      className="absolute inset-0 z-[60] bg-wa-bg flex flex-col"
+      className="w-full h-full absolute inset-0 z-[60] bg-wa-bg flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="h-[108px] bg-[#6366f1] flex items-end px-6 pb-4 text-white">
@@ -330,7 +330,7 @@ export const GroupInfoView = () => {
         {showAddMember && (
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            className="absolute inset-0 z-[70] bg-white flex flex-col"
+            className="w-full h-full absolute inset-0 z-[70] bg-white flex flex-col overflow-hidden"
           >
             <div className="h-[60px] bg-[#6366f1] flex items-center px-6 gap-6 text-white shadow-md">
               <ArrowLeft className="cursor-pointer" onClick={() => setShowAddMember(false)} />

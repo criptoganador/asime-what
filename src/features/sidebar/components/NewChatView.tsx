@@ -133,10 +133,10 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="absolute inset-0 z-50 bg-wa-sidebar flex flex-col"
+      className="w-full h-full absolute inset-0 z-50 bg-wa-sidebar flex flex-col overflow-hidden"
     >
       {/* Header Dinámico */}
-      <div className="bg-[#6366f1] text-white shadow-md">
+      <div className="bg-[#6366f1] text-white shadow-md shrink-0">
         <div className="h-[60px] flex items-center px-4 sm:px-6 gap-4 sm:gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 

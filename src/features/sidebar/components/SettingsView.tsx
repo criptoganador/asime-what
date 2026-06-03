@@ -23,7 +23,7 @@ export const SettingsView = () => {
       animate={{ x: 0 }}
       exit={{ x: '-100%' }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
+      className="w-full h-full absolute inset-0 z-50 bg-wa-bg flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-6 pb-4 text-white">

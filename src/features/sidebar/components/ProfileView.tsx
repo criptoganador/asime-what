@@ -54,7 +54,7 @@ export const ProfileView = () => {
 
   return (
     <div 
-      className="absolute inset-0 z-50 bg-wa-bg flex flex-col"
+      className="w-full h-full absolute inset-0 z-50 bg-wa-bg flex flex-col overflow-hidden"
     >
       {/* Header Estilo WhatsApp/Asicme Chat */}
       <div className="h-20 sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white">
