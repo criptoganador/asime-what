@@ -1047,35 +1047,6 @@ app.get('/api/chats/:userId', async (req, res) => {
   }
 });
 
-app.get('/api/get-livekit-token', (req, res) => {
-  const { roomName, participantName } = req.query;
-
-  if (!roomName || !participantName) {
-    return res.status(400).json({ error: 'roomName y participantName son obligatorios' });
-  }
-
-  const apiKey = process.env.LIVEKIT_API_KEY;
-  const apiSecret = process.env.LIVEKIT_API_SECRET;
-
-  if (!apiKey || !apiSecret) {
-    return res.status(500).json({ error: 'Credenciales de LiveKit no configuradas en el servidor' });
-  }
-
-  try {
-    const at = new AccessToken(apiKey, apiSecret, {
-      identity: participantName as string,
-    });
-    
-    at.addGrant({ roomJoin: true, room: roomName as string });
-
-    const token = at.toJwt();
-    res.json({ token });
-  } catch (error) {
-    console.error('Error al generar token de LiveKit:', error);
-    res.status(500).json({ error: 'Error al generar token' });
-  }
-});
-
 app.get('/api/messages/:chatId', async (req, res) => {
   const { chatId } = req.params;
   const limit = parseInt(req.query.limit as string) || 50;
@@ -1241,35 +1212,6 @@ app.post('/api/contacts', async (req, res) => {
 });
 
 // Endpoints de upload eliminados por seguridad
-
-app.get('/api/get-livekit-token', async (req, res) => {
-  const { roomName, participantName } = req.query;
-  
-  if (!roomName || !participantName) {
-    return res.status(400).json({ error: 'Faltan parámetros roomName o participantName' });
-  }
-
-  try {
-    const at = new AccessToken(
-      process.env.LIVEKIT_API_KEY,
-      process.env.LIVEKIT_API_SECRET,
-      {
-        identity: participantName as string,
-      }
-    );
-    at.addGrant({ 
-      roomJoin: true, 
-      room: roomName as string,
-      canPublish: true,
-      canSubscribe: true,
-    });
-
-    res.json({ token: await at.toJwt() });
-  } catch (error) {
-    console.error('Error generando token LiveKit:', error);
-    res.status(500).json({ error: 'Error al generar token de llamada' });
-  }
-});
 
 // Endpoints de upload eliminados por seguridad
 
