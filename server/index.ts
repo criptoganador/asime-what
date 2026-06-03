@@ -397,14 +397,14 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('answer_call', async ({ chatId, answererId, accept }) => {
+  socket.on('answer_call', async ({ chatId, answererId, accept, reason }) => {
     try {
       const participants = await db.query.conversationParticipants.findMany({ 
         where: eq(conversationParticipants.conversationId, chatId) 
       });
       participants.forEach(p => {
         if (p.userId !== answererId) {
-          io.to(p.userId).emit('call_answered', { chatId, answererId, accept });
+          io.to(p.userId).emit('call_answered', { chatId, answererId, accept, reason });
         }
       });
     } catch (error) {
@@ -512,7 +512,7 @@ app.post('/api/auth/generate-registration-options', authLimiter, async (req, res
 });
 
 app.post('/api/auth/verify-registration', authLimiter, async (req, res) => {
-  const { username, body, publicKey, encryptedPrivateKey, recoveryPhrase, recoveryEncryptedPrivateKey } = req.body;
+  const { username, body, publicKey, encryptedPrivateKey, recoveryEncryptedPrivateKey, hashedRecoveryPhrase } = req.body;
   const user = await db.query.users.findFirst({ where: eq(users.username, username) });
   if (!user || !user.currentChallenge) return res.status(400).json({ error: 'Usuario no válido' });
 
@@ -527,20 +527,15 @@ app.post('/api/auth/verify-registration', authLimiter, async (req, res) => {
 
     const { verified, registrationInfo } = verification;
     if (verified && registrationInfo) {
-      const { id: credentialID, publicKey: credentialPublicKey, counter } = registrationInfo.credential;
-      
-      let hashedRecoveryPhrase = null;
-      if (recoveryPhrase) hashedRecoveryPhrase = await bcrypt.hash(recoveryPhrase, 10);
-
       const [updatedUser] = await db.update(users).set({
-        credentialID: credentialID,
-        credentialPublicKey: Buffer.from(credentialPublicKey).toString('base64url'),
-        counter,
+        credentialID: registrationInfo.credential.id,
+        credentialPublicKey: Buffer.from(registrationInfo.credential.publicKey).toString('base64url'),
+        counter: registrationInfo.credential.counter,
         currentChallenge: null,
         publicKey,
         encryptedPrivateKey,
-        hashedRecoveryPhrase,
         recoveryEncryptedPrivateKey,
+        hashedRecoveryPhrase
       }).where(eq(users.id, user.id)).returning();
 
       const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
@@ -617,9 +612,37 @@ app.post('/api/auth/verify-authentication', authLimiter, async (req, res) => {
   return res.status(400).json({ error: 'Fallo al verificar autenticación' });
 });
 
+app.post('/api/auth/recover-account', authLimiter, async (req, res) => {
+  const { username, hashedRecoveryPhrase } = req.body;
+  if (!username || !hashedRecoveryPhrase) return res.status(400).json({ error: 'Faltan datos' });
+
+  const user = await db.query.users.findFirst({ where: eq(users.username, username) });
+  if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  if (user.hashedRecoveryPhrase !== hashedRecoveryPhrase) {
+    return res.status(401).json({ error: 'Frase de recuperación incorrecta' });
+  }
+
+  // Borrar credenciales de hardware anteriores porque ahora registrarán uno nuevo
+  await db.update(users).set({
+    credentialID: null,
+    credentialPublicKey: null,
+    hardwarePublicKey: null
+  }).where(eq(users.id, user.id));
+
+  res.json({
+    success: true,
+    user: {
+      ...user,
+      pin: undefined,
+      hashedRecoveryPhrase: undefined
+    }
+  });
+});
+
 // --- NATIVE MOBILE AUTHENTICATION ---
 app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
-  const { username, hardwarePublicKey, publicKey, encryptedPrivateKey, recoveryEncryptedPrivateKey } = req.body;
+  const { username, hardwarePublicKey, publicKey, encryptedPrivateKey, recoveryEncryptedPrivateKey, hashedRecoveryPhrase } = req.body;
   if (!username || !hardwarePublicKey) return res.status(400).json({ error: 'Username y Hardware Key son requeridos' });
 
   let user = await db.query.users.findFirst({ where: eq(users.username, username) });
@@ -636,7 +659,8 @@ app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
         hardwarePublicKey,
         publicKey,
         encryptedPrivateKey,
-        recoveryEncryptedPrivateKey
+        recoveryEncryptedPrivateKey,
+        hashedRecoveryPhrase
       }).returning();
       user = newUser;
     } else {
@@ -644,7 +668,8 @@ app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
         hardwarePublicKey,
         publicKey,
         encryptedPrivateKey,
-        recoveryEncryptedPrivateKey
+        recoveryEncryptedPrivateKey,
+        hashedRecoveryPhrase
       }).where(eq(users.id, user.id)).returning();
       user = updatedUser;
     }
@@ -884,11 +909,14 @@ app.get('/api/users/search', async (req, res) => {
   try {
     // Buscar coincidencia exacta por @username (sin el @ si lo pusieron)
     const cleanQuery = query.replace('@', '').toLowerCase();
+    // Sanitizar para ILIKE (escapar % y _)
+    const safeLikeQuery = query.replace(/[%_]/g, '\\$&');
+
     
     const results = await db.query.users.findMany({
       where: or(
         eq(users.username, cleanQuery),
-        ilike(users.name, `%${query}%`)
+        ilike(users.name, `%${safeLikeQuery}%`)
       )
     });
     // Excluir al usuario actual de los resultados
@@ -1188,6 +1216,11 @@ app.get('/api/contacts/:userId', async (req, res) => {
 
 app.post('/api/contacts', async (req, res) => {
   const { ownerId, contactId, nickname } = req.body;
+  
+  if (ownerId === contactId) {
+    return res.status(400).json({ error: 'No puedes agregarte a ti mismo' });
+  }
+
   try {
     // Check if contact already exists
     const existing = await db.query.contacts.findFirst({

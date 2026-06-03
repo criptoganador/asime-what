@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Search, UserPlus, Loader2, User } from 'lucide-react';
+import { ArrowLeft, Search, UserPlus, Loader2, User, Check } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { API_URL } from '../../../config';
 
@@ -21,6 +21,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
     
     try {
       const res = await fetch(`${API_URL}/api/users/search?query=${encodeURIComponent(query.trim())}&currentUserId=${currentUser?.id}`);
+      if (!res.ok) throw new Error('Error al buscar usuarios');
       const found = await res.json();
       
       if (found.length === 0) {
@@ -56,7 +57,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
 
       if (currentUser?.id) await fetchContacts(currentUser.id);
       alert('¡Contacto agregado con éxito!');
-      onBack();
+      // onBack(); // Removemos auto-cierre para mejor UX
     } catch (err) {
       alert('Error al agregar contacto.');
     } finally {
@@ -123,10 +124,10 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
                   </div>
                   <button 
                     onClick={() => handleAdd(user)}
-                    disabled={addingId === user.id}
-                    className="flex-shrink-0 w-10 h-10 bg-indigo-50 text-[#6366f1] rounded-full flex items-center justify-center hover:bg-[#6366f1] hover:text-white transition-colors disabled:opacity-50"
+                    disabled={addingId === user.id || contacts.some(c => c.contactId === user.id)}
+                    className="flex-shrink-0 w-10 h-10 bg-indigo-50 text-[#6366f1] rounded-full flex items-center justify-center hover:bg-[#6366f1] hover:text-white transition-colors disabled:opacity-50 disabled:bg-green-50 disabled:text-green-500"
                   >
-                    {addingId === user.id ? <Loader2 size={20} className="animate-spin" /> : <UserPlus size={20} />}
+                    {addingId === user.id ? <Loader2 size={20} className="animate-spin" /> : contacts.some(c => c.contactId === user.id) ? <Check size={20} className="text-green-500" /> : <UserPlus size={20} />}
                   </button>
                 </div>
               ))}

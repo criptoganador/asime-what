@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Fingerprint, LogIn, Camera, User, Loader2 } from 'lucide-react';
 import { API_URL } from '../../../config';
 import { useChatStore } from '../../sidebar/store/useChatStore';
-import { generateECDHKeyPair, encryptPrivateKeyWithPIN, encryptPrivateKeyWithPhrase, decryptPrivateKeyWithPIN } from '../../../utils/crypto';
+import { generateECDHKeyPair, encryptPrivateKeyWithPIN, encryptPrivateKeyWithPhrase, decryptPrivateKeyWithPIN, hashRecoveryPhrase, decryptPrivateKeyWithPhrase } from '../../../utils/crypto';
+import * as bip39 from 'bip39';
 import { uploadImage } from '../../../utils/upload';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -50,7 +51,14 @@ const signChallenge = async (privateKeyJwk: any, challengeHex: string) => {
 };
 
 export const BiometricAuth: React.FC = () => {
-  const [step, setStep] = useState<'auth' | 'profile'>('auth');
+  useEffect(() => {
+    // Si llegamos a esta pantalla, aseguramos que la sesión local esté limpia para evitar cruces
+    localStorage.removeItem('asicme_user');
+    sessionStorage.removeItem('asicme_private_key');
+  }, []);
+  const [step, setStep] = useState<'auth' | 'seed-phrase' | 'recover' | 'profile'>('auth');
+  const [recoveryPhrase, setRecoveryPhrase] = useState('');
+  const [inputRecoveryPhrase, setInputRecoveryPhrase] = useState('');
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -61,8 +69,8 @@ export const BiometricAuth: React.FC = () => {
   const [tempUser, setTempUser] = useState<any>(null);
   const [tempDecryptedKey, setTempDecryptedKey] = useState<string | null>(null);
 
-  // PIN virtual para compatibilidad E2EE
-  const virtualPIN = '123456'; 
+  // PIN virtual único por cuenta para compatibilidad E2EE (Mejorado desde 123456)
+  const getVirtualPIN = (user: string) => `${user.trim().toLowerCase()}#AsicmE_2026`;
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,8 +102,13 @@ export const BiometricAuth: React.FC = () => {
     try {
       const isMobile = Capacitor.isNativePlatform();
       let keys = await generateECDHKeyPair();
-      let encryptedPrivateKey = encryptPrivateKeyWithPIN(keys.privateKey, virtualPIN);
-      let recoveryEncryptedPrivateKey = encryptPrivateKeyWithPhrase(keys.privateKey, 'dummy_recovery_phrase');
+      
+      let phrase = bip39.generateMnemonic();
+      setRecoveryPhrase(phrase);
+      let hashedPhrase = hashRecoveryPhrase(phrase);
+      
+      let encryptedPrivateKey = encryptPrivateKeyWithPIN(keys.privateKey, getVirtualPIN(username));
+      let recoveryEncryptedPrivateKey = encryptPrivateKeyWithPhrase(keys.privateKey, phrase);
       
       let verificationJSON;
 
@@ -106,7 +119,8 @@ export const BiometricAuth: React.FC = () => {
 
         const { publicKeyBase64, privateKeyJwk } = await generateHardwareKeyPair();
         
-        await SecureStoragePlugin.set({ key: 'hardware_private_key', value: JSON.stringify(privateKeyJwk) });
+        const storageKey = `hardware_private_key_${username.trim().toLowerCase()}`;
+        await SecureStoragePlugin.set({ key: storageKey, value: JSON.stringify(privateKeyJwk) });
 
         const verificationResp = await fetch(`${API_URL}/api/auth/mobile-register`, {
           method: 'POST',
@@ -116,10 +130,15 @@ export const BiometricAuth: React.FC = () => {
             hardwarePublicKey: publicKeyBase64,
             publicKey: keys.publicKey,
             encryptedPrivateKey,
-            recoveryEncryptedPrivateKey
+            recoveryEncryptedPrivateKey,
+            hashedRecoveryPhrase: hashedPhrase
           })
         });
 
+        if (!verificationResp.ok) {
+          const errData = await verificationResp.json().catch(() => ({}));
+          throw new Error(errData.error || 'Fallo de conexión al registrar. Intenta nuevamente.');
+        }
         verificationJSON = await verificationResp.json();
       } else {
         // --- WEBAUTHN REGISTRATION ---
@@ -149,7 +168,8 @@ export const BiometricAuth: React.FC = () => {
             body: attResp,
             publicKey: keys.publicKey,
             encryptedPrivateKey,
-            recoveryEncryptedPrivateKey
+            recoveryEncryptedPrivateKey,
+            hashedRecoveryPhrase: hashedPhrase
           })
         });
 
@@ -160,7 +180,7 @@ export const BiometricAuth: React.FC = () => {
         setTempUser(verificationJSON.user);
         setName(verificationJSON.user.username);
         setTempDecryptedKey(keys.privateKey);
-        setStep('profile');
+        setStep('seed-phrase');
       } else {
         throw new Error(verificationJSON.error || 'Fallo en la verificación del registro');
       }
@@ -198,7 +218,8 @@ export const BiometricAuth: React.FC = () => {
 
         let storedKeyStr;
         try {
-          const res = await SecureStoragePlugin.get({ key: 'hardware_private_key' });
+          const storageKey = `hardware_private_key_${username.trim().toLowerCase()}`;
+          const res = await SecureStoragePlugin.get({ key: storageKey });
           storedKeyStr = res.value;
         } catch (e) {
           throw new Error('No se encontraron las llaves en este teléfono. ¿Desinstalaste la app? Registra un nuevo usuario por ahora.');
@@ -212,6 +233,11 @@ export const BiometricAuth: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: username.trim(), signature: signatureBase64 })
         });
+        
+        if (!verificationResp.ok) {
+          const errData = await verificationResp.json().catch(() => ({}));
+          throw new Error(errData.error || 'Error de conexión con el servidor al iniciar sesión.');
+        }
         verificationJSON = await verificationResp.json();
       } else {
         // --- WEBAUTHN LOGIN ---
@@ -248,7 +274,7 @@ export const BiometricAuth: React.FC = () => {
         });
         localStorage.setItem('asicme_user', JSON.stringify(verificationJSON.user));
         
-        const decrypted = decryptPrivateKeyWithPIN(verificationJSON.user.encryptedPrivateKey, virtualPIN);
+        const decrypted = decryptPrivateKeyWithPIN(verificationJSON.user.encryptedPrivateKey, getVirtualPIN(username));
         if (decrypted) {
           useChatStore.setState({ privateKeyJWK: decrypted });
           sessionStorage.setItem('asicme_private_key', decrypted);
@@ -258,6 +284,76 @@ export const BiometricAuth: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecover = async () => {
+    if (!username.trim() || !inputRecoveryPhrase.trim()) {
+      setError('Por favor ingresa tu username y la frase de recuperación');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const hashedPhrase = hashRecoveryPhrase(inputRecoveryPhrase.trim());
+      const response = await fetch(`${API_URL}/api/auth/recover-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), hashedRecoveryPhrase: hashedPhrase })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Fallo en la recuperación');
+
+      const user = data.user;
+      if (!user.recoveryEncryptedPrivateKey) throw new Error('Este usuario no tiene llaves de respaldo');
+
+      const rawPrivateKey = decryptPrivateKeyWithPhrase(user.recoveryEncryptedPrivateKey, inputRecoveryPhrase.trim());
+      if (!rawPrivateKey) throw new Error('La frase no pudo desencriptar la llave. Comprueba las palabras.');
+
+      // Como la cuenta fue recuperada exitosamente, necesitamos registrar el nuevo hardware local
+      const isMobile = Capacitor.isNativePlatform();
+      let encryptedPrivateKey = encryptPrivateKeyWithPIN(rawPrivateKey, getVirtualPIN(username));
+      
+      if (isMobile) {
+        const authResult = await verifyNativeBiometric();
+        if (!authResult) throw new Error('Autenticación biométrica fallida o cancelada.');
+        const { publicKeyBase64, privateKeyJwk } = await generateHardwareKeyPair();
+        const storageKey = `hardware_private_key_${username.trim().toLowerCase()}`;
+        await SecureStoragePlugin.set({ key: storageKey, value: JSON.stringify(privateKeyJwk) });
+
+        const verificationResp = await fetch(`${API_URL}/api/auth/mobile-register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            username: username.trim(),
+            hardwarePublicKey: publicKeyBase64,
+            publicKey: user.publicKey,
+            encryptedPrivateKey,
+            recoveryEncryptedPrivateKey: user.recoveryEncryptedPrivateKey,
+            hashedRecoveryPhrase: hashedPhrase
+          })
+        });
+        if (!verificationResp.ok) throw new Error('Fallo al re-registrar hardware');
+      } else {
+        // En WebAuthn, habría que generar un nuevo registro WebAuthn, pero por brevedad lo asumimos igual que el móvil o lanzamos error si no es móvil
+        throw new Error('La recuperación solo está disponible desde dispositivos móviles por ahora.');
+      }
+
+      // Login exitoso
+      useChatStore.setState({ 
+        currentUser: user,
+        isAuthenticated: true,
+      });
+      localStorage.setItem('asicme_user', JSON.stringify(user));
+      
+      const decrypted = rawPrivateKey;
+      useChatStore.setState({ privateKeyJWK: decrypted });
+      sessionStorage.setItem('asicme_private_key', decrypted);
+
+    } catch (err: any) {
+      setError(err.message || 'Error recuperando cuenta');
     } finally {
       setLoading(false);
     }
@@ -276,8 +372,13 @@ export const BiometricAuth: React.FC = () => {
         body: JSON.stringify({ id: tempUser.id, name, avatar: finalAvatar, about: '¡Hola! Estoy usando Asicme Chat.' })
       });
 
-      if (!response.ok) throw new Error('Error al guardar el perfil');
-      const updatedUser = await response.json();
+      let updatedUser = tempUser;
+      if (response.ok) {
+        updatedUser = await response.json();
+      } else {
+        console.warn('Fallo guardando el perfil remoto, procediendo con datos locales.');
+        updatedUser = { ...tempUser, name, avatar: finalAvatar };
+      }
 
       useChatStore.setState({ 
         currentUser: updatedUser,
@@ -346,20 +447,100 @@ export const BiometricAuth: React.FC = () => {
               <div className="flex-grow border-t border-slate-200"></div>
             </div>
 
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-slate-200"></div>
+              <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-medium">¿Problemas?</span>
+              <div className="flex-grow border-t border-slate-200"></div>
+            </div>
+
             <button
-              onClick={handleRegister}
-              disabled={loading || !username}
-              className="w-full bg-white text-[#6366f1] py-4 rounded-xl font-bold text-[16px] border-2 border-[#6366f1]/20 hover:border-[#6366f1] hover:bg-indigo-50 active:scale-[0.98] transition-all duration-200 shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              onClick={() => setStep('recover')}
+              className="text-sm font-medium text-slate-500 hover:text-[#6366f1] transition-colors"
             >
-              {loading ? (
-                 <Loader2 className="w-6 h-6 animate-spin" />
-              ) : (
-                <>
-                  <Fingerprint className="w-5 h-5" /> Registrar Dispositivo
-                </>
-              )}
+              Perdí mi teléfono / Recuperar cuenta
             </button>
           </div>
+        </motion.div>
+      )}
+
+      {step === 'recover' && (
+        <motion.div key="recover" initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="flex flex-col gap-6">
+          <div className="space-y-4">
+            <h3 className="text-[20px] font-bold text-slate-800">Recuperar Cuenta</h3>
+            <p className="text-[14px] text-slate-500 font-medium">Ingresa tu usuario y tu frase secreta de 12 palabras para restaurar el acceso.</p>
+            <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest">
+              Nombre de usuario
+            </label>
+            <div className="flex gap-2">
+              <div className="relative group min-w-[50px] sm:min-w-[60px] flex items-center justify-center bg-slate-50/50 rounded-xl border-2 border-slate-200/60 text-slate-500 font-bold">
+                @
+              </div>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                placeholder="juanperez"
+                className="flex-1 w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3.5 px-4 text-[16px] rounded-xl transition-all font-medium"
+              />
+            </div>
+            <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest mt-4">
+              Frase de 12 palabras
+            </label>
+            <textarea
+              value={inputRecoveryPhrase}
+              onChange={(e) => setInputRecoveryPhrase(e.target.value)}
+              placeholder="palabra1 palabra2 palabra3..."
+              rows={3}
+              className="w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3.5 px-4 text-[16px] rounded-xl transition-all font-medium resize-none"
+            />
+            {error && <p className="text-red-500 text-sm font-medium mt-1">{error}</p>}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleRecover}
+              disabled={loading || !username || !inputRecoveryPhrase}
+              className="w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold text-[16px] hover:bg-[#4f46e5] active:scale-[0.98] transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Restaurar Cuenta"}
+            </button>
+            <button
+              onClick={() => { setStep('auth'); setError(null); }}
+              disabled={loading}
+              className="w-full bg-white text-slate-500 py-4 rounded-xl font-bold text-[16px] hover:bg-slate-50 active:scale-[0.98] transition-all"
+            >
+              Cancelar
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {step === 'seed-phrase' && (
+        <motion.div key="seed-phrase" initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }} className="flex flex-col gap-6">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center">
+              <Fingerprint size={32} />
+            </div>
+            <h3 className="text-[20px] font-bold text-slate-800">Copia estas 12 palabras</h3>
+            <p className="text-[14px] text-slate-500 font-medium">Si desinstalas la app o pierdes el teléfono, <b className="text-slate-800">esta es tu ÚNICA forma de recuperar tu cuenta</b> y tus mensajes.</p>
+          </div>
+          
+          <div className="bg-slate-100 p-4 rounded-xl border border-slate-200">
+            <p className="font-mono text-slate-800 text-[16px] leading-relaxed select-all text-center font-bold tracking-wide">
+              {recoveryPhrase}
+            </p>
+          </div>
+          
+          <div className="flex bg-yellow-50 text-yellow-800 p-3 rounded-lg text-[13px] font-medium border border-yellow-200">
+            ⚠️ Asicme NO guarda estas palabras. Si las pierdes, tu cuenta se perderá para siempre.
+          </div>
+
+          <button
+            onClick={() => setStep('profile')}
+            className="w-full bg-[#6366f1] text-white py-4 rounded-xl font-bold text-[16px] hover:bg-[#4f46e5] active:scale-[0.98] transition-all shadow-md mt-2"
+          >
+            Ya las guardé, Continuar
+          </button>
         </motion.div>
       )}
 

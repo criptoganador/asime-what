@@ -4,6 +4,7 @@ import { Sidebar } from '../features/sidebar/components/Sidebar';
 import { ChatArea } from './ChatArea';
 import { StatusSidebar } from '../features/status/components/StatusSidebar';
 import { SettingsView } from '../features/sidebar/components/SettingsView';
+import { CallOverlay } from './CallOverlay';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -117,6 +118,9 @@ export const Layout = () => {
       )}>
         <ChatArea />
       </div>
+
+      {/* Motor de Llamadas Global */}
+      <CallOverlay />
     </div>
   );
 };

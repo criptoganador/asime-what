@@ -204,7 +204,7 @@ interface ChatState {
   resetPin: (data: any) => Promise<{ success: boolean; error?: string }>;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
-  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }, overrideMessageId?: string) => void;
+  sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }, overrideMessageId?: string) => Promise<string | undefined>;
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
   deleteMessageLocal: (chatId: string, messageId: string) => void;
   markMessagesRead: (chatId: string) => void;
@@ -858,6 +858,8 @@ export const useChatStore = create<ChatState>()(
 
     socket.emit('send_message', payload);
     set({ replyingTo: null });
+    
+    return messageId;
   },
   clearChat: (chatId: string) => {
     const { currentUser } = get();
@@ -1256,8 +1258,8 @@ socket.on('chat_cleared', ({ chatId }) => {
 socket.on('incoming_call', (call) => {
   const state = useChatStore.getState();
   if (state.activeCall) {
-    // Si ya está en llamada, rechazar automáticamente
-    socket.emit('answer_call', { chatId: call.chatId, answererId: state.currentUser?.id, accept: false });
+    // Si ya está en llamada, rechazar automáticamente con razón "busy"
+    socket.emit('answer_call', { chatId: call.chatId, answererId: state.currentUser?.id, accept: false, reason: 'busy' });
     return;
   }
   useChatStore.setState({ incomingCall: call });
@@ -1268,7 +1270,7 @@ socket.on('incoming_call', (call) => {
   }
 });
 
-socket.on('call_answered', ({ chatId, answererId, accept }) => {
+socket.on('call_answered', ({ chatId, answererId, accept, reason }) => {
   const state = useChatStore.getState();
   const outgoingCall = state.outgoingCall;
   const chatInfo = state.chats.find(c => c.id === chatId);
@@ -1283,7 +1285,11 @@ socket.on('call_answered', ({ chatId, answererId, accept }) => {
     } else {
       if (!isGroup) {
         useChatStore.setState({ outgoingCall: null });
-        alert('Llamada rechazada');
+        if (reason === 'busy') {
+          alert('El usuario está en otra llamada 📵');
+        } else {
+          alert('Llamada rechazada');
+        }
       }
     }
   } else if (state.activeCall?.chatId === chatId && !accept) {

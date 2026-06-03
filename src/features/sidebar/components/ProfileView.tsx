@@ -164,7 +164,7 @@ export const ProfileView = () => {
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
                 />
                 {showEmojiPicker && (
-                  <div className="absolute z-50 right-0 top-10 shadow-2xl rounded-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                  <div className="absolute z-50 right-0 sm:left-1/2 sm:-translate-x-1/2 top-10 shadow-2xl rounded-xl overflow-hidden animate-in fade-in zoom-in duration-200">
                     <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)}></div>
                     <div className="relative z-50">
                       <EmojiPicker 

@@ -64,6 +64,10 @@ export const decryptPrivateKeyWithPIN = (encryptedPrivateKey: string, pin: strin
 
 // --- ENCRIPTACIÓN DE RESPALDO (CON FRASE DE 12 PALABRAS) ---
 
+export const hashRecoveryPhrase = (phrase: string): string => {
+  return CryptoJS.SHA256(phrase).toString();
+};
+
 export const encryptPrivateKeyWithPhrase = (privateKeyJwk: string, phrase: string): string => {
   return CryptoJS.AES.encrypt(privateKeyJwk, phrase).toString();
 };

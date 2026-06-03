@@ -24,7 +24,6 @@ import AudioRouting from '../utils/AudioRouting';
 import { MediaPreviewModal, PendingMedia } from './MediaPreviewModal';
 
 const EmojiPicker = lazy(() => import('emoji-picker-react'));
-const CallView = lazy(() => import('./CallView').then(m => ({ default: m.CallView })));
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -51,7 +50,7 @@ export const ChatArea = () => {
     markMessagesRead, setViewingGroup, chatWallpaper, typingUsers, sendTypingStatus,
     addReaction, replyingTo, setReplyingTo,
     hasMoreMessages, loadMoreMessages, deleteMessage, addMessage, updateMessageStatus, deleteMessageLocal,
-    activeCall, incomingCall, outgoingCall, callUser, answerCall, endCall, leaveCall
+    callUser
   } = useChatStore();
   
   const activeChat = Array.isArray(chats) ? chats.find(c => c.id === activeChatId) : null;
@@ -96,7 +95,14 @@ export const ChatArea = () => {
     return () => {
       if (hwListener) hwListener.remove();
       if (focusListener) focusListener.remove();
-    }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      // Limpiar cronómetro si el componente se desmonta mientras graba
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -169,9 +175,18 @@ export const ChatArea = () => {
     const isNewMessageAtBottom = currentMessages.length - prevMessagesLengthRef.current === 1;
     const isFirstLoad = prevMessagesLengthRef.current === 0 && currentMessages.length > 0;
     
-    // Solo auto-scrollear al fondo si entramos a un chat nuevo, 
-    // es la primera carga, o llegó un (1) mensaje nuevo al final
-    if (isChatChanged || isNewMessageAtBottom || isFirstLoad) {
+    let isAtBottom = true;
+    if (scrollContainerRef.current) {
+      const { scrollHeight, scrollTop, clientHeight } = scrollContainerRef.current;
+      isAtBottom = scrollHeight - scrollTop - clientHeight < 150; // Margen de 150px
+    }
+    
+    const lastMessage = currentMessages[currentMessages.length - 1];
+    const isMyMessage = lastMessage?.senderId === currentUser?.id;
+    
+    // Auto-scroll solo si: entramos al chat, primera carga, o si llegó un mensaje
+    // nuevo y ya estábamos abajo o el mensaje lo acabamos de enviar nosotros.
+    if (isChatChanged || isFirstLoad || (isNewMessageAtBottom && (isAtBottom || isMyMessage))) {
       scrollToBottom();
     }
     
@@ -507,22 +522,6 @@ export const ChatArea = () => {
 
   return (
     <div className="flex-1 flex overflow-hidden">
-      <ErrorBoundary fallback={null}>
-        <Suspense fallback={null}>
-          {activeCall && (
-            <CallView 
-              roomName={activeCall.chatId} 
-              participantName={currentUser?.name || 'Usuario'} 
-              chatName={activeChat.name}
-              chatAvatar={activeChat.avatar}
-              video={activeCall.type === 'video'} 
-              onClose={() => leaveCall()} 
-              onCallEmpty={() => endCall(activeCall.chatId)}
-            />
-          )}
-        </Suspense>
-      </ErrorBoundary>
-      
       <div 
         className="flex-1 flex flex-col relative border-r border-wa-border overflow-hidden transition-colors duration-500"
         style={{ backgroundColor: getWallpaperColor(chatWallpaper) }}
@@ -919,68 +918,6 @@ export const ChatArea = () => {
         )}
         {selectedImage && <ImageModal url={selectedImage} onClose={() => setSelectedImage(null)} />}
         {selectedVideo && <VideoModal url={selectedVideo} onClose={() => setSelectedVideo(null)} />}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {incomingCall && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 min-w-[300px] flex flex-col items-center gap-4"
-          >
-            <div className="w-16 h-16 relative">
-              <img src={incomingCall.callerAvatar} className="w-full h-full rounded-full object-cover shadow-md border-2 border-[#6366f1]/20" alt="Llamada entrante" />
-              <div className="absolute -bottom-1 -right-1 bg-white p-1.5 rounded-full shadow-sm text-wa-teal">
-                {incomingCall.type === 'video' ? <Video size={14} /> : <Phone size={14} />}
-              </div>
-            </div>
-            <div className="text-center">
-              <h4 className="font-bold text-lg text-gray-800">{incomingCall.callerName}</h4>
-              <p className="text-sm text-gray-500 font-medium">{incomingCall.type === 'video' ? 'Videollamada entrante' : 'Llamada de voz entrante'}</p>
-            </div>
-            <div className="flex gap-4 w-full mt-2">
-              <button 
-                onClick={() => answerCall(incomingCall.chatId, false)}
-                className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
-              >
-                <PhoneOff size={18} /> Rechazar
-              </button>
-              <button 
-                onClick={() => answerCall(incomingCall.chatId, true)}
-                className="flex-1 bg-[#6366f1] hover:bg-[#4f46e5] text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#6366f1]/30 transition-all"
-              >
-                <Phone size={18} /> Aceptar
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {outgoingCall && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -50, scale: 0.9 }}
-            className="absolute top-20 left-1/2 -translate-x-1/2 z-[100] bg-white/90 backdrop-blur-xl p-5 rounded-3xl shadow-2xl border border-white/40 flex flex-col items-center gap-4 w-[320px]"
-          >
-            <div className="relative">
-              <div className="absolute inset-0 bg-[#6366f1]/20 animate-ping rounded-full" />
-              <img src={outgoingCall.receiverAvatar || 'https://i.pravatar.cc/150'} alt="Llamando" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg relative z-10" />
-            </div>
-            <div className="text-center">
-              <h4 className="font-bold text-lg text-gray-800">{outgoingCall.receiverName}</h4>
-              <p className="text-sm text-[#6366f1] font-medium animate-pulse">Llamando...</p>
-            </div>
-            <button 
-              onClick={() => leaveCall()}
-              className="w-full bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-red-500/30 transition-all mt-2"
-            >
-              <PhoneOff size={18} /> Colgar
-            </button>
-          </motion.div>
-        )}
       </AnimatePresence>
     </div>
   );

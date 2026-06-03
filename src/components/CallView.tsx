@@ -132,49 +132,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   }, []);
 
   useEffect(() => {
-    const checkHardwareAndFetchToken = async () => {
+    const fetchToken = async () => {
       try {
-        // 1. Explicitly request permissions first to trigger browser prompt
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              sampleRate: { ideal: 16000 },
-              channelCount: { ideal: 1 }
-            }, 
-            video: video 
-          });
-          stream.getTracks().forEach(track => track.stop()); // Clean up immediately
-        } catch (mediaErr: any) {
-          // Silent catch - handle based on error name
-          if (mediaErr.name === 'NotAllowedError' || mediaErr.name === 'PermissionDeniedError') {
-            setError('Permiso denegado. Para realizar la llamada, debes permitir el acceso al micrófono y/o cámara.');
-            return;
-          }
-          // If NotFoundError, we'll confirm it with enumerateDevices below
-        }
-
-        // 2. Double check devices list
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const hasMic = devices.some(device => device.kind === 'audioinput');
-        const hasCam = devices.some(device => device.kind === 'videoinput');
-
-        if (!hasMic) {
-          setError('No tiene micrófono conectado. Por favor, conecta uno para continuar.');
-          return;
-        }
-
-        if (video && !hasCam) {
-          setError('No tiene cámara conectada. Error de medios: Client initiated disconnect');
-          return;
-        }
-
         setHardwareOk(true);
         setStatus('Conectando...');
 
-        // 3. Fetch token only if hardware is OK
         const safeParticipantName = participantName.replace(/[^a-zA-Z0-9_-]/g, '_');
         const resp = await fetch(
           `${API_URL}/api/get-livekit-token?roomName=${roomName}&participantName=${encodeURIComponent(safeParticipantName)}`
@@ -183,12 +145,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         setToken(data.token);
         setTimeout(() => setStatus('Llamando...'), 1000);
       } catch (e: any) {
-        // Silent catch for the general flow
-        setError('No se pudo establecer la conexión con el servidor o fallo de hardware.');
+        setError('No se pudo establecer la conexión con el servidor.');
       }
     };
 
-    checkHardwareAndFetchToken();
+    fetchToken();
   }, [roomName, participantName, video]);
 
 

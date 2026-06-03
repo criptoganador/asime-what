@@ -53,6 +53,7 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
       setIsLoading(true);
       try {
         const response = await fetch(`${API_URL}/api/users/search?query=${encodeURIComponent(query)}&currentUserId=${currentUser?.id}`);
+        if (!response.ok) throw new Error('Error en el servidor al buscar usuarios');
         const data = await response.json();
         setSearchResults(data);
       } catch (error) {
