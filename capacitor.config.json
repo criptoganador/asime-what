@@ -4,6 +4,7 @@
   "webDir": "dist",
   "server": {
     "url": "https://asime-what-frontend.onrender.com",
-    "cleartext": true
+    "cleartext": true,
+    "errorPath": "error.html"
   }
 }

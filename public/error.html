@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conectando...</title>
+  <style>
+    body { 
+      background-color: #111b21; 
+      color: rgba(255,255,255,0.8); 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      height: 100vh; 
+      margin: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    }
+    .loader { 
+      border: 4px solid rgba(255, 255, 255, 0.1); 
+      border-top: 4px solid #00a884; 
+      border-radius: 50%; 
+      width: 48px; 
+      height: 48px; 
+      animation: spin 1s linear infinite; 
+      margin-bottom: 24px; 
+    }
+    h2 { margin: 0 0 8px 0; font-size: 20px; font-weight: 500; color: #e9edef; }
+    p { margin: 0; font-size: 14px; text-align: center; max-width: 80%; line-height: 1.5; }
+    @keyframes spin { 
+      0% { transform: rotate(0deg); } 
+      100% { transform: rotate(360deg); } 
+    }
+  </style>
+</head>
+<body>
+  <div class="loader"></div>
+  <h2>Reconectando</h2>
+  <p>Esperando conexión a la red o actualización del servidor...</p>
+  
+  <script>
+    // Intentar recargar la página principal cada 5 segundos
+    setInterval(() => {
+      window.location.href = "https://asime-what-frontend.onrender.com";
+    }, 5000);
+  </script>
+</body>
+</html>
