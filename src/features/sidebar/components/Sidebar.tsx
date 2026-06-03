@@ -6,6 +6,7 @@ import { decryptMessage } from '../../../utils/crypto';
 import { ProfileView } from './ProfileView';
 import { AddContactView } from './AddContactView';
 import { GroupInfoView } from './GroupInfoView';
+import { CreateGroupView } from './CreateGroupView';
 
 import { SecuritySettings } from './SecuritySettings';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -385,16 +386,16 @@ export const Sidebar = () => {
     return (
       <motion.div 
         key="sub-view-container"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 50 }}
-        className="absolute inset-0 z-[100] bg-white h-full overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 z-50 bg-white h-full overflow-hidden"
       >
         {view === 'profile' && <ProfileView />}
         {view === 'add-contact' && <AddContactView onBack={() => setView('chats')} />}
         {view === 'group-info' && <GroupInfoView />}
-
         {view === 'security' && <SecuritySettings />}
+        {view === 'create-group' && <CreateGroupView onBack={() => setView('chats')} />}
       </motion.div>
     );
   };

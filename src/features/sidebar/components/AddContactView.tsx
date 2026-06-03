@@ -77,7 +77,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
 
   return (
     <div 
-      className="w-full h-full absolute inset-0 z-[100] bg-[#f0f2f5] flex flex-col overflow-hidden"
+      className="w-full h-full bg-[#f0f2f5] flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="h-[80px] sm:h-[108px] bg-[#6366f1] flex items-end px-4 sm:px-6 pb-4 text-white shadow-md z-10 shrink-0">
