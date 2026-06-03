@@ -3,13 +3,20 @@ import { ArrowLeft, Camera, User, Check, Loader2 } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 
 export const CreateGroupView = ({ onBack }: { onBack: () => void }) => {
-  const { contacts, createGroup } = useChatStore();
+  const { contacts, createGroup, fetchContacts, currentUser } = useChatStore();
   const [step, setStep] = useState<'info' | 'members'>('info');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [avatar, setAvatar] = useState<string | null>(null);
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Asegurar que los contactos estén cargados al entrar
+  React.useEffect(() => {
+    if (currentUser?.id && (!contacts || contacts.length === 0)) {
+      fetchContacts(currentUser.id);
+    }
+  }, [currentUser?.id, fetchContacts, contacts]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,26 +114,33 @@ export const CreateGroupView = ({ onBack }: { onBack: () => void }) => {
         ) : (
           <div className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto space-y-1 mb-4">
-              {contacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  onClick={() => toggleContact(contact.contactId)}
-                  className="flex items-center gap-4 p-3 hover:bg-slate-50 cursor-pointer rounded-xl transition-colors"
-                >
-                  <div className="relative">
-                    <img src={contact.user.avatar} className="w-12 h-12 rounded-full object-cover" alt="" />
-                    {selectedContacts.includes(contact.contactId) && (
-                      <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 border-2 border-white">
-                        <Check size={12} strokeWidth={4} />
-                      </div>
-                    )}
+              {Array.isArray(contacts) && contacts.length > 0 ? (
+                contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    onClick={() => toggleContact(contact.contactId)}
+                    className="flex items-center gap-4 p-3 hover:bg-slate-50 cursor-pointer rounded-xl transition-colors"
+                  >
+                    <div className="relative">
+                      <img src={contact.user.avatar} className="w-12 h-12 rounded-full object-cover" alt="" />
+                      {selectedContacts.includes(contact.contactId) && (
+                        <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-0.5 border-2 border-white">
+                          <Check size={12} strokeWidth={4} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-slate-800">{contact.nickname || contact.user.name}</p>
+                      <p className="text-xs text-slate-400">@{contact.user.phone}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-slate-800">{contact.nickname || contact.user.name}</p>
-                    <p className="text-xs text-slate-400">@{contact.user.phone}</p>
-                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center p-4">
+                  <User size={48} className="opacity-20 mb-2" />
+                  <p className="text-sm">No tienes contactos para añadir al grupo.</p>
                 </div>
-              ))}
+              )}
             </div>
 
             <button

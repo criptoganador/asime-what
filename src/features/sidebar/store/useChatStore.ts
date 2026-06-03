@@ -204,10 +204,11 @@ interface ChatState {
   resetPin: (data: any) => Promise<{ success: boolean; error?: string }>;
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
+  markMessagesRead: (chatId: string) => void;
   sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }, overrideMessageId?: string) => Promise<string | undefined>;
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
+
   deleteMessageLocal: (chatId: string, messageId: string) => void;
-  markMessagesRead: (chatId: string) => void;
   createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   clearChat: (chatId: string) => void;
@@ -246,6 +247,7 @@ interface ChatState {
   checkUser: (phone: string) => Promise<any | null>;
   validateSession: () => Promise<void>;
   hasMoreMessages: Record<string, boolean>;
+  updatePushToken: (token: string) => Promise<void>;
   loadMoreMessages: (chatId: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: string, forEveryone: boolean) => void;
   incomingCall: { chatId: string, callerId: string, callerName: string, callerAvatar: string, type: 'video' | 'voice' } | null;
@@ -507,6 +509,12 @@ export const useChatStore = create<ChatState>()(
     }
   },
   closeChat: () => set({ activeChatId: null, replyingTo: null }),
+  updatePushToken: async (token) => {
+    const { currentUser } = get();
+    if (!currentUser) return;
+    socket.emit('update_push_token', { userId: currentUser.id, token });
+  },
+
   login: async (userData) => {
     try {
       const response = await fetch(`${API_URL}/api/auth`, {

@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   currentChallenge: text('current_challenge'),
   failedLoginAttempts: integer('failed_login_attempts').default(0),
   lockedUntil: timestamp('locked_until'),
+  pushToken: text('push_token'),
   lastSeen: timestamp('last_seen'),
   createdAt: timestamp('created_at').defaultNow(),
 });

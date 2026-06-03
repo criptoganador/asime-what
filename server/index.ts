@@ -454,6 +454,15 @@ io.on('connection', (socket) => {
       io.emit('user_status_change', { userId, status: 'offline', lastSeen: now.toISOString() });
     }
   });
+
+  socket.on('update_push_token', async ({ userId, token }) => {
+    try {
+      await db.update(users).set({ pushToken: token }).where(eq(users.id, userId));
+      console.log(`✅ Push token actualizado para el usuario ${userId}`);
+    } catch (error) {
+      console.error('Error al actualizar push token:', error);
+    }
+  });
 });
 
 // --- WEBAUTHN (PASSKEYS) ENDPOINTS ---

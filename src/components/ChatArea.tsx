@@ -1052,19 +1052,28 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
               onClick={() => !isSending && onImageClick(msg.imageUrl || null)}
             >
               {sendingOverlay}
-              <img 
-                src={msg.imageUrl} 
-                alt="Sent" 
-                className="max-w-full hover:scale-[1.02] transition-transform duration-500 object-contain" 
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/><line x1="3" y1="3" x2="21" y2="21" stroke="%23ef4444"/></svg>';
-                  e.currentTarget.className = "w-24 h-24 opacity-50 object-contain m-4";
-                }}
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
-                <Search size={24} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
-              </div>
+              {isSending ? (
+                <div className="flex flex-col items-center gap-2">
+                  <ImageIcon size={48} className="text-white/40" />
+                  <span className="text-[11px] text-white/60 font-medium">Subiendo imagen...</span>
+                </div>
+              ) : (
+                <img
+                  src={msg.imageUrl}
+                  alt="Sent"
+                  className="max-w-full hover:scale-[1.02] transition-transform duration-500 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/><line x1="3" y1="3" x2="21" y2="21" stroke="%23ef4444"/></svg>';
+                    e.currentTarget.className = "w-24 h-24 opacity-50 object-contain m-4";
+                  }}
+                />
+              )}
+              {!isSending && (
+                <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
+                  <Search size={24} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
+                </div>
+              )}
             </div>
             {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{msg.text}</p>}
           </div>
@@ -1073,38 +1082,45 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         const isUrlValid = msg.fileUrl && msg.fileUrl.startsWith('data:') || msg.fileUrl?.startsWith('blob:');
         return (
           <div className="space-y-1 relative">
-            {isUrlValid ? (
-              <div 
-                className={cn("relative group/vid cursor-pointer overflow-hidden rounded-lg bg-black/80 flex items-center justify-center min-h-[150px] min-w-[200px]")}
-                onClick={() => !isSending && onVideoClick(msg.fileUrl || null)}
-              >
-                {sendingOverlay}
-                <video 
-                  src={`${msg.fileUrl}#t=0.001`} 
-                  preload="metadata" 
-                  className="w-full h-auto max-h-[200px] object-cover"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.poster = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L22 7v10"/><line x1="1" y1="1" x2="23" y2="23" stroke="%23ef4444"/></svg>';
-                  }}
-                />
-                {!isSending && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">
-                      <Play size={24} className="text-white fill-white ml-1" />
+            <div
+              className={cn("relative group/vid cursor-pointer overflow-hidden rounded-lg bg-black/80 flex items-center justify-center min-h-[150px] min-w-[200px]")}
+              onClick={() => !isSending && onVideoClick(msg.fileUrl || null)}
+            >
+              {sendingOverlay}
+              {isSending ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Video size={48} className="text-white/40" />
+                  <span className="text-[11px] text-white/60 font-medium">Subiendo video...</span>
+                </div>
+              ) : isUrlValid ? (
+                <>
+                  <video
+                    src={`${msg.fileUrl}#t=0.001`}
+                    preload="metadata"
+                    className="w-full h-auto max-h-[200px] object-cover"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.poster = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L22 7v10"/><line x1="1" y1="1" x2="23" y2="23" stroke="%23ef4444"/></svg>';
+                    }}
+                  />
+                  {!isSending && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">
+                        <Play size={24} className="text-white fill-white ml-1" />
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div 
-                className="relative cursor-pointer overflow-hidden rounded-lg bg-red-900/40 border border-red-500/30 flex flex-col items-center justify-center min-h-[150px] min-w-[200px] p-4 text-center"
-                onClick={() => onVideoClick(msg.fileUrl || null)} // Permitir abrir modal para ver error detallado
-              >
-                <AlertCircle size={32} className="text-red-400 mb-2" />
-                <span className="text-red-200 text-sm font-medium">Video corrupto o cifrado fallido</span>
-              </div>
-            )}
+                  )}
+                </>
+              ) : (
+                <div
+                  className="relative cursor-pointer overflow-hidden rounded-lg bg-red-900/40 border border-red-500/30 flex flex-col items-center justify-center min-h-[150px] min-w-[200px] p-4 text-center"
+                  onClick={() => onVideoClick(msg.fileUrl || null)} // Permitir abrir modal para ver error detallado
+                >
+                  <AlertCircle size={32} className="text-red-400 mb-2" />
+                  <span className="text-red-200 text-sm font-medium">Video corrupto o cifrado fallido</span>
+                </div>
+              )}
+            </div>
             {msg.text && <p className="text-[14.5px] leading-relaxed whitespace-pre-wrap px-0.5">{renderHighlightedText(msg.text)}</p>}
           </div>
         );
@@ -1124,9 +1140,29 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         );
       case 'audio':
         return (
-          <div className={cn("relative")}>
+          <div className={cn("relative min-w-[250px] bg-black/5 rounded-xl p-2 border border-black/5")}>
             {sendingOverlay}
-            <AudioPlayer msg={msg} />
+            {isSending ? (
+              <div className="flex items-center gap-4 py-2 px-3">
+                <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center animate-pulse">
+                  <Mic size={20} className="text-indigo-500" />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-1.5 w-full bg-indigo-500/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 w-1/3 animate-[loading_1.5s_infinite]" />
+                  </div>
+                  <p className="text-[10px] text-wa-text-secondary font-bold uppercase tracking-tighter">Enviando audio...</p>
+                </div>
+              </div>
+            ) : (
+              <AudioPlayer msg={msg} />
+            )}
+            <style>{`
+              @keyframes loading {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(300%); }
+              }
+            `}</style>
           </div>
         );
       case 'system':
