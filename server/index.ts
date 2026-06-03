@@ -100,11 +100,17 @@ app.use(helmet({
 app.use(compression());
 
 const httpServer = createServer(app);
+const allowedOrigins = [
+  "https://asime-what-frontend.onrender.com",
+  "capacitor://localhost",
+  "http://localhost"
+];
+
 const io = new Server(httpServer, {
   maxHttpBufferSize: 5e7, // 50 MB payload limit for E2EE Base64 Media
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? (process.env.ALLOWED_ORIGIN || "https://asime-what-frontend.onrender.com")
+      ? allowedOrigins
       : true, // Allow all origins in dev (e.g. 192.168.x.x)
     methods: ["GET", "POST"],
     credentials: true
@@ -115,7 +121,7 @@ const port = process.env.PORT || 3001;
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? (process.env.ALLOWED_ORIGIN || "https://asime-what-frontend.onrender.com")
+    ? allowedOrigins
     : true, // Allow all origins in dev
   credentials: true
 }));
