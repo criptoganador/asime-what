@@ -3,6 +3,8 @@ import { Layout } from './components/Layout'
 import { AuthScreen } from './features/auth/components/AuthScreen'
 import { useChatStore, socket } from './features/sidebar/store/useChatStore'
 import { requestNotificationPermissions } from './utils/notifications'
+import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
 
 function App() {
   const { isAuthenticated, isValidatingSession, currentUser } = useChatStore();
@@ -19,6 +21,38 @@ function App() {
       requestNotificationPermissions();
     }
   }, [isAuthenticated, currentUser?.id]);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const backListener = CapacitorApp.addListener('backButton', () => {
+        const state = useChatStore.getState();
+        
+        // 1. Ignorar si hay una llamada activa
+        if (state.activeCall || state.incomingCall || state.outgoingCall) {
+          return;
+        }
+
+        // 2. Si estamos viendo un chat abierto, lo cerramos para volver al sidebar
+        if (state.activeChatId) {
+          state.closeChat();
+          return;
+        }
+
+        // 3. Si estamos en alguna pantalla de configuración/perfil, volver a chats
+        if (state.view !== 'chats') {
+          state.setView('chats');
+          return;
+        }
+
+        // 4. Si estamos en la pantalla principal (lista de chats), salir de la app
+        CapacitorApp.exitApp();
+      });
+
+      return () => {
+        backListener.then(l => l.remove());
+      };
+    }
+  }, []);
 
   // Mientras se valida la sesión contra la BD, mostrar splash de carga
   if (isValidatingSession) {

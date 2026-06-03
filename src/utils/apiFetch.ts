@@ -33,5 +33,15 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
     }
   }
 
-  return fetch(url, { ...options, headers });
+  try {
+    return await fetch(url, { ...options, headers });
+  } catch (error) {
+    console.error('Fallo de red en apiFetch:', error);
+    // Devolver una respuesta sintética para que los json() no crasheen la app
+    return new Response(JSON.stringify({ error: 'Fallo de conexión. Verifica tu internet.' }), {
+      status: 503,
+      statusText: 'Service Unavailable',
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 };

@@ -102,6 +102,18 @@ export const ChatArea = () => {
     return () => {
       // Limpiar cronómetro si el componente se desmonta mientras graba
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+      
+      // Apagar micrófono fantasma y descartar nota de voz no enviada
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        cancelRecordingRef.current = true;
+        mediaRecorderRef.current.stop();
+      }
+
+      // Liberar ruteo de audio de Capacitor
+      if (Capacitor.isNativePlatform()) {
+        AudioRouting.stopBluetoothSco().catch(() => {});
+        AudioRouting.abandonAudioFocus().catch(() => {});
+      }
     };
   }, []);
 
@@ -136,6 +148,7 @@ export const ChatArea = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<any>(null);
   const typingTimeoutRef = useRef<any>(null);
+  const cancelRecordingRef = useRef<boolean>(false);
 
   const currentMessages = useMemo(() => (activeChatId ? messages[activeChatId] || [] : []), [activeChatId, messages]);
 
@@ -228,9 +241,13 @@ export const ChatArea = () => {
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       sendTypingStatus(activeChatId, false);
+      typingTimeoutRef.current = null;
     }, 3000);
     return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        if (activeChatId) sendTypingStatus(activeChatId, false);
+      }
     };
   }, [inputText, activeChatId]);
 
@@ -410,6 +427,12 @@ export const ChatArea = () => {
       };
 
       mediaRecorder.onstop = async () => {
+        if (cancelRecordingRef.current) {
+          cancelRecordingRef.current = false;
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const audioFile = new File([audioBlob], 'voice_note.webm', { type: 'audio/webm' });
         
@@ -1029,7 +1052,16 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
               onClick={() => !isSending && onImageClick(msg.imageUrl || null)}
             >
               {sendingOverlay}
-              <img src={msg.imageUrl} alt="Sent" className="max-w-full hover:scale-[1.02] transition-transform duration-500 object-contain" />
+              <img 
+                src={msg.imageUrl} 
+                alt="Sent" 
+                className="max-w-full hover:scale-[1.02] transition-transform duration-500 object-contain" 
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/><line x1="3" y1="3" x2="21" y2="21" stroke="%23ef4444"/></svg>';
+                  e.currentTarget.className = "w-24 h-24 opacity-50 object-contain m-4";
+                }}
+              />
               <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors flex items-center justify-center">
                 <Search size={24} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity drop-shadow-md" />
               </div>
@@ -1047,7 +1079,15 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
                 onClick={() => !isSending && onVideoClick(msg.fileUrl || null)}
               >
                 {sendingOverlay}
-                <video src={`${msg.fileUrl}#t=0.001`} preload="metadata" className="w-full h-auto max-h-[200px] object-cover" />
+                <video 
+                  src={`${msg.fileUrl}#t=0.001`} 
+                  preload="metadata" 
+                  className="w-full h-auto max-h-[200px] object-cover"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.poster = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L22 7v10"/><line x1="1" y1="1" x2="23" y2="23" stroke="%23ef4444"/></svg>';
+                  }}
+                />
                 {!isSending && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover/vid:scale-110 transition-transform z-10">

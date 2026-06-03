@@ -12,7 +12,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | 'group-name' } = {}) => {
+export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | 'select-participants' | 'group-name' } = {}) => {
   const { setView, currentUser, contacts, fetchContacts, startChat, createGroup } = useChatStore();
   const [tab, setTab] = useState<'contacts' | 'search'>('contacts');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -22,7 +22,8 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   
   // Estados para el flujo interno de creación de grupo
-  const [step, setStep] = useState<'list' | 'group-name'>(initialStep);
+  const [step, setStep] = useState<'list' | 'select-participants' | 'group-name'>(initialStep);
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
 
   const addContact = async (user: any) => {
     try {
-      await fetch(`${API_URL}/api/contacts`, {
+      const res = await fetch(`${API_URL}/api/contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -103,16 +104,27 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
           nickname: user.name
         })
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al agregar en el servidor');
+      }
       if (currentUser?.id) await fetchContacts(currentUser.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding contact:', error);
+      alert(error.message || 'Error al agregar contacto.');
     }
   };
 
+  const toggleContactSelection = (contactId: string) => {
+    setSelectedContacts(prev => 
+      prev.includes(contactId) ? prev.filter(id => id !== contactId) : [...prev, contactId]
+    );
+  };
+
   const handleCreateGroup = async () => {
-    if (!groupName.trim()) return;
-    // El grupo se crea con nombre, avatar, descripción y el creador
-    await createGroup(groupName, groupAvatar || '', groupDescription, []);
+    if (!groupName.trim() || selectedContacts.length === 0) return;
+    // El grupo se crea con nombre, avatar, descripción y los contactos seleccionados
+    await createGroup(groupName, groupAvatar || '', groupDescription, selectedContacts);
   };
 
   return (
@@ -128,10 +140,14 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
         <div className="h-[60px] flex items-center px-4 sm:px-6 gap-4 sm:gap-6">
           <ArrowLeft 
             className="cursor-pointer hover:scale-110 transition-transform" 
-            onClick={() => step === 'list' ? setView('chats') : setStep('list')} 
+            onClick={() => {
+              if (step === 'list') setView('chats');
+              else if (step === 'select-participants') setStep('list');
+              else if (step === 'group-name') setStep('select-participants');
+            }} 
           />
           <h2 className="text-[19px] font-medium">
-            {step === 'list' ? 'Nuevo chat' : 'Nuevo grupo'}
+            {step === 'list' ? 'Nuevo chat' : step === 'select-participants' ? 'Añadir participantes' : 'Nuevo grupo'}
           </h2>
         </div>
         
@@ -192,7 +208,7 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
                     {/* Botones de acción principal */}
                     <div className="py-2">
                       <div 
-                        onClick={() => setStep('group-name')}
+                        onClick={() => setStep('select-participants')}
                         className="flex items-center px-6 py-3.5 hover:bg-wa-hover cursor-pointer transition-colors group"
                       >
                         <div className="w-11 h-11 rounded-full bg-wa-teal flex items-center justify-center text-white shadow-sm">
@@ -259,6 +275,58 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
                    );
                 })}
               </div>
+            </motion.div>
+          ) : step === 'select-participants' ? (
+            <motion.div 
+              key="select-participants-step"
+              initial={{ x: 30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -30, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col h-full"
+            >
+              <div className="flex-1 overflow-y-auto">
+                <div className="px-6 py-4 text-wa-teal text-[12.5px] font-bold uppercase tracking-widest bg-wa-bg/40 border-b border-wa-border">
+                  Selecciona contactos
+                </div>
+                {contacts.map((contact: any) => {
+                  const isSelected = selectedContacts.includes(contact.contactId);
+                  return (
+                    <div 
+                      key={contact.id}
+                      onClick={() => toggleContactSelection(contact.contactId)}
+                      className="flex items-center px-6 py-3 hover:bg-wa-hover cursor-pointer border-b border-wa-border group"
+                    >
+                      <div className="relative">
+                        <img src={getAvatar(contact.user)} className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                        {isSelected && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-wa-teal rounded-full flex items-center justify-center border-2 border-wa-sidebar">
+                            <Check size={12} className="text-white" strokeWidth={3} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <h3 className="text-[16px] font-medium text-wa-text-primary">{contact.nickname || contact.user?.name}</h3>
+                        <p className="text-[13px] text-wa-text-secondary truncate">{contact.user?.about || '¡Hola! Estoy usando Asicme Chat.'}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {selectedContacts.length > 0 && (
+                <div className="p-4 bg-wa-sidebar flex justify-end">
+                  <motion.button
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setStep('group-name')}
+                    className="w-14 h-14 rounded-full bg-wa-teal flex items-center justify-center text-white shadow-lg"
+                  >
+                    <ArrowLeft size={24} className="rotate-180" />
+                  </motion.button>
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div 

@@ -45,7 +45,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
 
     setAddingId(contactUser.id);
     try {
-      await fetch(`${API_URL}/api/contacts`, {
+      const res = await fetch(`${API_URL}/api/contacts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -55,11 +55,16 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
         })
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al agregar en el servidor');
+      }
+
       if (currentUser?.id) await fetchContacts(currentUser.id);
       alert('¡Contacto agregado con éxito!');
       // onBack(); // Removemos auto-cierre para mejor UX
-    } catch (err) {
-      alert('Error al agregar contacto.');
+    } catch (err: any) {
+      alert(err.message || 'Error al agregar contacto.');
     } finally {
       setAddingId(null);
     }

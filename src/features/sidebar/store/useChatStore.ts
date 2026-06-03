@@ -668,7 +668,7 @@ export const useChatStore = create<ChatState>()(
       }
     } catch (error) {
       console.error('Error fetching contacts:', error);
-      set({ contacts: [] });
+      // set({ contacts: [] }); // Eliminado para no borrar caché en modo offline
     }
   },
   startChat: async (contactUserId: string) => {
@@ -682,12 +682,17 @@ export const useChatStore = create<ChatState>()(
           participantIds: [currentUser.id, contactUserId]
         })
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error del servidor al crear chat');
+      }
       const newConv = await response.json();
       await fetchChats(currentUser.id);
       setActiveChat(newConv.id);
       setView('chats');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting chat:', error);
+      alert(error.message || 'Error al iniciar chat con el contacto.');
     }
   },
   fetchChats: async (userId: string) => {
@@ -723,12 +728,23 @@ export const useChatStore = create<ChatState>()(
       }
     } catch (error) {
       console.error('Error fetching chats:', error);
-      set({ chats: [] });
+      // set({ chats: [] }); // Eliminado para no borrar caché en modo offline
     }
   },
   fetchMessages: async (chatId: string) => {
     const { currentUser } = get();
     if (!currentUser) return;
+    
+    try {
+      // Cargar caché local primero para instantaneidad (Offline-First)
+      const cachedMsgs = await idbGet(`messages_${chatId}`);
+      if (cachedMsgs && Array.isArray(cachedMsgs)) {
+        set((state) => ({ messages: { ...state.messages, [chatId]: cachedMsgs } }));
+      }
+    } catch (e) {
+      console.warn('Error reading IDB cache:', e);
+    }
+
     try {
       const response = await fetch(`${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=0`);
       if (!response.ok) return; // Servidor no disponible, no crashear
@@ -965,13 +981,17 @@ export const useChatStore = create<ChatState>()(
           participantIds: [currentUser.id, ...participantIds]
         })
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error del servidor al crear grupo');
+      }
       const newGroup = await response.json();
       await fetchChats(currentUser.id);
       setActiveChat(newGroup.id);
       setView('chats');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating group:', error);
-      alert('Error al crear el grupo. Es posible que la foto sea demasiado grande o haya un problema de conexión.');
+      alert(error.message || 'Error al crear el grupo. Es posible que la foto sea demasiado grande o haya un problema de conexión.');
     }
   },
   deleteChat: async (chatId) => {
@@ -1103,7 +1123,6 @@ export const useChatStore = create<ChatState>()(
   storage: createJSONStorage(() => idbStorage),
   partialize: (state) => ({ 
     chats: state.chats, 
-    messages: state.messages, 
     contacts: state.contacts, 
     currentUser: state.currentUser,
     pendingMessages: state.pendingMessages
@@ -1345,3 +1364,18 @@ if (restoredUser && restoredUser.id) {
 } else {
   useChatStore.setState({ isValidatingSession: false });
 }
+
+// Suscripción para guardar mensajes asíncronamente en IndexedDB (Prevención de OOM)
+useChatStore.subscribe(
+  (state, prevState) => {
+    if (state.messages !== prevState.messages) {
+      for (const chatId in state.messages) {
+        if (state.messages[chatId] !== prevState.messages[chatId]) {
+          idbSet(`messages_${chatId}`, state.messages[chatId]).catch(e => 
+            console.error('Error saving messages to IDB:', e)
+          );
+        }
+      }
+    }
+  }
+);

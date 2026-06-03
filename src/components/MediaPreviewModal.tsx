@@ -29,6 +29,11 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onS
   const currentItem = items[activeIndex];
 
   const handleRemove = (id: string) => {
+    const itemToRemove = items.find(m => m.id === id);
+    if (itemToRemove) {
+      URL.revokeObjectURL(itemToRemove.url); // Liberar RAM inmediatamente
+    }
+    
     const newItems = items.filter(m => m.id !== id);
     if (newItems.length === 0) {
       onCancel();
