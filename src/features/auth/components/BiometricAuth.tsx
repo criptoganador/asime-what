@@ -447,6 +447,20 @@ export const BiometricAuth: React.FC = () => {
               <div className="flex-grow border-t border-slate-200"></div>
             </div>
 
+            <button
+              onClick={handleRegister}
+              disabled={loading || !username}
+              className="w-full bg-white text-[#6366f1] py-4 rounded-xl font-bold text-[16px] border-2 border-[#6366f1]/20 hover:border-[#6366f1] hover:bg-indigo-50 active:scale-[0.98] transition-all duration-200 shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                 <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <>
+                  <Fingerprint className="w-5 h-5" /> Registrar Dispositivo
+                </>
+              )}
+            </button>
+
             <div className="relative flex items-center py-2">
               <div className="flex-grow border-t border-slate-200"></div>
               <span className="flex-shrink-0 mx-4 text-slate-400 text-sm font-medium">¿Problemas?</span>
