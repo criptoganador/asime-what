@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Camera, Pencil, Check, UserPlus, X, MessageCircle, LogOut, ShieldCheck, ShieldAlert, MoreVertical } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { API_URL } from '../../../config';
+import { compressAvatar } from '../../../utils/upload';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -66,8 +67,6 @@ export const GroupInfoView = () => {
 
     setIsUploading(true);
     try {
-      // Import dinámico para evitar posibles problemas de dependencias circulares si no está arriba
-      const { compressAvatar } = await import('../../../utils/upload');
       const base64Avatar = await compressAvatar(file);
       await updateGroup(currentGroup.id, { avatar: base64Avatar });
     } catch (error) {
