@@ -4,12 +4,15 @@ import {
   VideoConference,
   RoomAudioRenderer,
   useParticipants,
-  useConnectionState
+  useConnectionState,
+  useLocalParticipant
 } from '@livekit/components-react';
 import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
+import { Capacitor } from '@capacitor/core';
+import AudioRouting from '../utils/AudioRouting';
 
 interface CallViewProps {
   roomName: string;
@@ -37,6 +40,32 @@ const ParticipantMonitor = ({ onCallEmpty, onParticipantsChange }: { onCallEmpty
 
     onParticipantsChange(participants.map(p => p.identity));
   }, [participants, maxParticipants, onCallEmpty, onParticipantsChange]);
+
+  const { localParticipant } = useLocalParticipant();
+
+  useEffect(() => {
+    let hwListener: any;
+    let focusListener: any;
+    if (Capacitor.isNativePlatform()) {
+      AudioRouting.addListener('onAudioHardwareDisconnected', () => {
+        if (localParticipant) {
+          localParticipant.setMicrophoneEnabled(false);
+          console.warn('Microphone muted due to hardware disconnect');
+        }
+      }).then(l => hwListener = l);
+
+      AudioRouting.addListener('onAudioFocusChange', ({ event }) => {
+        if (event === 'loss' && localParticipant) {
+          localParticipant.setMicrophoneEnabled(false);
+          console.warn('Microphone muted due to Audio Focus Loss');
+        }
+      }).then(l => focusListener = l);
+    }
+    return () => {
+      if (hwListener) hwListener.remove();
+      if (focusListener) focusListener.remove();
+    }
+  }, [localParticipant]);
 
   return null;
 };
@@ -73,6 +102,12 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const roomOptions = {
     adaptiveStream: true, // Baja la calidad si el internet es lento
     dynacast: true, // Optimiza el ancho de banda
+    audioCaptureDefaults: {
+      autoGainControl: true,
+      echoCancellation: true,
+      noiseSuppression: true,
+      channelCount: 1 // Forzar Mono para compatibilidad Bluetooth SCO
+    },
     publishDefaults: {
       simulcast: true, // Envía múltiples resoluciones de video
     }
@@ -84,12 +119,31 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   });
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      AudioRouting.requestAudioFocus().catch(e => console.error('Audio Focus Error:', e));
+      AudioRouting.startBluetoothSco().catch(e => console.error('SCO start error:', e));
+    }
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        AudioRouting.stopBluetoothSco().catch(e => console.error('SCO stop error:', e));
+        AudioRouting.abandonAudioFocus().catch(e => console.error('Focus abandon error:', e));
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const checkHardwareAndFetchToken = async () => {
       try {
         // 1. Explicitly request permissions first to trigger browser prompt
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ 
-            audio: true, 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              sampleRate: { ideal: 16000 },
+              channelCount: { ideal: 1 }
+            }, 
             video: video 
           });
           stream.getTracks().forEach(track => track.stop()); // Clean up immediately

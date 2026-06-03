@@ -59,19 +59,20 @@ export const GroupInfoView = () => {
     const file = e.target.files?.[0];
     if (!file || !currentGroup?.id) return;
 
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('image', file);
+    if (file.size > 10 * 1024 * 1024) {
+      alert('La imagen es demasiado grande. Selecciona una menor a 10MB.');
+      return;
+    }
 
+    setIsUploading(true);
     try {
-      const response = await fetch(`${API_URL}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      await updateGroup(currentGroup.id, { avatar: data.imageUrl });
+      // Import dinámico para evitar posibles problemas de dependencias circulares si no está arriba
+      const { compressAvatar } = await import('../../../utils/upload');
+      const base64Avatar = await compressAvatar(file);
+      await updateGroup(currentGroup.id, { avatar: base64Avatar });
     } catch (error) {
       console.error('Error uploading group avatar:', error);
+      alert('El archivo es demasiado grande o hubo un error.');
     } finally {
       setIsUploading(false);
     }

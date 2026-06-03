@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Search, UserPlus, MessageSquare, Check, Users, X } from 'lucide-react';
+import { ArrowLeft, Search, UserPlus, MessageSquare, Check, Users, X, Camera } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { AddContactView } from './AddContactView';
 import { API_URL } from '../../../config';
@@ -265,11 +265,14 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
               initial={{ x: 30, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 30, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex-1 p-5 sm:p-8 flex flex-col items-center gap-6 sm:gap-10 bg-wa-bg/10 h-full overflow-y-auto"
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="flex-1 p-5 sm:p-8 flex flex-col items-center gap-8 bg-gradient-to-b from-transparent to-wa-bg/30 h-full overflow-y-auto"
             >
-              <div 
-                className="relative group cursor-pointer"
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                className="relative group cursor-pointer mt-4"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <input 
@@ -279,75 +282,87 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
                   accept="image/*" 
                   onChange={handleImageUpload} 
                 />
-                <div className="w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-wa-bg flex items-center justify-center text-wa-text-secondary border-2 border-dashed border-wa-border group-hover:border-[#6366f1] transition-all shadow-inner overflow-hidden">
+                <div className="w-36 h-36 sm:w-48 sm:h-48 rounded-full flex items-center justify-center text-wa-text-secondary border-[3px] border-dashed border-wa-border group-hover:border-[#6366f1] transition-all duration-300 shadow-lg overflow-hidden bg-wa-sidebar relative z-10">
                   {isUploading ? (
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6366f1]"></div>
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#6366f1] border-t-transparent"></div>
                   ) : groupAvatar ? (
                     <img src={groupAvatar} alt="Avatar grupo" className="w-full h-full object-cover" />
                   ) : (
-                    <Users size={64} />
+                    <div className="flex flex-col items-center justify-center gap-2 group-hover:scale-110 transition-transform duration-300 text-[#6366f1]/60 group-hover:text-[#6366f1]">
+                      <Camera size={48} strokeWidth={1.5} />
+                    </div>
                   )}
                 </div>
-                <div className="absolute inset-0 rounded-full bg-black/30 sm:bg-black/0 sm:group-hover:bg-black/20 flex items-center justify-center transition-all">
-                   <div className="text-white sm:opacity-0 sm:group-hover:opacity-100 font-medium text-xs sm:text-sm text-center px-4 uppercase tracking-tighter">Cambiar icono</div>
+                <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 backdrop-blur-[2px]">
+                   <span className="text-white font-medium text-sm text-center px-4 uppercase tracking-wider drop-shadow-md">
+                     {groupAvatar ? 'Cambiar foto' : 'Añadir foto'}
+                   </span>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="w-full max-w-sm space-y-8">
-                <div className="space-y-3">
-                  <label className="text-[14px] text-[#6366f1] font-medium px-1 uppercase tracking-wider">Asunto del grupo</label>
-                  <div className="relative flex items-center">
+              <motion.div 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="w-full max-w-sm space-y-8 mt-2"
+              >
+                <div className="space-y-2 relative group">
+                  <label className="text-[12px] text-[#6366f1] font-bold px-1 uppercase tracking-widest opacity-80 transition-opacity group-focus-within:opacity-100">
+                    Asunto del grupo
+                  </label>
+                  <div className="relative flex items-center bg-wa-bg rounded-t-xl overflow-hidden">
                     <input 
                       type="text" 
                       placeholder="Ej: Familia, Trabajo..." 
-                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#6366f1] outline-none py-3 text-xl transition-all font-medium"
+                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#6366f1] outline-none px-4 py-3.5 text-[17px] transition-colors font-medium text-wa-text-primary"
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
-                      autoFocus
                     />
                     {groupName && (
                       <X 
-                        size={20} 
-                        className="absolute right-0 text-wa-text-secondary cursor-pointer hover:text-wa-text-primary" 
+                        size={18} 
+                        className="absolute right-4 text-wa-text-secondary cursor-pointer hover:text-red-500 transition-colors bg-wa-bg" 
                         onClick={() => setGroupName('')}
                       />
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <label className="text-[14px] text-[#6366f1] font-medium px-1 uppercase tracking-wider">Descripción (Opcional)</label>
-                  <div className="relative flex items-center">
+                <div className="space-y-2 relative group">
+                  <label className="text-[12px] text-[#6366f1] font-bold px-1 uppercase tracking-widest opacity-80 transition-opacity group-focus-within:opacity-100">
+                    Descripción (Opcional)
+                  </label>
+                  <div className="relative flex items-start bg-wa-bg rounded-t-xl overflow-hidden">
                     <textarea 
-                      placeholder="¿De qué trata este grupo?" 
-                      rows={2}
-                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#6366f1] outline-none py-2 text-[16px] transition-all resize-none scrollbar-none"
+                      placeholder="¿Cuál es el propósito del grupo?" 
+                      rows={3}
+                      className="w-full bg-transparent border-b-2 border-wa-border focus:border-[#6366f1] outline-none px-4 py-3 text-[15px] transition-colors resize-none scrollbar-none text-wa-text-primary"
                       value={groupDescription}
                       onChange={(e) => setGroupDescription(e.target.value)}
                     />
-                    {groupDescription && (
-                      <X 
-                        size={18} 
-                        className="absolute right-0 top-2 text-wa-text-secondary cursor-pointer hover:text-wa-text-primary" 
-                        onClick={() => setGroupDescription('')}
-                      />
-                    )}
                   </div>
                 </div>
-              </div>
+              </motion.div>
 
-              <div className="mt-auto pb-12 w-full flex justify-center">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleCreateGroup}
-                  disabled={!groupName.trim() || isUploading}
-                  className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-xl transition-all ${
-                    groupName.trim() && !isUploading ? "bg-wa-green hover:bg-[#008f6f]" : "bg-gray-300 cursor-not-allowed opacity-50"
-                  }`}
-                >
-                  <Check size={32} />
-                </motion.button>
+              <div className="mt-auto pt-8 pb-6 w-full flex justify-center">
+                <AnimatePresence>
+                  {groupName.trim() && (
+                    <motion.button
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleCreateGroup}
+                      disabled={isUploading}
+                      className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-[0_8px_30px_rgb(99,102,241,0.4)] transition-all ${
+                        isUploading ? "bg-[#6366f1]/50 cursor-not-allowed" : "bg-gradient-to-tr from-[#6366f1] to-[#8b5cf6] hover:shadow-[0_8px_30px_rgb(99,102,241,0.6)]"
+                      }`}
+                    >
+                      <Check size={28} strokeWidth={3} />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}

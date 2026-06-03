@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Layout } from './components/Layout'
 import { AuthScreen } from './features/auth/components/AuthScreen'
 import { useChatStore, socket } from './features/sidebar/store/useChatStore'
+import { requestNotificationPermissions } from './utils/notifications'
 
 function App() {
   const { isAuthenticated, isValidatingSession, currentUser } = useChatStore();
@@ -15,6 +16,7 @@ function App() {
   useEffect(() => {
     if (isAuthenticated && currentUser?.id) {
       socket.emit('user_connected', currentUser.id);
+      requestNotificationPermissions();
     }
   }, [isAuthenticated, currentUser?.id]);
 

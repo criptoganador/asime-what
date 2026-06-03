@@ -1,9 +1,24 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { io, Socket } from 'socket.io-client';
 import { encryptMessage, decryptMessage, importPrivateKey, importPublicKey, deriveSharedKey, encryptMessageE2EE, decryptMessageE2EE, decryptPrivateKeyWithPIN } from '../../../utils/crypto';
 import { API_URL } from '../../../config';
 import { Network } from '@capacitor/network';
 import { App as CapacitorApp } from '@capacitor/app';
+import { notifyMessage, notifyCall } from '../../../utils/notifications';
+
+const idbStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    return (await idbGet(name)) || null;
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    await idbSet(name, value);
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await idbDel(name);
+  },
+};
 
 export const decryptSmartMessage = async (encryptedText: string, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!encryptedText) return encryptedText;
@@ -82,12 +97,13 @@ export interface Message {
   senderId: string;
   sender?: 'me' | 'other';
   timestamp: string;
-  status: 'sending' | 'sent' | 'delivered' | 'read';
+  status: 'pending' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   reactions?: Record<string, string[]>;
   replyToId?: string;
   replyTo?: Message;
   isDeleted?: boolean;
   deletedFor?: string[];
+  pendingPayload?: any; // To store what needs to be emitted
 }
 
 export interface Chat {
@@ -106,6 +122,7 @@ export interface Chat {
   otherUserId?: string;
   lastSeen?: string;
   otherUserPublicKey?: string;
+  participants?: { id: string; name: string; avatar: string; role?: string }[];
 }
 
 export interface Status {
@@ -188,6 +205,8 @@ interface ChatState {
   fetchChats: (userId: string) => Promise<void>;
   fetchMessages: (chatId: string) => Promise<void>;
   sendMessage: (chatId: string, text?: string, type?: Message['type'], imageUrl?: string, replyToId?: string, fileData?: { url: string, fileName: string, fileType: string, duration?: number }, overrideMessageId?: string) => void;
+  updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
+  deleteMessageLocal: (chatId: string, messageId: string) => void;
   markMessagesRead: (chatId: string) => void;
   createGroup: (name: string, avatar: string, description: string, participantIds: string[]) => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
@@ -240,6 +259,8 @@ interface ChatState {
   answerCall: (chatId: string, accept: boolean) => void;
   leaveCall: () => void;
   endCall: (chatId: string) => void;
+  pendingMessages: Message[];
+  syncPendingMessages: () => Promise<void>;
 }
 
 const savedUser = localStorage.getItem('asicme_user');
@@ -260,10 +281,28 @@ const initialSettings = savedSettings ? JSON.parse(savedSettings) : {
   }
 };
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  chats: [],
-  messages: {},
-  hasMoreMessages: {},
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
+      chats: [],
+      messages: {},
+      pendingMessages: [],
+      syncPendingMessages: async () => {
+        const { pendingMessages, isOnline, currentUser } = get();
+        if (!isOnline || !currentUser || pendingMessages.length === 0) return;
+        
+        // Evitar múltiples sincronizaciones concurrentes
+        set({ pendingMessages: [] });
+        
+        for (const msg of pendingMessages) {
+          if (msg.pendingPayload) {
+            // Re-emitir el payload original guardado
+            socket.emit('send_message', msg.pendingPayload);
+            // El servidor responderá con 'receive_message' que actualizará localmente el estado a 'sent'
+          }
+        }
+      },
+      hasMoreMessages: {},
   activeChatId: null,
   view: 'chats',
   viewingGroup: null,
@@ -298,6 +337,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const active = get().activeChatId;
       if (current) socket.emit('user_connected', current.id);
       if (active) socket.emit('join_chat', active);
+      
+      // Sincronizar mensajes pendientes al recuperar el socket
+      get().syncPendingMessages();
     });
 
     socket.on('disconnect', () => {
@@ -306,7 +348,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     Network.addListener('networkStatusChange', status => {
       set({ isOnline: status.connected });
-      if (status.connected && !socket.connected) socket.connect();
+      if (status.connected) {
+        if (!socket.connected) socket.connect();
+        get().syncPendingMessages();
+      }
     });
     
     Network.getStatus().then(status => set({ isOnline: status.connected })).catch(() => {});
@@ -526,6 +571,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Si el servidor no responde, no cerrar sesión (puede ser caída temporal)
     }
   },
+  updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => {
+    set((state) => {
+      const chatMsgs = state.messages[chatId] || [];
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: chatMsgs.map(msg => msg.id === messageId ? { ...msg, status } : msg)
+        }
+      };
+    });
+  },
+
+  deleteMessageLocal: (chatId: string, messageId: string) => {
+    set((state) => {
+      const chatMsgs = state.messages[chatId] || [];
+      return {
+        messages: {
+          ...state.messages,
+          [chatId]: chatMsgs.filter(msg => msg.id !== messageId)
+        }
+      };
+    });
+  },
   logout: () => {
     const { currentUser } = get();
     if (currentUser?.id) {
@@ -733,7 +801,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
   sendMessage: async (chatId, text, type = 'text', imageUrl, replyToId, fileData, overrideMessageId) => {
     const state = get();
-    const { currentUser } = state;
+    const { currentUser, isOnline } = state;
     if (!currentUser) return;
     
     const messageId = overrideMessageId || crypto.randomUUID();
@@ -751,7 +819,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       fileType: fileData?.fileType || '',
       duration: fileData?.duration || 0,
       replyToId,
-      status: 'sending',
+      status: isOnline ? 'sending' : 'pending',
       isDeleted: false,
       deletedFor: [],
       timestamp: new Date().toISOString(),
@@ -760,7 +828,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     
     get().addMessage(chatId, tempMessage);
 
-    // 2. Proceso en segundo plano: Cifrar y enviar
+    // 2. Proceso en segundo plano: Cifrar el payload
     const chatInfo = state.chats.find(c => c.id === chatId);
     const encryptedText = await encryptSmartMessage(text, chatId, chatInfo, state.privateKeyJWK);
     const encryptedImageUrl = await encryptSmartMessage(imageUrl, chatId, chatInfo, state.privateKeyJWK);
@@ -768,7 +836,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     
     const { url, ...cleanFileData } = fileData || {};
     
-    socket.emit('send_message', {
+    const payload = {
       id: messageId,
       chatId,
       senderId: currentUser.id,
@@ -778,7 +846,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       replyToId,
       ...cleanFileData,
       fileUrl: encryptedFileUrl // replace the url in fileData (server expects fileUrl)
-    });
+    };
+
+    if (!isOnline) {
+      // Guardar en Outbox para enviar después
+      tempMessage.pendingPayload = payload;
+      set((s) => ({ pendingMessages: [...s.pendingMessages, tempMessage] }));
+      set({ replyingTo: null });
+      return;
+    }
+
+    socket.emit('send_message', payload);
     set({ replyingTo: null });
   },
   clearChat: (chatId: string) => {
@@ -882,7 +960,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           name,
           avatar,
           description,
-          participantIds: [...participantIds, currentUser.id] 
+          participantIds: [currentUser.id, ...participantIds]
         })
       });
       const newGroup = await response.json();
@@ -1018,6 +1096,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Error creating status:', error);
     }
   },
+}), {
+  name: 'asicme-chat-storage',
+  storage: createJSONStorage(() => idbStorage),
+  partialize: (state) => ({ 
+    chats: state.chats, 
+    messages: state.messages, 
+    contacts: state.contacts, 
+    currentUser: state.currentUser,
+    pendingMessages: state.pendingMessages
+  }),
 }));
 
 socket.on('receive_message', async (message: Message) => {
@@ -1039,6 +1127,20 @@ socket.on('receive_message', async (message: Message) => {
     fileUrl: decryptedFileUrl
   };
   state.addMessage(message.conversationId, decryptedMessage);
+
+  // Trigger notification if not currently viewing this chat or app is backgrounded
+  if (state.notificationsEnabled && message.senderId !== state.currentUser?.id) {
+    if (state.activeChatId !== message.conversationId || !state.isOnline) {
+      const senderName = chatInfo?.isGroup ? `${chatInfo.name}` : chatInfo?.name || 'Usuario';
+      let bodyText = decryptedText;
+      if (message.type === 'image') bodyText = '📷 Foto';
+      if (message.type === 'video') bodyText = '🎥 Video';
+      if (message.type === 'audio') bodyText = '🎤 Nota de voz';
+      if (message.type === 'file') bodyText = '📎 Documento';
+      
+      notifyMessage(`Mensaje de ${senderName}`, bodyText || 'Nuevo mensaje');
+    }
+  }
 });
 
 socket.on('messages_read', ({ chatId, readBy }) => {
@@ -1159,11 +1261,18 @@ socket.on('incoming_call', (call) => {
     return;
   }
   useChatStore.setState({ incomingCall: call });
+  
+  if (state.notificationsEnabled) {
+    const callType = call.type === 'video' ? 'Videollamada' : 'Llamada de voz';
+    notifyCall(`Llamada entrante`, `${call.callerName} te está haciendo una ${callType.toLowerCase()}`);
+  }
 });
 
 socket.on('call_answered', ({ chatId, answererId, accept }) => {
   const state = useChatStore.getState();
   const outgoingCall = state.outgoingCall;
+  const chatInfo = state.chats.find(c => c.id === chatId);
+  const isGroup = chatInfo?.isGroup;
   
   if (outgoingCall && outgoingCall.chatId === chatId) {
     if (accept) {
@@ -1172,12 +1281,16 @@ socket.on('call_answered', ({ chatId, answererId, accept }) => {
         outgoingCall: null 
       });
     } else {
-      useChatStore.setState({ outgoingCall: null });
-      alert('Llamada rechazada');
+      if (!isGroup) {
+        useChatStore.setState({ outgoingCall: null });
+        alert('Llamada rechazada');
+      }
     }
   } else if (state.activeCall?.chatId === chatId && !accept) {
-    useChatStore.setState({ activeCall: null });
-    alert('Llamada terminada');
+    if (!isGroup) {
+      useChatStore.setState({ activeCall: null });
+      alert('Llamada terminada');
+    }
   }
 });
 
