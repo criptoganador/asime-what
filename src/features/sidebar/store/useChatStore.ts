@@ -347,6 +347,9 @@ export const useChatStore = create<ChatState>()(
   outgoingCall: null,
   
   initializeNetworkListeners: () => {
+    if ((window as any)._networkListenersInitialized) return;
+    (window as any)._networkListenersInitialized = true;
+
     socket.on('connect', () => {
       set({ socketConnected: true });
       const current = get().currentUser;

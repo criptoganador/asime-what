@@ -150,6 +150,10 @@ export const ChatArea = () => {
   const typingTimeoutRef = useRef<any>(null);
   const cancelRecordingRef = useRef<boolean>(false);
 
+  const virtuosoComponents = useMemo(() => ({
+    Footer: () => <div className="h-4" /> // Spacing at bottom
+  }), []);
+
   const currentMessages = useMemo(() => (activeChatId ? messages[activeChatId] || [] : []), [activeChatId, messages]);
 
   const filteredMessages = useMemo(() => {
@@ -756,9 +760,7 @@ export const ChatArea = () => {
             initialTopMostItemIndex={filteredMessages.length - 1}
             followOutput="smooth"
             alignToBottom
-            components={{
-              Footer: () => <div className="h-4" /> // Spacing at bottom
-            }}
+            components={virtuosoComponents}
             itemContent={(index: number, msg: any) => {
               const isMe = msg.senderId === currentUser?.id;
               const showTail = index === 0 || filteredMessages[index - 1].senderId !== msg.senderId;
