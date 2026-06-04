@@ -104,7 +104,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const [hardwareOk, setHardwareOk] = useState(false);
   const [showInviteMenu, setShowInviteMenu] = useState(false);
   const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
-  const { contacts, inviteToCall } = useChatStore();
+  const { currentUser, contacts, inviteToCall } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
 
   const roomOptions = {
@@ -285,25 +285,58 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             <VideoConference />
           </div>
         ) : (
-          <div className={`w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-[#0b141a] to-[#111b21] ${isMinimized ? 'pointer-events-none' : ''}`}>
+          <div className={`w-full h-full flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a2d37] via-[#0b141a] to-black ${isMinimized ? 'pointer-events-none' : ''}`}>
             <div className="relative flex flex-col items-center">
+              {/* Ondas expansivas premium para voz */}
               <motion.div 
-                animate={{ scale: [1, 1.2, 1] }} 
-                transition={{ duration: 2, repeat: Infinity }} 
-                className="absolute inset-0 bg-wa-teal/20 rounded-full blur-xl" 
+                animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }} 
+                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }} 
+                className="absolute inset-0 bg-wa-teal/30 rounded-full blur-2xl" 
+              />
+              <motion.div 
+                animate={{ scale: [1.2, 1.5, 1.2], opacity: [0.1, 0.3, 0.1] }} 
+                transition={{ duration: 3, delay: 0.5, repeat: Infinity, ease: "easeInOut" }} 
+                className="absolute inset-[-20%] bg-wa-teal/20 rounded-full blur-3xl" 
               />
               <img 
                 src={chatAvatar} 
-                className={`${isMinimized ? 'w-24 h-24' : 'w-40 h-40'} rounded-full object-cover border-4 border-wa-teal/30 relative z-10 shadow-2xl transition-all`} 
+                className={`${isMinimized ? 'w-24 h-24' : 'w-48 h-48'} rounded-full object-cover border-[6px] border-white/10 relative z-10 shadow-[0_0_50px_rgba(0,168,132,0.4)] transition-all`} 
                 alt="" 
               />
               {!isMinimized && (
-                <>
-                  <h2 className="text-3xl font-semibold text-white mt-6">{chatName}</h2>
-                  <p className="text-wa-teal font-medium mt-2">
-                    {activeParticipantNames.length > 1 ? `${activeParticipantNames.length} participantes en llamada` : 'Llamada de voz en curso'}
+                <div className="relative z-10 flex flex-col items-center mt-8">
+                  <h2 className="text-4xl font-bold text-white tracking-tight">{chatName}</h2>
+                  <p className="text-wa-teal/90 font-medium mt-3 text-lg bg-wa-teal/10 px-4 py-1.5 rounded-full border border-wa-teal/20 mb-6">
+                    {activeParticipantNames.length > 1 ? `${activeParticipantNames.length} participantes en la llamada` : 'Llamada de voz en curso'}
                   </p>
-                </>
+                  
+                  {/* Cluster de Avatares para llamadas grupales */}
+                  {activeParticipantNames.length > 1 && (
+                    <div className="flex flex-wrap justify-center items-center gap-2 max-w-[280px]">
+                      {activeParticipantNames.map((id, index) => {
+                        // Buscar avatar del contacto o usuario actual
+                        let pAvatar = 'https://i.pravatar.cc/150';
+                        if (currentUser?.id === id) pAvatar = currentUser.avatar || pAvatar;
+                        else {
+                          const contact = availableContacts.find(c => c.user.id === id);
+                          if (contact?.user?.avatar) pAvatar = contact.user.avatar;
+                        }
+                        
+                        return (
+                          <motion.div 
+                            key={id}
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/20 shadow-lg bg-black relative"
+                          >
+                            <img src={pAvatar} className="w-full h-full object-cover" alt="Participante" />
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -311,28 +344,36 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         <RoomAudioRenderer />
         
         {!isMinimized && (
-          <>
-            <div className="absolute top-6 left-6 z-[110] flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 pointer-events-none">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-medium text-white/90">Llamada en curso • {chatName}</span>
+          <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-0 right-0 z-[110] px-4 sm:px-6 flex items-center justify-between pointer-events-none">
+            
+            {/* Header Izquierdo - Info */}
+            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
+              <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
+              <div className="flex flex-col">
+                <span className="text-[15px] font-semibold text-white/95 leading-tight">{chatName}</span>
+                <span className="text-xs font-medium text-wa-teal leading-tight">
+                  {activeParticipantNames.length > 1 ? `${activeParticipantNames.length} en llamada` : 'Llamada activa'}
+                </span>
+              </div>
             </div>
 
-            <div className="absolute top-6 right-6 z-[110] flex items-center gap-4">
+            {/* Header Derecho - Acciones */}
+            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
               <button 
                 onClick={() => setIsMinimized(true)}
-                className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all shadow-xl backdrop-blur-sm border-none cursor-pointer flex items-center justify-center"
+                className="p-2.5 bg-transparent hover:bg-white/10 text-white/90 rounded-full transition-all flex items-center justify-center"
                 title="Minimizar a chat"
               >
-                <MessageCircle size={24} />
+                <MessageCircle size={22} />
               </button>
 
               <div className="relative">
                 <button 
                   onClick={() => setShowInviteMenu(!showInviteMenu)}
-                  className="p-3 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all shadow-xl backdrop-blur-sm border-none cursor-pointer flex items-center justify-center"
+                  className="p-2.5 bg-transparent hover:bg-white/10 text-white/90 rounded-full transition-all flex items-center justify-center"
                   title="Añadir participante"
                 >
-                  <UserPlus size={24} />
+                  <UserPlus size={22} />
                 </button>
 
                 <AnimatePresence>
@@ -352,14 +393,14 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
                       initial={{ opacity: 0, scale: 0.9, y: -10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                      className="absolute top-14 right-0 w-64 bg-[#111b21] rounded-2xl shadow-2xl z-50 border border-white/10 overflow-hidden"
+                      className="absolute top-14 right-0 w-72 bg-[#111b21]/95 backdrop-blur-xl rounded-2xl shadow-2xl z-50 border border-white/10 overflow-hidden"
                     >
-                      <div className="p-3 border-b border-white/10">
+                      <div className="p-4 border-b border-white/10 bg-white/5">
                         <h3 className="text-white text-sm font-semibold">Añadir participante</h3>
                       </div>
                       <div className="max-h-64 overflow-y-auto custom-scrollbar">
                         {availableContacts.length === 0 ? (
-                          <div className="p-4 text-center text-gray-400 text-sm">No hay contactos disponibles para invitar</div>
+                          <div className="p-6 text-center text-gray-400 text-sm">No hay contactos disponibles para invitar</div>
                         ) : (
                           availableContacts.map(contact => (
                             <button
@@ -368,10 +409,10 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
                                 inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
                                 setShowInviteMenu(false);
                               }}
-                              className="w-full flex items-center gap-3 p-3 hover:bg-white/5 transition-colors text-left"
+                              className="w-full flex items-center gap-3 p-3 hover:bg-white/10 transition-colors text-left"
                             >
-                              <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt={contact.nickname || contact.user?.name} className="w-8 h-8 rounded-full object-cover" />
-                              <span className="text-white text-sm truncate flex-1">{contact.nickname || contact.user?.name}</span>
+                              <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt={contact.nickname || contact.user?.name} className="w-10 h-10 rounded-full object-cover border border-white/10" />
+                              <span className="text-white text-[15px] font-medium truncate flex-1">{contact.nickname || contact.user?.name}</span>
                             </button>
                           ))
                         )}
@@ -387,13 +428,13 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
                   setIsDisconnecting(true);
                   setDisconnectAction('leave');
                 }}
-                className="p-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-xl backdrop-blur-sm border-none cursor-pointer flex items-center justify-center"
+                className="p-2.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] flex items-center justify-center ml-1"
                 title="Colgar llamada"
               >
-                <PhoneOff size={24} />
+                <PhoneOff size={22} />
               </button>
             </div>
-          </>
+          </div>
         )}
 
         {isMinimized && (
