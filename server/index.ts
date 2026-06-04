@@ -262,10 +262,19 @@ io.on('connection', (socket) => {
         status: isRecipientOnline ? 'delivered' : 'sent'
       }).returning();
 
+      // Confirmación al remitente: evento ligero sin contenido cifrado para no romper la UI optimista
+      socket.emit('message_confirmed', {
+        id: newMsg.id,
+        chatId: chatId,
+        status: newMsg.status,
+        timestamp: newMsg.timestamp
+      });
+
+      // Difundir el mensaje completo solo a los OTROS participantes activos
       for (const p of participants) {
-        if (activeUsers.has(p.userId)) {
+        if (p.userId !== senderId && activeUsers.has(p.userId)) {
           io.to(p.userId).emit('receive_message', newMsg);
-        } else if (p.userId !== senderId) {
+        } else if (p.userId !== senderId && !activeUsers.has(p.userId)) {
           // El destinatario está desconectado, intentamos enviar Push Notification
           try {
             const userDoc = await db.query.users.findFirst({
@@ -1237,14 +1246,31 @@ app.get('/api/messages/:chatId', async (req, res) => {
   const limit = parseInt(req.query.limit as string) || 50;
   const offset = parseInt(req.query.offset as string) || 0;
   const userId = req.query.userId as string;
+  const since = req.query.since as string | undefined; // Carga incremental: timestamp ISO del último mensaje en caché
   
   try {
-    const chatMessages = await db.query.messages.findMany({
-      where: eq(messages.conversationId, chatId),
-      orderBy: (messages, { desc }) => [desc(messages.timestamp)],
-      limit,
-      offset
-    });
+    let chatMessages;
+    
+    if (since) {
+      // Modo incremental: solo mensajes más nuevos que el timestamp dado
+      const sinceDate = new Date(since);
+      chatMessages = await db.query.messages.findMany({
+        where: and(
+          eq(messages.conversationId, chatId),
+          gt(messages.timestamp, sinceDate)
+        ),
+        orderBy: (messages, { asc }) => [asc(messages.timestamp)],
+      });
+    } else {
+      // Carga inicial completa (paginada)
+      chatMessages = await db.query.messages.findMany({
+        where: eq(messages.conversationId, chatId),
+        orderBy: (messages, { desc }) => [desc(messages.timestamp)],
+        limit,
+        offset
+      });
+      chatMessages = chatMessages.reverse();
+    }
     
     // Filtrar los que este usuario borró solo para él
     const visibleMessages = chatMessages.filter(msg => {
@@ -1252,7 +1278,7 @@ app.get('/api/messages/:chatId', async (req, res) => {
       return !deletedFor.includes(userId);
     });
 
-    res.json(visibleMessages.reverse());
+    res.json(visibleMessages);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener mensajes' });
   }

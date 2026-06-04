@@ -773,26 +773,53 @@ export const useChatStore = create<ChatState>()(
     const { currentUser } = get();
     if (!currentUser) return;
     
+    let cachedMsgs: Message[] = [];
+    
+    // PASO 1: Mostrar caché de IndexedDB inmediatamente (UI instantánea)
     try {
-      // Cargar caché local primero para instantaneidad (Offline-First)
-      const cachedMsgs = await idbGet(`messages_${chatId}`);
-      if (cachedMsgs && Array.isArray(cachedMsgs)) {
+      const cached = await idbGet(`messages_${chatId}`);
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        cachedMsgs = cached;
         set((state) => ({ messages: { ...state.messages, [chatId]: cachedMsgs } }));
       }
     } catch (e) {
       console.warn('Error reading IDB cache:', e);
     }
 
+    // PASO 2: Carga incremental — solo pedir mensajes NUEVOS desde el último que tenemos
     try {
-      const response = await fetch(`${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=0`);
-      if (!response.ok) return; // Servidor no disponible, no crashear
-      let data = await response.json();
-      if (!Array.isArray(data)) return; // Respuesta inesperada, no crashear
-      
       const { chats, privateKeyJWK } = get();
       const chatInfo = chats.find(c => c.id === chatId);
-      
-      data = await Promise.all(data.map(async (msg: Message) => {
+
+      // Si tenemos caché, solo traer mensajes más nuevos que el último
+      const latestCachedTimestamp = cachedMsgs.length > 0
+        ? cachedMsgs[cachedMsgs.length - 1].timestamp
+        : null;
+
+      let url: string;
+      if (latestCachedTimestamp) {
+        // Modo incremental: solo mensajes nuevos
+        url = `${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&since=${encodeURIComponent(latestCachedTimestamp)}`;
+      } else {
+        // Sin caché: carga inicial completa
+        url = `${API_URL}/api/messages/${chatId}?userId=${currentUser.id}&limit=50&offset=0`;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) return;
+      let newData = await response.json();
+      if (!Array.isArray(newData) || newData.length === 0) {
+        // No hay mensajes nuevos, el caché ya es la versión más reciente
+        if (cachedMsgs.length > 0) {
+          set((state) => ({
+            hasMoreMessages: { ...state.hasMoreMessages, [chatId]: cachedMsgs.length === 50 }
+          }));
+        }
+        return;
+      }
+
+      // Descifrar solo los mensajes nuevos (no re-descifrar el caché)
+      newData = await Promise.all(newData.map(async (msg: Message) => {
         const rawText = await fetchIfR2Url(msg.text);
         const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
         const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
@@ -805,9 +832,17 @@ export const useChatStore = create<ChatState>()(
         };
       }));
 
+      // Combinar caché + mensajes nuevos (evitando duplicados por ID)
+      const mergedIds = new Set(cachedMsgs.map(m => m.id));
+      const uniqueNew = newData.filter((m: Message) => !mergedIds.has(m.id));
+      const merged = [...cachedMsgs, ...uniqueNew];
+
       set((state) => ({
-        messages: { ...state.messages, [chatId]: data },
-        hasMoreMessages: { ...state.hasMoreMessages, [chatId]: data.length === 50 }
+        messages: { ...state.messages, [chatId]: merged },
+        hasMoreMessages: { 
+          ...state.hasMoreMessages, 
+          [chatId]: latestCachedTimestamp ? state.hasMoreMessages[chatId] : newData.length === 50 
+        }
       }));
     } catch (error) {
       console.warn('⚠️ Error fetching messages (Neon puede estar temporalmente inaccesible)');
@@ -1200,6 +1235,12 @@ socket.on('receive_message', async (message: Message) => {
       notifyMessage(`Mensaje de ${senderName}`, bodyText || 'Nuevo mensaje');
     }
   }
+});
+
+// Confirmación al remitente: actualiza el mensaje optimista con el status real del servidor
+// sin necesidad de descifrar contenido (el remitente ya tiene el texto plano en la UI)
+socket.on('message_confirmed', ({ id, chatId, status, timestamp }: { id: string; chatId: string; status: string; timestamp: string }) => {
+  useChatStore.getState().updateMessageStatus(chatId, id, status as any);
 });
 
 socket.on('messages_read', ({ chatId, readBy }) => {
