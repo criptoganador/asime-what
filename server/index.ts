@@ -23,6 +23,7 @@ import {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
+import { sendPushNotification } from './src/utils/firebase';
 
 // Encriptación simétrica AES-256 para teléfonos (Determinista con IV estático para búsquedas exactas)
 const ENCRYPTION_KEY = process.env.PHONE_ENCRYPTION_KEY || 'AsicmeSecretKeyForPhones2024!@#$'; // Exactamente 32 bytes
@@ -234,9 +235,40 @@ io.on('connection', (socket) => {
         status: isRecipientOnline ? 'delivered' : 'sent'
       }).returning();
 
-      participants.forEach(p => {
-        io.to(p.userId).emit('receive_message', newMsg);
-      });
+      for (const p of participants) {
+        if (activeUsers.has(p.userId)) {
+          io.to(p.userId).emit('receive_message', newMsg);
+        } else if (p.userId !== senderId) {
+          // El destinatario está desconectado, intentamos enviar Push Notification
+          try {
+            const userDoc = await db.query.users.findFirst({
+              where: eq(users.id, p.userId)
+            });
+            
+            if (userDoc?.pushToken) {
+              const sender = await db.query.users.findFirst({
+                where: eq(users.id, senderId)
+              });
+              
+              const senderName = sender?.name || 'Alguien';
+              let bodyText = text || 'Te envió un mensaje';
+              if (type === 'image') bodyText = '📷 Foto';
+              if (type === 'video') bodyText = '🎥 Video';
+              if (type === 'audio') bodyText = '🎵 Mensaje de voz';
+              if (type === 'file') bodyText = `📄 Archivo: ${fileName || 'adjunto'}`;
+
+              await sendPushNotification(
+                userDoc.pushToken,
+                senderName,
+                bodyText,
+                { chatId: chatId }
+              );
+            }
+          } catch (pushErr) {
+            console.error('Error procesando push en send_message:', pushErr);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error al procesar mensaje socket:', error);
     }

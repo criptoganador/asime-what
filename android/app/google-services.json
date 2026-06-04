@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "122993271633",
+    "project_id": "asicme-chat",
+    "storage_bucket": "asicme-chat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:122993271633:android:46036b858985cb9b3ba970",
+        "android_client_info": {
+          "package_name": "com.asicme.chat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAF006hch4u7wWcAYLib1ykdOYD_p3inYI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
