@@ -3,7 +3,6 @@
   "appName": "Asicme Chat",
   "webDir": "dist",
   "server": {
-    "url": "https://asime-what-frontend.onrender.com",
     "cleartext": true,
     "errorPath": "error.html"
   }
