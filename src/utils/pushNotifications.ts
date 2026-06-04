@@ -1,7 +1,13 @@
 import { PushNotifications } from '@capacitor/push-notifications';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
+import { Capacitor } from '@capacitor/core';
 
 export const initPushNotifications = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    console.log('Push notifications no están soportadas en la web. Saltando inicialización.');
+    return;
+  }
+
   try {
     // Pedir permisos en Android 13+ o iOS
     let permStatus = await PushNotifications.checkPermissions();
