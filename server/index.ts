@@ -173,7 +173,7 @@ const authenticateToken = (req: any, res: any, next: any) => {
 // Anti-Spam Nivel Enterprise: Rate Limiting para APIs REST
 const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
-  max: 150, // Limita a 150 peticiones por IP cada 5 min
+  max: 1000, // Aumentado a 1000 para permitir la descarga fluida de archivos multimedia a través del proxy
   message: { error: 'Demasiadas peticiones. Por favor, intenta más tarde.' },
   standardHeaders: true,
   legacyHeaders: false,
