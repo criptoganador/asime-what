@@ -47,7 +47,7 @@ const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '😡'];
 export const ChatArea = () => {
   const { 
     activeChatId, chats, messages, sendMessage, closeChat, setView, currentUser, 
-    markMessagesRead, setViewingGroup, chatWallpaper, typingUsers, sendTypingStatus,
+    markMessagesRead, setViewingGroup, chatWallpaper, typingUsers, uploadingUsers, sendTypingStatus,
     addReaction, replyingTo, setReplyingTo,
     hasMoreMessages, loadMoreMessages, deleteMessage, addMessage, updateMessageStatus, deleteMessageLocal,
     callUser
@@ -546,7 +546,7 @@ export const ChatArea = () => {
   }
 
   const isOtherTyping = typingUsers[activeChatId]?.length > 0;
-  const otherUploads = useChatStore(s => s.uploadingUsers)[activeChatId] || [];
+  const otherUploads = (activeChatId && uploadingUsers[activeChatId]) || [];
   const isOtherUploading = otherUploads.length > 0;
   const uploadType = isOtherUploading ? otherUploads[0].type : null;
   
