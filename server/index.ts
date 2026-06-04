@@ -14,6 +14,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import bcrypt from 'bcryptjs';
 import compression from 'compression';
+import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
@@ -116,6 +117,20 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
     credentials: true
   }
+});
+
+const JWT_SECRET = process.env.JWT_SECRET || 'AsicmeChatJWTSuperSecretKey2026!@#$';
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error('Authentication error: Token missing'));
+  }
+  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
+    if (err) return next(new Error('Authentication error: Invalid token'));
+    (socket as any).userId = decoded.id;
+    next();
+  });
 });
 
 const port = process.env.PORT || 3001;
@@ -586,7 +601,8 @@ app.post('/api/auth/verify-registration', authLimiter, async (req, res) => {
       }).where(eq(users.id, user.id)).returning();
 
       const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
-      return res.json({ verified: true, user: safeUser });
+      const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
+      return res.json({ verified: true, user: safeUser, token });
     }
   } catch (error: any) {
     console.error('Error verifyRegistrationResponse:', error);
@@ -602,6 +618,11 @@ app.post('/api/auth/generate-authentication-options', authLimiter, async (req, r
   const user = await db.query.users.findFirst({ where: eq(users.username, username) });
   if (!user || !user.credentialID) {
     return res.status(404).json({ error: 'Usuario no encontrado o sin passkey configurado' });
+  }
+
+  if (user.lockedUntil && new Date() < user.lockedUntil) {
+    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+    return res.status(403).json({ error: `Cuenta bloqueada por seguridad. Intente en ${minutesLeft} minutos.` });
   }
 
   try {
@@ -644,16 +665,36 @@ app.post('/api/auth/verify-authentication', authLimiter, async (req, res) => {
 
     const { verified, authenticationInfo } = verification;
     if (verified) {
+      if ((user.failedLoginAttempts ?? 0) > 0 || user.lockedUntil) {
+        await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
+      }
+
       const [updatedUser] = await db.update(users).set({
         counter: authenticationInfo.newCounter,
         currentChallenge: null,
       }).where(eq(users.id, user.id)).returning();
 
       const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
-      return res.json({ verified: true, user: safeUser });
+      const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
+      return res.json({ verified: true, user: safeUser, token });
     }
   } catch (error: any) {
     console.error('Error verifyAuthenticationResponse:', error);
+    if (user) {
+      const newAttempts = (user.failedLoginAttempts || 0) + 1;
+      let updateData: any = { failedLoginAttempts: newAttempts };
+      
+      if (newAttempts >= 5) {
+        updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 mins
+        await db.update(users).set(updateData).where(eq(users.id, user.id));
+        if (user.pushToken) {
+          sendPushNotification(user.pushToken, 'Alerta de Seguridad', 'Se han detectado múltiples intentos fallidos de inicio de sesión. Tu cuenta ha sido bloqueada temporalmente.');
+        }
+        return res.status(403).json({ error: `Demasiados intentos fallidos. Cuenta bloqueada por 30 minutos.` });
+      } else {
+        await db.update(users).set(updateData).where(eq(users.id, user.id));
+      }
+    }
     return res.status(400).send({ error: error.message });
   }
   return res.status(400).json({ error: 'Fallo al verificar autenticación' });
@@ -722,7 +763,8 @@ app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
     }
 
     const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = user;
-    res.json({ verified: true, user: safeUser });
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ verified: true, user: safeUser, token });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -735,6 +777,11 @@ app.post('/api/auth/mobile-login-challenge', authLimiter, async (req, res) => {
   const user = await db.query.users.findFirst({ where: eq(users.username, username) });
   if (!user || !user.hardwarePublicKey) {
     return res.status(404).json({ error: 'Usuario no encontrado o no registrado desde móvil' });
+  }
+
+  if (user.lockedUntil && new Date() < user.lockedUntil) {
+    const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+    return res.status(403).json({ error: `Cuenta bloqueada por seguridad. Intente en ${minutesLeft} minutos.` });
   }
 
   const challenge = crypto.randomBytes(32).toString('hex');
@@ -761,14 +808,32 @@ app.post('/api/auth/mobile-verify-signature', authLimiter, async (req, res) => {
     const isValid = verify.verify(publicKeyPem, signature, 'base64');
 
     if (isValid) {
+      if ((user.failedLoginAttempts ?? 0) > 0 || user.lockedUntil) {
+        await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null }).where(eq(users.id, user.id));
+      }
+
       const [updatedUser] = await db.update(users).set({
         currentChallenge: null,
       }).where(eq(users.id, user.id)).returning();
 
       const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = updatedUser;
-      return res.json({ verified: true, user: safeUser });
+      const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
+      return res.json({ verified: true, user: safeUser, token });
     } else {
-      return res.status(401).json({ error: 'Firma digital inválida' });
+      const newAttempts = (user.failedLoginAttempts || 0) + 1;
+      let updateData: any = { failedLoginAttempts: newAttempts };
+      
+      if (newAttempts >= 5) {
+        updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+        await db.update(users).set(updateData).where(eq(users.id, user.id));
+        if (user.pushToken) {
+          sendPushNotification(user.pushToken, 'Alerta de Seguridad', 'Se han detectado múltiples intentos fallidos de inicio de sesión. Tu cuenta ha sido bloqueada temporalmente.');
+        }
+        return res.status(403).json({ error: `Demasiados intentos fallidos. Cuenta bloqueada por 30 minutos.` });
+      } else {
+        await db.update(users).set(updateData).where(eq(users.id, user.id));
+        return res.status(401).json({ error: `Firma digital inválida. Le quedan ${5 - newAttempts} intentos.` });
+      }
     }
   } catch (error: any) {
     console.error('Error verify mobile signature:', error);
@@ -987,7 +1052,8 @@ app.get('/api/users/validate/:id', async (req, res) => {
     if (!user) return res.status(404).json({ valid: false });
     const { pin: _pin, ...safeUser } = user;
     safeUser.phone = decryptPhone(safeUser.phone!);
-    res.json({ valid: true, user: safeUser });
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ valid: true, user: safeUser, token });
   } catch (error) {
     res.status(500).json({ valid: false, error: 'Error al validar usuario' });
   }

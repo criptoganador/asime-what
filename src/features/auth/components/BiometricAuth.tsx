@@ -3,7 +3,7 @@ import { startRegistration, startAuthentication } from '@simplewebauthn/browser'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Fingerprint, LogIn, Camera, User, Loader2 } from 'lucide-react';
 import { API_URL } from '../../../config';
-import { useChatStore } from '../../sidebar/store/useChatStore';
+import { useChatStore, socket } from '../../sidebar/store/useChatStore';
 import { generateECDHKeyPair, encryptPrivateKeyWithPIN, encryptPrivateKeyWithPhrase, decryptPrivateKeyWithPIN, hashRecoveryPhrase, decryptPrivateKeyWithPhrase } from '../../../utils/crypto';
 import * as bip39 from 'bip39';
 import { uploadImage } from '../../../utils/upload';
@@ -177,6 +177,9 @@ export const BiometricAuth: React.FC = () => {
       }
 
       if (verificationJSON.verified) {
+        if (verificationJSON.token) {
+          localStorage.setItem('asicme_token', verificationJSON.token);
+        }
         setTempUser(verificationJSON.user);
         setName(verificationJSON.user.username);
         setTempDecryptedKey(keys.privateKey);
@@ -279,6 +282,13 @@ export const BiometricAuth: React.FC = () => {
           useChatStore.setState({ privateKeyJWK: decrypted });
           sessionStorage.setItem('asicme_private_key', decrypted);
         }
+        
+        if (verificationJSON.token) {
+          localStorage.setItem('asicme_token', verificationJSON.token);
+          socket.auth = { token: verificationJSON.token };
+          if (!socket.connected) socket.connect();
+        }
+        socket.emit('user_connected', verificationJSON.user.id);
       } else {
         throw new Error(verificationJSON.error || 'Error de verificación de login');
       }
@@ -387,6 +397,13 @@ export const BiometricAuth: React.FC = () => {
       });
       localStorage.setItem('asicme_user', JSON.stringify(updatedUser));
       sessionStorage.setItem('asicme_private_key', tempDecryptedKey);
+      
+      const token = localStorage.getItem('asicme_token');
+      if (token) {
+        socket.auth = { token };
+        if (!socket.connected) socket.connect();
+      }
+      socket.emit('user_connected', updatedUser.id);
       
     } catch (err: any) {
       setError(err.message || 'Error guardando perfil');

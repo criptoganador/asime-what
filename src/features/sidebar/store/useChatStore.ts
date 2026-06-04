@@ -82,6 +82,9 @@ export const socket: Socket = io(API_URL, {
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
   timeout: 20000,
+  auth: {
+    token: typeof window !== 'undefined' ? localStorage.getItem('asicme_token') : null
+  }
 });
 
 export interface Message {
@@ -536,7 +539,12 @@ export const useChatStore = create<ChatState>()(
       }
 
       localStorage.setItem('asicme_user', JSON.stringify(data));
+      if (data.token) {
+        localStorage.setItem('asicme_token', data.token);
+        socket.auth = { token: data.token };
+      }
       set({ isAuthenticated: true, currentUser: data, privateKeyJWK });
+      if (!socket.connected) socket.connect();
       socket.emit('user_connected', data.id);
       return { success: true };
     } catch (error) {
@@ -571,6 +579,11 @@ export const useChatStore = create<ChatState>()(
       const data = await response.json();
       if (data.user) {
         localStorage.setItem('asicme_user', JSON.stringify(data.user));
+        if (data.token) {
+          localStorage.setItem('asicme_token', data.token);
+          socket.auth = { token: data.token };
+          if (!socket.connected) socket.connect();
+        }
         const pk = sessionStorage.getItem('asicme_private_key');
         set({ currentUser: data.user, privateKeyJWK: pk });
       }
@@ -608,7 +621,9 @@ export const useChatStore = create<ChatState>()(
       socket.emit('user_disconnected', currentUser.id);
     }
     localStorage.removeItem('asicme_user');
+    localStorage.removeItem('asicme_token');
     sessionStorage.removeItem('asicme_private_key');
+    socket.disconnect();
     set({ 
       isAuthenticated: false, 
       currentUser: null, 

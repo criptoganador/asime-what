@@ -384,11 +384,8 @@ export const Sidebar = () => {
 
     // Si no es 'chats', mostramos las sub-vistas
     return (
-      <motion.div 
+      <div
         key="sub-view-container"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
         className="absolute inset-0 z-50 bg-white h-full overflow-hidden"
       >
         {view === 'profile' && <ProfileView />}
@@ -396,13 +393,13 @@ export const Sidebar = () => {
         {view === 'group-info' && <GroupInfoView />}
         {view === 'security' && <SecuritySettings />}
         {view === 'create-group' && <CreateGroupView onBack={() => setView('chats')} />}
-      </motion.div>
+      </div>
     );
   };
 
   return (
     <div className="w-full md:w-[400px] h-full bg-wa-sidebar border-r border-wa-border overflow-hidden relative">
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {renderMainContent()}
       </AnimatePresence>
     </div>
