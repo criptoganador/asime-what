@@ -70,15 +70,8 @@ const ParticipantMonitor = ({ onCallEmpty, onParticipantsChange }: { onCallEmpty
   return null;
 };
 
-const ConnectionStatusIndicator = ({ onClose }: { onClose?: () => void }) => {
+const ConnectionStatusIndicator = () => {
   const connectionState = useConnectionState();
-
-  useEffect(() => {
-    if (connectionState === 'disconnected') {
-      alert('Llamada finalizada por error de red.');
-      if (onClose) onClose();
-    }
-  }, [connectionState, onClose]);
 
   if (connectionState === 'reconnecting') {
     return (
@@ -275,10 +268,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         data-lk-theme="default"
         style={{ height: '100vh' }}
       >
-        <ConnectionStatusIndicator onClose={() => {
-          setIsDisconnecting(true);
-          setDisconnectAction('leave');
-        }} />
+        <ConnectionStatusIndicator />
         <ParticipantMonitor onCallEmpty={handleCallEmptyGraceful} onParticipantsChange={setActiveParticipantNames} />
         {video ? (
           <div className={`lk-video-wrapper w-full h-full ${isMinimized ? 'pointer-events-none' : ''}`}>
