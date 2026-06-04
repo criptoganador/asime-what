@@ -1544,10 +1544,16 @@ if (restoredUser && restoredUser.id) {
   // Validar que el usuario aún existe en la BD antes de reconectar
   (async () => {
     try {
-      const response = await fetch(`${API_URL}/api/users/validate/${restoredUser.id}`);
+      const token = localStorage.getItem('asicme_token');
+      const response = await fetch(`${API_URL}/api/users/validate/${restoredUser.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         console.warn('⚠️ Usuario eliminado de la BD. Cerrando sesión automáticamente...');
         localStorage.removeItem('asicme_user');
+        localStorage.removeItem('asicme_token');
         useChatStore.setState({ isAuthenticated: false, isValidatingSession: false, currentUser: null });
         return;
       }
