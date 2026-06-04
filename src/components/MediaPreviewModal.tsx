@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, File as FileIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Send, File as FileIcon, Music } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -25,8 +25,17 @@ interface MediaPreviewModalProps {
 export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onSend, onCancel }) => {
   const [items, setItems] = useState<PendingMedia[]>(media);
   const [activeIndex, setActiveIndex] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const currentItem = items[activeIndex];
+
+  // Auto-expand textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 100)}px`;
+    }
+  }, [activeIndex, currentItem?.caption]);
 
   const handleRemove = (id: string) => {
     const itemToRemove = items.find(m => m.id === id);
@@ -51,6 +60,12 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onS
     ));
   };
 
+  const handleCancelClick = () => {
+    // Solución al Memory Leak: Revocar todos los object URLs al cancelar el modal entero
+    items.forEach(item => URL.revokeObjectURL(item.url));
+    onCancel();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -65,12 +80,12 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onS
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col"
+      className="fixed inset-0 z-[200] bg-black flex flex-col"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 z-10">
+      <div className="flex items-center justify-between p-4 z-10 pt-[max(1rem,env(safe-area-inset-top))]">
         <button 
-          onClick={onCancel}
+          onClick={handleCancelClick}
           className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all"
         >
           <X size={24} />
@@ -92,12 +107,12 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onS
               <img src={currentItem.url} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
             )}
             {currentItem.type === 'video' && (
-              <video src={currentItem.url} controls className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+              <video src={currentItem.url} controls playsInline className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
             )}
             {currentItem.type === 'audio' && (
               <div className="flex flex-col items-center justify-center bg-white/5 p-8 rounded-3xl border border-white/10 w-full max-w-sm shadow-2xl">
                 <div className="w-20 h-20 bg-wa-teal rounded-full flex items-center justify-center mb-6 shadow-[0_4px_20px_rgba(0,168,132,0.4)]">
-                  <FileIcon size={40} className="text-white" />
+                  <Music size={40} className="text-white" />
                 </div>
                 <span className="text-white font-medium text-lg text-center break-all mb-4">{currentItem.file.name}</span>
                 <audio src={currentItem.url} controls className="w-full" />
@@ -115,16 +130,16 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onS
       </div>
 
       {/* Footer Area */}
-      <div className="p-4 sm:p-6 bg-gradient-to-t from-black/80 to-transparent flex flex-col items-center gap-6">
+      <div className="p-4 sm:p-6 bg-gradient-to-t from-black/80 to-transparent flex flex-col items-center gap-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         
         {/* Caption Input */}
         <div className="w-full max-w-2xl relative flex items-center bg-white/10 rounded-2xl px-4 py-3 shadow-lg border border-white/20 focus-within:border-wa-teal focus-within:bg-white/15 transition-all">
           <textarea 
+            ref={textareaRef}
             placeholder="Añade un comentario..."
             value={currentItem.caption}
             onChange={handleCaptionChange}
             onKeyDown={handleKeyDown}
-            autoFocus
             rows={1}
             style={{ minHeight: '24px', maxHeight: '100px' }}
             className="flex-1 bg-transparent border-none outline-none text-white placeholder-white/50 text-[15px] resize-none overflow-y-auto scrollbar-hide"
@@ -145,6 +160,10 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({ media, onS
               >
                 {item.type === 'image' || item.type === 'video' ? (
                   <img src={item.url} alt="thumbnail" className="w-full h-full object-cover" />
+                ) : item.type === 'audio' ? (
+                  <div className="w-full h-full bg-white/10 flex items-center justify-center">
+                    <Music size={20} className="text-white/80" />
+                  </div>
                 ) : (
                   <div className="w-full h-full bg-white/10 flex items-center justify-center">
                     <FileIcon size={20} className="text-white/80" />
