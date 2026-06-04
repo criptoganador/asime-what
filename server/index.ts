@@ -350,6 +350,14 @@ io.on('connection', (socket) => {
     socket.to(chatId).emit('user_stop_typing', { chatId, userId });
   });
 
+  socket.on('user_uploading_media', ({ chatId, userId, mediaType }) => {
+    socket.to(chatId).emit('user_uploading_media', { chatId, userId, mediaType });
+  });
+
+  socket.on('user_stop_uploading_media', ({ chatId, userId }) => {
+    socket.to(chatId).emit('user_stop_uploading_media', { chatId, userId });
+  });
+
   socket.on('add_reaction', async ({ chatId, messageId, emoji, userId }) => {
     try {
       const msg = await db.query.messages.findFirst({ where: eq(messages.id, messageId) });

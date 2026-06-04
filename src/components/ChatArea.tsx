@@ -346,9 +346,12 @@ export const ChatArea = () => {
       });
 
       try {
+        useChatStore.getState().sendMediaUploadingStatus(activeChatId, true, media.type);
+        // Micro-respiro para permitir que la UI y el Socket se procesen antes del bloqueo de CPU
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         if (media.type === 'video') {
           const videoUrl = await uploadVideo(media.file);
-          // Check if user cancelled (message no longer exists in store)
           const stillExists = useChatStore.getState().messages[activeChatId]?.some((m: any) => m.id === messageId);
           if (!stillExists) return;
           
@@ -390,6 +393,7 @@ export const ChatArea = () => {
         console.error('Upload error:', error);
         updateMessageStatus(activeChatId, messageId, 'failed');
       } finally {
+        useChatStore.getState().sendMediaUploadingStatus(activeChatId, false);
         // Limpiar memoria RAM después de enviar
         URL.revokeObjectURL(media.url);
       }
@@ -542,6 +546,20 @@ export const ChatArea = () => {
   }
 
   const isOtherTyping = typingUsers[activeChatId]?.length > 0;
+  const otherUploads = useChatStore(s => s.uploadingUsers)[activeChatId] || [];
+  const isOtherUploading = otherUploads.length > 0;
+  const uploadType = isOtherUploading ? otherUploads[0].type : null;
+  
+  const getStatusText = () => {
+    if (isOtherUploading) {
+      if (uploadType === 'video') return 'enviando video...';
+      if (uploadType === 'audio') return 'grabando audio...';
+      if (uploadType === 'image') return 'enviando imagen...';
+      return 'enviando documento...';
+    }
+    if (isOtherTyping) return 'escribiendo...';
+    return activeChat.isOnline ? 'en línea' : formatLastSeen(activeChat.lastSeen);
+  };
 
   return (
     <div className="flex-1 flex overflow-hidden">
@@ -572,8 +590,8 @@ export const ChatArea = () => {
             </div>
             <div>
               <h3 className="font-medium text-wa-text-primary leading-tight text-[15px] sm:text-base truncate max-w-[120px] sm:max-w-none">{activeChat.name}</h3>
-              <p className={cn("text-[13px] transition-colors", isOtherTyping ? "text-wa-teal font-medium" : "text-wa-text-secondary")}>
-                {isOtherTyping ? 'escribiendo...' : activeChat.isOnline ? 'en línea' : formatLastSeen(activeChat.lastSeen)}
+              <p className={cn("text-[13px] transition-colors", (isOtherTyping || isOtherUploading) ? "text-wa-teal font-medium" : "text-wa-text-secondary")}>
+                {getStatusText()}
               </p>
             </div>
           </div>

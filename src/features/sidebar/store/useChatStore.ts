@@ -237,7 +237,9 @@ interface ChatState {
   updatePrivacySettings: (settings: Partial<ChatState['privacySettings']>) => void;
   saveSettings: () => void;
   typingUsers: Record<string, string[]>;
+  uploadingUsers: Record<string, { userId: string, type: 'video' | 'audio' | 'file' | 'image' }[]>;
   sendTypingStatus: (chatId: string, isTyping: boolean) => void;
+  sendMediaUploadingStatus: (chatId: string, isUploading: boolean, mediaType?: 'video' | 'audio' | 'file' | 'image') => void;
   addReaction: (chatId: string, messageId: string, emoji: string) => void;
   replyingTo: Message | null;
   setReplyingTo: (message: Message | null) => void;
@@ -329,6 +331,14 @@ export const useChatStore = create<ChatState>()(
   },
   participants: [],
   typingUsers: {},
+  uploadingUsers: {},
+  sendMediaUploadingStatus: (chatId: string, isUploading: boolean, mediaType?: 'video' | 'audio' | 'file' | 'image') => {
+    socket.emit(isUploading ? 'user_uploading_media' : 'user_stop_uploading_media', { 
+      chatId, 
+      userId: get().currentUser?.id,
+      mediaType
+    });
+  },
   replyingTo: null,
   privateKeyJWK: sessionStorage.getItem('asicme_private_key') || null,
   incomingCall: null,
@@ -1228,6 +1238,31 @@ socket.on('user_stop_typing', ({ chatId, userId }) => {
   }));
 });
 
+socket.on('user_uploading_media', ({ chatId, userId, mediaType }) => {
+  const state = useChatStore.getState();
+  if (userId === state.currentUser?.id) return;
+  const currentUploads = state.uploadingUsers[chatId] || [];
+  if (!currentUploads.find(u => u.userId === userId)) {
+    useChatStore.setState((s) => ({
+      uploadingUsers: {
+        ...s.uploadingUsers,
+        [chatId]: [...currentUploads, { userId, type: mediaType || 'file' }]
+      }
+    }));
+  }
+});
+
+socket.on('user_stop_uploading_media', ({ chatId, userId }) => {
+  const state = useChatStore.getState();
+  const currentUploads = state.uploadingUsers[chatId] || [];
+  useChatStore.setState((s) => ({
+    uploadingUsers: {
+      ...s.uploadingUsers,
+      [chatId]: currentUploads.filter(u => u.userId !== userId)
+    }
+  }));
+});
+
 socket.on('message_reaction', ({ chatId, messageId, emoji, userId }) => {
   const state = useChatStore.getState();
   const currentMessages = state.messages[chatId] || [];
@@ -1352,6 +1387,30 @@ socket.on('call_ended', ({ chatId }) => {
   if (state.activeCall?.chatId === chatId || state.incomingCall?.chatId === chatId || state.outgoingCall?.chatId === chatId) {
     useChatStore.setState({ activeCall: null, incomingCall: null, outgoingCall: null });
   }
+});
+
+socket.on('user_uploading_media', ({ chatId, userId, mediaType }) => {
+  const state = useChatStore.getState();
+  const currentUploads = state.uploadingUsers[chatId] || [];
+  if (!currentUploads.find(u => u.userId === userId)) {
+    useChatStore.setState({
+      uploadingUsers: {
+        ...state.uploadingUsers,
+        [chatId]: [...currentUploads, { userId, type: mediaType || 'file' }]
+      }
+    });
+  }
+});
+
+socket.on('user_stop_uploading_media', ({ chatId, userId }) => {
+  const state = useChatStore.getState();
+  const currentUploads = state.uploadingUsers[chatId] || [];
+  useChatStore.setState({
+    uploadingUsers: {
+      ...state.uploadingUsers,
+      [chatId]: currentUploads.filter(u => u.userId !== userId)
+    }
+  });
 });
 
 socket.on('spam_warning', ({ message }) => {
