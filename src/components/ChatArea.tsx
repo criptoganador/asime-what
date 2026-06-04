@@ -568,9 +568,9 @@ export const ChatArea = () => {
         style={{ backgroundColor: getWallpaperColor(chatWallpaper) }}
       >
         {/* Marca de Agua / Pattern de Fondo en el chat */}
-        <div className="absolute inset-0 z-0 pointer-events-none mt-[60px] mb-[62px] overflow-hidden flex items-center justify-center">
+        <div className="absolute inset-0 z-0 pointer-events-none mt-[60px] mb-[62px] overflow-hidden flex items-center justify-center transform-gpu will-change-transform">
           <div 
-            className="absolute inset-0 opacity-[0.05] bg-repeat"
+            className="absolute inset-0 opacity-[0.05] bg-repeat transform-gpu will-change-transform"
             style={{ backgroundImage: "url('/favicon.png')", backgroundSize: "150px" }}
           />
           <span className="text-[80px] md:text-[150px] font-black uppercase text-wa-text-primary opacity-[0.03] rotate-[-25deg] whitespace-nowrap select-none">
@@ -596,11 +596,11 @@ export const ChatArea = () => {
             </div>
           </div>
           <div className="flex items-center gap-4 sm:gap-6">
-            {/* Branding: Logo y Título con Efecto Glow y Glassmorphism Avanzado */}
-            <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-purple-500/10 backdrop-blur-xl rounded-full border border-[#6366f1]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#6366f1]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group">
+            {/* Branding: Logo y Título con Efecto Glow Estático y Glassmorphism Optimizado */}
+            <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-gradient-to-r from-[#6366f1]/10 to-purple-500/10 rounded-full border border-[#6366f1]/20 shadow-[0_4px_15px_rgba(0,123,252,0.1)] hover:shadow-[0_4px_25px_rgba(0,123,252,0.25)] hover:border-[#6366f1]/40 hover:scale-[1.02] transition-all duration-300 cursor-default group transform-gpu">
               <div className="relative">
                 <img src={logo} alt="Asicme Chat" className="w-8 h-8 object-contain drop-shadow-[0_0_8px_rgba(0,123,252,0.5)] group-hover:drop-shadow-[0_0_12px_rgba(0,123,252,0.8)] transition-all duration-300" />
-                <div className="absolute inset-0 bg-blue-500/20 blur-[10px] rounded-full -z-10 animate-pulse"></div>
+                <div className="absolute inset-0 bg-blue-500/20 blur-[10px] rounded-full -z-10"></div>
               </div>
               <span className="text-[14px] font-semibold bg-gradient-to-r from-wa-text-primary to-[#6366f1] bg-clip-text text-transparent tracking-wider uppercase text-xs">ASICME CHAT</span>
             </div>
@@ -990,7 +990,7 @@ const DateSeparator = ({ date }: { date: Date }) => {
   
   return (
     <div className="flex justify-center my-3 sticky top-2 z-10">
-      <div className="bg-wa-sidebar/90 backdrop-blur-sm px-4 py-1.5 rounded-xl border border-wa-border/50 text-[12.5px] font-medium text-wa-text-secondary shadow-sm">
+      <div className="bg-wa-sidebar/95 px-4 py-1.5 rounded-xl border border-wa-border/50 text-[12.5px] font-medium text-wa-text-secondary shadow-sm">
         {dateStr}
       </div>
     </div>
@@ -1208,7 +1208,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
         whileDrag={{ scale: 0.98, cursor: 'grabbing' }}
         className={cn(
           msg.type === 'system' 
-            ? "bg-wa-sidebar/40 backdrop-blur-sm px-4 py-1.5 rounded-xl border border-wa-border/50 text-wa-text-secondary shadow-sm mx-auto max-w-[90%]" 
+            ? "bg-wa-sidebar/95 px-4 py-1.5 rounded-xl border border-wa-border/50 text-wa-text-secondary shadow-sm mx-auto max-w-[90%]" 
             : cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px] cursor-grab active:cursor-grabbing", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"), msg.isDeleted && "bg-transparent border border-wa-border shadow-none text-wa-text-secondary")
         )}>
         {msg.type !== 'system' && !msg.isDeleted && <AnimatePresence>{showActions && ( <motion.div key="msg-actions" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> <div className="relative"><button onClick={() => setShowDeleteMenu(!showDeleteMenu)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={16} /></button>{showDeleteMenu && (<div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-xl border border-wa-border overflow-hidden z-50 w-40 flex flex-col"><button onClick={() => { onDelete(false); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full">Eliminar para mí</button>{isMe && <button onClick={() => { onDelete(true); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full text-red-500">Eliminar para todos</button>}</div>)}</div> </motion.div> )}</AnimatePresence>}
