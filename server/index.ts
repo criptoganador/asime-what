@@ -257,7 +257,7 @@ io.on('connection', (socket) => {
         status: isRecipientOnline ? 'delivered' : 'sent'
       }).returning();
 
-      // Confirmación al remitente: evento ligero sin contenido cifrado para no romper la UI optimista
+      // Confirmación al remitente original: evento ligero sin contenido cifrado para no romper su UI optimista
       socket.emit('message_confirmed', {
         id: newMsg.id,
         chatId: chatId,
@@ -265,7 +265,10 @@ io.on('connection', (socket) => {
         timestamp: newMsg.timestamp
       });
 
-      // Difundir el mensaje completo solo a los OTROS participantes activos
+      // SINCRONIZACIÓN MULTI-DISPOSITIVO: Difundir el mensaje completo a los OTROS dispositivos del mismo remitente
+      socket.to(senderId).emit('receive_message', newMsg);
+
+      // Difundir el mensaje completo a los OTROS participantes activos
       for (const p of participants) {
         if (p.userId !== senderId && activeUsers.has(p.userId)) {
           io.to(p.userId).emit('receive_message', newMsg);
