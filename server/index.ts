@@ -111,11 +111,8 @@ const allowedOrigins = [
 const io = new Server(httpServer, {
   maxHttpBufferSize: 5e7, // 50 MB payload limit for E2EE Base64 Media
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? allowedOrigins
-      : true, // Allow all origins in dev (e.g. 192.168.x.x)
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: '*',
+    methods: ["GET", "POST"]
   }
 });
 
@@ -136,10 +133,8 @@ io.use((socket, next) => {
 const port = process.env.PORT || 3001;
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? allowedOrigins
-    : true, // Allow all origins in dev
-  credentials: true
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
