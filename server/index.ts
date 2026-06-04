@@ -727,7 +727,8 @@ app.post('/api/auth/recover-account', authLimiter, async (req, res) => {
   await db.update(users).set({
     credentialID: null,
     credentialPublicKey: null,
-    hardwarePublicKey: null
+    hardwarePublicKey: null,
+    deviceId: null
   }).where(eq(users.id, user.id));
 
   res.json({
@@ -742,8 +743,8 @@ app.post('/api/auth/recover-account', authLimiter, async (req, res) => {
 
 // --- NATIVE MOBILE AUTHENTICATION ---
 app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
-  const { username, hardwarePublicKey, publicKey, encryptedPrivateKey, recoveryEncryptedPrivateKey, hashedRecoveryPhrase } = req.body;
-  if (!username || !hardwarePublicKey) return res.status(400).json({ error: 'Username y Hardware Key son requeridos' });
+  const { username, hardwarePublicKey, publicKey, encryptedPrivateKey, recoveryEncryptedPrivateKey, hashedRecoveryPhrase, deviceId } = req.body;
+  if (!username || !hardwarePublicKey || !deviceId) return res.status(400).json({ error: 'Username, Hardware Key y Device ID son requeridos' });
 
   let user = await db.query.users.findFirst({ where: eq(users.username, username) });
   
@@ -760,7 +761,8 @@ app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
         publicKey,
         encryptedPrivateKey,
         recoveryEncryptedPrivateKey,
-        hashedRecoveryPhrase
+        hashedRecoveryPhrase,
+        deviceId
       }).returning();
       user = newUser;
     } else {
@@ -769,7 +771,8 @@ app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
         publicKey,
         encryptedPrivateKey,
         recoveryEncryptedPrivateKey,
-        hashedRecoveryPhrase
+        hashedRecoveryPhrase,
+        deviceId
       }).where(eq(users.id, user.id)).returning();
       user = updatedUser;
     }
@@ -803,10 +806,16 @@ app.post('/api/auth/mobile-login-challenge', authLimiter, async (req, res) => {
 });
 
 app.post('/api/auth/mobile-verify-signature', authLimiter, async (req, res) => {
-  const { username, signature } = req.body;
+  const { username, signature, deviceId } = req.body;
   const user = await db.query.users.findFirst({ where: eq(users.username, username) });
   if (!user || !user.currentChallenge || !user.hardwarePublicKey) {
     return res.status(400).json({ error: 'Usuario no válido para autenticación móvil' });
+  }
+
+  // Capa 2 de Seguridad: Device Fingerprinting (UUID Matching)
+  if (user.deviceId && user.deviceId !== deviceId) {
+    console.warn(`[SECURITY] Intento de acceso clonado detectado para el usuario ${username}`);
+    return res.status(403).json({ error: 'Dispositivo no reconocido (Posible clonación). Por favor usa la recuperación de cuenta.' });
   }
 
   try {

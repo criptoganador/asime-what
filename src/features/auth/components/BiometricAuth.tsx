@@ -12,6 +12,7 @@ import { twMerge } from 'tailwind-merge';
 import { Capacitor } from '@capacitor/core';
 import { BiometricAuth as NativeBiometric } from '@aparajita/capacitor-biometric-auth';
 import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
+import { Device } from '@capacitor/device';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -131,7 +132,8 @@ export const BiometricAuth: React.FC = () => {
             publicKey: keys.publicKey,
             encryptedPrivateKey,
             recoveryEncryptedPrivateKey,
-            hashedRecoveryPhrase: hashedPhrase
+            hashedRecoveryPhrase: hashedPhrase,
+            deviceId: (await Device.getId()).identifier
           })
         });
 
@@ -230,11 +232,12 @@ export const BiometricAuth: React.FC = () => {
         if (!storedKeyStr) throw new Error('Credenciales de hardware no encontradas en este dispositivo.');
         
         const signatureBase64 = await signChallenge(JSON.parse(storedKeyStr), challengeData.challenge);
+        const { identifier } = await Device.getId();
 
         const verificationResp = await fetch(`${API_URL}/api/auth/mobile-verify-signature`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username.trim(), signature: signatureBase64 })
+          body: JSON.stringify({ username: username.trim(), signature: signatureBase64, deviceId: identifier })
         });
         
         if (!verificationResp.ok) {
@@ -342,7 +345,8 @@ export const BiometricAuth: React.FC = () => {
             publicKey: user.publicKey,
             encryptedPrivateKey,
             recoveryEncryptedPrivateKey: user.recoveryEncryptedPrivateKey,
-            hashedRecoveryPhrase: hashedPhrase
+            hashedRecoveryPhrase: hashedPhrase,
+            deviceId: (await Device.getId()).identifier
           })
         });
         if (!verificationResp.ok) throw new Error('Fallo al re-registrar hardware');

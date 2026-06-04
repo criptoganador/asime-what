@@ -22,6 +22,7 @@ export const users = pgTable('users', {
   lockedUntil: timestamp('locked_until'),
   pushToken: text('push_token'),
   lastSeen: timestamp('last_seen'),
+  deviceId: text('device_id'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 
