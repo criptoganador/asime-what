@@ -1279,9 +1279,15 @@ export const useChatStore = create<ChatState>()(
 }));
 
 socket.on('receive_message', async (message: Message) => {
-  const state = useChatStore.getState();
-  const chatInfo = state.chats.find(c => c.id === message.conversationId);
+  let state = useChatStore.getState();
+  let chatInfo = state.chats.find(c => c.id === message.conversationId);
   
+  if (!chatInfo && state.currentUser) {
+    await state.fetchChats(state.currentUser.id);
+    state = useChatStore.getState();
+    chatInfo = state.chats.find(c => c.id === message.conversationId);
+  }
+
   const rawText = await fetchIfR2Url(message.text);
   const rawImageUrl = await fetchIfR2Url(message.imageUrl);
   const rawFileUrl = await fetchIfR2Url(message.fileUrl);
