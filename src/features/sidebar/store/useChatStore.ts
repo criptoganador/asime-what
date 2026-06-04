@@ -6,6 +6,7 @@ import { encryptMessage, decryptMessage, importPrivateKey, importPublicKey, deri
 import { API_URL } from '../../../config';
 import { Network } from '@capacitor/network';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { notifyMessage, notifyCall } from '../../../utils/notifications';
 
 const idbStorage = {
@@ -389,6 +390,77 @@ export const useChatStore = create<ChatState>()(
         }
       }
     });
+
+    // -----------------------------------------------------------------------
+    // VIGILANTE DE MENSAJES para Android WebView
+    // Android puede congelar la conexión WebSocket con su sistema Doze/bateria.
+    // Este poller incremental verifica mensajes nuevos cada 15s como red de seguridad.
+    // Solo se activa en plataforma nativa (Android/iOS), no en el navegador de PC.
+    // -----------------------------------------------------------------------
+    if (Capacitor.isNativePlatform()) {
+      setInterval(async () => {
+        const state = get();
+        const { activeChatId, currentUser, isOnline } = state;
+        if (!activeChatId || !currentUser || !isOnline) return;
+
+        // Si el socket se cayó, intentar reconectar
+        if (!socket.connected) {
+          console.warn('[Watchdog] Socket desconectado, reconectando...');
+          socket.connect();
+          socket.emit('user_connected', currentUser.id);
+          socket.emit('join_chat', activeChatId);
+        }
+
+        // Carga incremental silenciosa: solo mensajes nuevos desde el último en memoria
+        try {
+          const currentMsgs = state.messages[activeChatId] || [];
+          const latestTimestamp = currentMsgs.length > 0
+            ? currentMsgs[currentMsgs.length - 1].timestamp
+            : null;
+
+          if (!latestTimestamp) return; // Sin mensajes, no hay nada que verificar
+
+          const url = `${API_URL}/api/messages/${activeChatId}?userId=${currentUser.id}&since=${encodeURIComponent(latestTimestamp)}`;
+          const response = await fetch(url);
+          if (!response.ok) return;
+          const newData = await response.json();
+          if (!Array.isArray(newData) || newData.length === 0) return;
+
+          // Hay mensajes nuevos que el socket no entregó — los procesamos
+          const { chats, privateKeyJWK } = get();
+          const chatInfo = chats.find(c => c.id === activeChatId);
+          const mergedIds = new Set(currentMsgs.map((m: Message) => m.id));
+
+          const decryptedNew = await Promise.all(
+            newData
+              .filter((m: Message) => !mergedIds.has(m.id))
+              .map(async (msg: Message) => {
+                const rawText = await fetchIfR2Url(msg.text);
+                const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
+                const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
+                return {
+                  ...msg,
+                  text: await decryptSmartMessage(rawText || '', activeChatId, chatInfo, privateKeyJWK),
+                  imageUrl: await decryptSmartMessage(rawImageUrl || '', activeChatId, chatInfo, privateKeyJWK),
+                  fileUrl: await decryptSmartMessage(rawFileUrl || '', activeChatId, chatInfo, privateKeyJWK)
+                };
+              })
+          );
+
+          if (decryptedNew.length > 0) {
+            console.log(`[Watchdog] ¡${decryptedNew.length} mensaje(s) nuevo(s) recuperado(s) via polling!`);
+            set((s) => ({
+              messages: {
+                ...s.messages,
+                [activeChatId]: [...(s.messages[activeChatId] || []), ...decryptedNew]
+              }
+            }));
+          }
+        } catch (e) {
+          // Ignorar errores del watchdog — es solo una red de seguridad
+        }
+      }, 15000); // Cada 15 segundos
+    }
   },
 
   setIncomingCall: (call) => set({ incomingCall: call }),
