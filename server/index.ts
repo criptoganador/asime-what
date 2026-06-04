@@ -819,14 +819,27 @@ app.post('/api/auth/mobile-verify-signature', authLimiter, async (req, res) => {
   }
 
   try {
-    const verify = crypto.createVerify('SHA256');
-    verify.update(user.currentChallenge);
-    verify.end();
+    const signatureBuffer = Buffer.from(signature, 'base64');
     
-    // PEM format for public key
-    const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${user.hardwarePublicKey}\n-----END PUBLIC KEY-----`;
+    // El challenge original se mandó como hex, y en el frontend se convirtió a byte array
+    const challengeBytes = new Uint8Array(user.currentChallenge.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16)));
     
-    const isValid = verify.verify(publicKeyPem, signature, 'base64');
+    const publicKeyBuffer = Buffer.from(user.hardwarePublicKey, 'base64');
+    const importedPublicKey = await crypto.webcrypto.subtle.importKey(
+      'spki',
+      publicKeyBuffer,
+      { name: 'ECDSA', namedCurve: 'P-256' },
+      false,
+      ['verify']
+    );
+
+    const isValid = await crypto.webcrypto.subtle.verify(
+      { name: 'ECDSA', hash: { name: 'SHA-256' } },
+      importedPublicKey,
+      signatureBuffer,
+      challengeBytes
+    );
+
 
     if (isValid) {
       if ((user.failedLoginAttempts ?? 0) > 0 || user.lockedUntil) {
