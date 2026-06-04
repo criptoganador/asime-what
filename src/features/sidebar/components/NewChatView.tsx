@@ -417,6 +417,7 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
                 <AnimatePresence>
                   {groupName.trim() && (
                     <motion.button
+                      key="create-btn"
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
@@ -440,7 +441,7 @@ export const NewChatView = ({ initialStep = 'list' }: { initialStep?: 'list' | '
 
       <AnimatePresence>
         {showAddForm && (
-          <AddContactView onBack={() => setShowAddForm(false)} />
+          <AddContactView key="add-contact-view" onBack={() => setShowAddForm(false)} />
         )}
       </AnimatePresence>
     </motion.div>

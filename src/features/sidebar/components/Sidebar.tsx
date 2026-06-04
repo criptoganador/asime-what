@@ -235,6 +235,7 @@ export const Sidebar = () => {
                 <AnimatePresence>
                   {showMenu && (
                     <motion.div 
+                      key="sidebar-menu"
                       initial={{ opacity: 0, scale: 0.95, y: -10 }} 
                       animate={{ opacity: 1, scale: 1, y: 0 }} 
                       exit={{ opacity: 0, scale: 0.95, y: -10 }} 
@@ -319,6 +320,7 @@ export const Sidebar = () => {
                 <AnimatePresence>
                   {showFilterMenu && (
                     <motion.div 
+                      key="filter-menu"
                       initial={{ opacity: 0, scale: 0.9, x: 10, y: -10 }}
                       animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
                       exit={{ opacity: 0, scale: 0.9, x: 10, y: -10 }}

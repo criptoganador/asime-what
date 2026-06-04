@@ -329,6 +329,7 @@ export const GroupInfoView = () => {
       <AnimatePresence>
         {showAddMember && (
           <motion.div 
+            key="add-member-modal"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
             className="w-full h-full absolute inset-0 z-[70] bg-white flex flex-col overflow-hidden"
           >

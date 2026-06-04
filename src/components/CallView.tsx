@@ -337,38 +337,46 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
 
                 <AnimatePresence>
                   {showInviteMenu && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowInviteMenu(false)} />
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                        className="absolute top-14 right-0 w-64 bg-[#111b21] rounded-2xl shadow-2xl z-50 border border-white/10 overflow-hidden"
-                      >
-                        <div className="p-3 border-b border-white/10">
-                          <h3 className="text-white text-sm font-semibold">Añadir participante</h3>
-                        </div>
-                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                          {availableContacts.length === 0 ? (
-                            <div className="p-4 text-center text-gray-400 text-sm">No hay contactos disponibles para invitar</div>
-                          ) : (
-                            availableContacts.map(contact => (
-                              <button
-                                key={contact.id}
-                                onClick={() => {
-                                  inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
-                                  setShowInviteMenu(false);
-                                }}
-                                className="w-full flex items-center gap-3 p-3 hover:bg-white/5 transition-colors text-left"
-                              >
-                                <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt={contact.nickname || contact.user?.name} className="w-8 h-8 rounded-full object-cover" />
-                                <span className="text-white text-sm truncate flex-1">{contact.nickname || contact.user?.name}</span>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    </>
+                    <motion.div 
+                      key="invite-menu-backdrop"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowInviteMenu(false)} 
+                    />
+                  )}
+                  {showInviteMenu && (
+                    <motion.div 
+                      key="invite-menu-dropdown"
+                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                      className="absolute top-14 right-0 w-64 bg-[#111b21] rounded-2xl shadow-2xl z-50 border border-white/10 overflow-hidden"
+                    >
+                      <div className="p-3 border-b border-white/10">
+                        <h3 className="text-white text-sm font-semibold">Añadir participante</h3>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                        {availableContacts.length === 0 ? (
+                          <div className="p-4 text-center text-gray-400 text-sm">No hay contactos disponibles para invitar</div>
+                        ) : (
+                          availableContacts.map(contact => (
+                            <button
+                              key={contact.id}
+                              onClick={() => {
+                                inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
+                                setShowInviteMenu(false);
+                              }}
+                              className="w-full flex items-center gap-3 p-3 hover:bg-white/5 transition-colors text-left"
+                            >
+                              <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt={contact.nickname || contact.user?.name} className="w-8 h-8 rounded-full object-cover" />
+                              <span className="text-white text-sm truncate flex-1">{contact.nickname || contact.user?.name}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
                   )}
                 </AnimatePresence>
               </div>
