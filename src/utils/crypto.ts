@@ -1,7 +1,7 @@
 import CryptoJS from 'crypto-js';
 
 // La clave secreta se basa en el ID del chat (UUID único e irrepetible)
-export const getChatSecret = (chatId: string) => {
+const getChatSecret = (chatId: string) => {
   return `asicme-e2e-${chatId}`;
 };
 

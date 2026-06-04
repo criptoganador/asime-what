@@ -19,7 +19,7 @@ export const requestNotificationPermissions = async () => {
   }
 };
 
-export const notifyMessage = async (title: string, body: string) => {
+const scheduleNativeNotification = async (title: string, body: string) => {
   if (Capacitor.isNativePlatform()) {
     try {
       await LocalNotifications.schedule({
@@ -46,29 +46,10 @@ export const notifyMessage = async (title: string, body: string) => {
   }
 };
 
+export const notifyMessage = async (title: string, body: string) => {
+  await scheduleNativeNotification(title, body);
+};
+
 export const notifyCall = async (title: string, body: string) => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title,
-            body,
-            id: new Date().getTime(),
-            schedule: { at: new Date(Date.now() + 100) },
-            actionTypeId: '',
-          }
-        ]
-      });
-    } catch (e) {
-      console.error('Native call notification error', e);
-    }
-  } else {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, {
-        body,
-        icon: '/favicon.png'
-      });
-    }
-  }
+  await scheduleNativeNotification(title, body);
 };

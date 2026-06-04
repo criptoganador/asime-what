@@ -20,7 +20,7 @@ const idbStorage = {
   },
 };
 
-export const decryptSmartMessage = async (encryptedText: string, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
+const decryptSmartMessage = async (encryptedText: string, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!encryptedText) return encryptedText;
   
   if (encryptedText.startsWith('data:') || encryptedText.startsWith('blob:')) {
@@ -42,7 +42,7 @@ export const decryptSmartMessage = async (encryptedText: string, chatId: string,
   return decryptMessage(encryptedText, chatId);
 };
 
-export const fetchIfR2Url = async (content: string | undefined): Promise<string | undefined> => {
+const fetchIfR2Url = async (content: string | undefined): Promise<string | undefined> => {
   if (content && content.startsWith('http') && content.includes('.r2.dev')) {
     try {
       const res = await fetch(content);
@@ -56,7 +56,7 @@ export const fetchIfR2Url = async (content: string | undefined): Promise<string 
   return content;
 };
 
-export const encryptSmartMessage = async (plaintext: string | undefined, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
+const encryptSmartMessage = async (plaintext: string | undefined, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!plaintext) return plaintext;
 
   // Evitar encriptar cadenas base64 muy grandes (ej. videos) para prevenir Crash por Memoria en móviles
@@ -144,7 +144,7 @@ export interface GroupedStatus {
   statuses: Status[];
 }
 
-export interface Contact {
+interface Contact {
   id: string;
   ownerId: string;
   contactId: string;
@@ -159,7 +159,7 @@ export interface Contact {
   };
 }
 
-export interface Participant {
+interface Participant {
   id: string;
   name: string;
   avatar: string;

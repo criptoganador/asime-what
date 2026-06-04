@@ -15,6 +15,19 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const SidebarTransitionWrapper = ({ children, motionKey }: { children: React.ReactNode, motionKey: string }) => (
+  <motion.div 
+    key={motionKey}
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    exit={{ opacity: 0, x: -20 }}
+    transition={{ duration: 0.2 }}
+    className="h-full"
+  >
+    {children}
+  </motion.div>
+);
+
 export const Layout = () => {
   const { view, activeChatId, currentUser, isOnline, socketConnected } = useChatStore();
 
@@ -70,42 +83,21 @@ export const Layout = () => {
         <AnimatePresence mode="wait">
           {/* Todas estas vistas comparten el Sidebar como contenedor base */}
           {(view === 'chats' || view === 'new-chat' || view === 'add-contact' || view === 'profile' || view === 'group-info' || view === 'security' || view === 'create-group') && (
-            <motion.div 
-              key="sidebar-group"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
+            <SidebarTransitionWrapper motionKey="sidebar-group">
               <Sidebar />
-            </motion.div>
+            </SidebarTransitionWrapper>
           )}
 
           {view === 'status' && (
-            <motion.div 
-              key="status"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
+            <SidebarTransitionWrapper motionKey="status">
               <StatusSidebar />
-            </motion.div>
+            </SidebarTransitionWrapper>
           )}
 
           {view === 'settings' && (
-            <motion.div 
-              key="settings"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="h-full"
-            >
+            <SidebarTransitionWrapper motionKey="settings">
               <SettingsView />
-            </motion.div>
+            </SidebarTransitionWrapper>
           )}
 
         </AnimatePresence>

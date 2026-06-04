@@ -51,6 +51,26 @@ const signChallenge = async (privateKeyJwk: any, challengeHex: string) => {
   return btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
 };
 
+const UsernameInput = ({ username, setUsername }: { username: string, setUsername: (v: string) => void }) => (
+  <div className="space-y-4">
+    <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest">
+      Nombre de usuario
+    </label>
+    <div className="flex gap-2">
+      <div className="relative group min-w-[50px] sm:min-w-[60px] flex items-center justify-center bg-slate-50/50 rounded-xl border-2 border-slate-200/60 text-slate-500 font-bold">
+        @
+      </div>
+      <input
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+        placeholder="juanperez"
+        className="flex-1 w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3 sm:py-3.5 px-3 sm:px-4 text-[16px] sm:text-[17px] rounded-xl transition-all duration-300 font-medium placeholder-slate-400"
+      />
+    </div>
+  </div>
+);
+
 export const BiometricAuth: React.FC = () => {
   useEffect(() => {
     // Si llegamos a esta pantalla, aseguramos que la sesión local esté limpia para evitar cruces
@@ -427,21 +447,7 @@ export const BiometricAuth: React.FC = () => {
       {step === 'auth' && (
         <motion.div key="auth" initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 20, opacity: 0 }} className="flex flex-col gap-6">
           <div className="space-y-4">
-            <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest">
-              Nombre de usuario
-            </label>
-            <div className="flex gap-2">
-              <div className="relative group min-w-[50px] sm:min-w-[60px] flex items-center justify-center bg-slate-50/50 rounded-xl border-2 border-slate-200/60 text-slate-500 font-bold">
-                @
-              </div>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                placeholder="juanperez"
-                className="flex-1 w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3 sm:py-3.5 px-3 sm:px-4 text-[16px] sm:text-[17px] rounded-xl transition-all duration-300 font-medium placeholder-slate-400"
-              />
-            </div>
+            <UsernameInput username={username} setUsername={setUsername} />
             {error && (
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
@@ -509,21 +515,7 @@ export const BiometricAuth: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-[20px] font-bold text-slate-800">Recuperar Cuenta</h3>
             <p className="text-[14px] text-slate-500 font-medium">Ingresa tu usuario y tu frase secreta de 12 palabras para restaurar el acceso.</p>
-            <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest">
-              Nombre de usuario
-            </label>
-            <div className="flex gap-2">
-              <div className="relative group min-w-[50px] sm:min-w-[60px] flex items-center justify-center bg-slate-50/50 rounded-xl border-2 border-slate-200/60 text-slate-500 font-bold">
-                @
-              </div>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                placeholder="juanperez"
-                className="flex-1 w-full bg-slate-50/50 backdrop-blur-sm border-2 border-slate-200/60 focus:bg-white focus:border-[#6366f1] focus:ring-4 focus:ring-[#6366f1]/10 outline-none py-3.5 px-4 text-[16px] rounded-xl transition-all font-medium"
-              />
-            </div>
+            <UsernameInput username={username} setUsername={setUsername} />
             <label className="text-[12px] text-[#6366f1] font-bold uppercase tracking-widest mt-4">
               Frase de 12 palabras
             </label>
