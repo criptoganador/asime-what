@@ -346,22 +346,28 @@ export const BiometricAuth: React.FC = () => {
           })
         });
         if (!verificationResp.ok) throw new Error('Fallo al re-registrar hardware');
+        const verificationJSON = await verificationResp.json();
+        
+        // Login exitoso
+        useChatStore.setState({ 
+          currentUser: verificationJSON.user,
+          isAuthenticated: true,
+        });
+        localStorage.setItem('asicme_user', JSON.stringify(verificationJSON.user));
+        
+        const decrypted = rawPrivateKey;
+        useChatStore.setState({ privateKeyJWK: decrypted });
+        sessionStorage.setItem('asicme_private_key', decrypted);
+
+        if (verificationJSON.token) {
+          localStorage.setItem('asicme_token', verificationJSON.token);
+          socket.auth = { token: verificationJSON.token };
+          if (!socket.connected) socket.connect();
+        }
+        socket.emit('user_connected', verificationJSON.user.id);
       } else {
-        // En WebAuthn, habría que generar un nuevo registro WebAuthn, pero por brevedad lo asumimos igual que el móvil o lanzamos error si no es móvil
         throw new Error('La recuperación solo está disponible desde dispositivos móviles por ahora.');
       }
-
-      // Login exitoso
-      useChatStore.setState({ 
-        currentUser: user,
-        isAuthenticated: true,
-      });
-      localStorage.setItem('asicme_user', JSON.stringify(user));
-      
-      const decrypted = rawPrivateKey;
-      useChatStore.setState({ privateKeyJWK: decrypted });
-      sessionStorage.setItem('asicme_private_key', decrypted);
-
     } catch (err: any) {
       setError(err.message || 'Error recuperando cuenta');
     } finally {

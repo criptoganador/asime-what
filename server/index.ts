@@ -144,6 +144,18 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+const authenticateToken = (req: any, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Token requerido' });
+
+  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
+    if (err) return res.status(403).json({ error: 'Token inválido o expirado' });
+    req.userId = decoded.id;
+    next();
+  });
+};
+
 // Anti-Spam Nivel Enterprise: Rate Limiting para APIs REST
 const apiLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutos
@@ -735,8 +747,8 @@ app.post('/api/auth/mobile-register', authLimiter, async (req, res) => {
 
   let user = await db.query.users.findFirst({ where: eq(users.username, username) });
   
-  if (user && user.hardwarePublicKey) {
-    return res.status(400).json({ error: 'El usuario ya está registrado con este username en móvil.' });
+  if (user && (user.hardwarePublicKey || user.credentialID)) {
+    return res.status(400).json({ error: 'El usuario ya está registrado con este username. Usa la recuperación de cuenta si perdiste acceso.' });
   }
 
   try {
@@ -910,7 +922,8 @@ app.post('/api/auth', authLimiter, async (req, res) => {
     // Remover el pin del objeto retornado por seguridad y descifrar teléfono
     const { pin: _pin, hashedRecoveryPhrase: _hrp, ...safeUser } = user;
     safeUser.phone = decryptPhone(safeUser.phone!);
-    res.json(safeUser);
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ ...safeUser, token });
   } catch (error) {
     console.error('❌ Error en /api/auth:', error);
     res.status(500).json({ error: 'Error en auth' });
@@ -1045,8 +1058,9 @@ app.get('/api/users/search', async (req, res) => {
 });
 
 // Validar si un usuario sigue existiendo en la BD (para sesiones restauradas)
-app.get('/api/users/validate/:id', async (req, res) => {
+app.get('/api/users/validate/:id', authenticateToken, async (req: any, res: any) => {
   const { id } = req.params;
+  if (req.userId !== id) return res.status(403).json({ valid: false, error: 'Token no corresponde a este usuario' });
   try {
     const user = await db.query.users.findFirst({ where: eq(users.id, id) });
     if (!user) return res.status(404).json({ valid: false });

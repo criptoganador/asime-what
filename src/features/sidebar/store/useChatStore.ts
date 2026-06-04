@@ -569,7 +569,12 @@ export const useChatStore = create<ChatState>()(
     const { currentUser, logout } = get();
     if (!currentUser?.id) return;
     try {
-      const response = await fetch(`${API_URL}/api/users/validate/${currentUser.id}`);
+      const token = localStorage.getItem('asicme_token');
+      const response = await fetch(`${API_URL}/api/users/validate/${currentUser.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         console.warn('⚠️ Sesión inválida: usuario no existe en la BD. Cerrando sesión...');
         logout();
