@@ -139,6 +139,25 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Endpoint Proxy para saltar políticas de CORS de R2 desde Capacitor
+app.get('/api/proxy', async (req: any, res: any) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+      return res.status(400).json({ error: 'URL inválida' });
+    }
+    const fetchRes = await fetch(url);
+    if (!fetchRes.ok) {
+      return res.status(fetchRes.status).send('Error en proxy R2');
+    }
+    const text = await fetchRes.text();
+    res.send(text);
+  } catch (err) {
+    console.error('Proxy fetch error:', err);
+    res.status(500).json({ error: 'Error interno del proxy' });
+  }
+});
+
 const authenticateToken = (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];

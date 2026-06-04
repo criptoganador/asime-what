@@ -46,12 +46,13 @@ const decryptSmartMessage = async (encryptedText: string, chatId: string, chatIn
 const fetchIfR2Url = async (content: string | undefined): Promise<string | undefined> => {
   if (content && content.startsWith('http') && content.includes('.r2.dev')) {
     try {
-      const res = await fetch(content);
+      // Usar proxy del backend para evitar problemas de CORS en Capacitor
+      const res = await fetch(`${API_URL}/api/proxy?url=${encodeURIComponent(content)}`);
       if (res.ok) {
         return await res.text();
       }
     } catch (e) {
-      console.error('Error fetching R2 content', e);
+      console.error('Error fetching R2 content via proxy', e);
     }
   }
   return content;
