@@ -304,7 +304,7 @@ io.on('connection', (socket) => {
               });
               
               const senderName = sender?.name || 'Alguien';
-              let bodyText = text || 'Te envió un mensaje';
+              let bodyText = 'Te envió un mensaje'; // No usamos `text` porque es JSON cifrado (E2EE)
               if (type === 'image') bodyText = '📷 Foto';
               if (type === 'video') bodyText = '🎥 Video';
               if (type === 'audio') bodyText = '🎵 Mensaje de voz';
@@ -513,22 +513,12 @@ io.on('connection', (socket) => {
 
   socket.on('end_call', async ({ chatId }) => {
     try {
-      // 1. Broadcast global termination so ANYONE in that room (even invited 3rd parties) hangs up
-      io.emit('call_ended', { chatId });
-
-      // 2. Insert a system message into the chat
-      const userId = (socket as any).userId;
-      if (userId) {
-        const [newMsg] = await db.insert(messages).values({
-          conversationId: chatId,
-          senderId: userId,
-          text: '📞 Videollamada finalizada',
-          type: 'system',
-        }).returning();
-
-        // 3. Notify participants of the new message
-        io.to(chatId).emit('receive_message', newMsg);
-      }
+      const participants = await db.query.conversationParticipants.findMany({ 
+        where: eq(conversationParticipants.conversationId, chatId) 
+      });
+      participants.forEach(p => {
+        io.to(p.userId).emit('call_ended', { chatId });
+      });
     } catch (error) {
       console.error('Error in end_call:', error);
     }
@@ -1129,7 +1119,7 @@ app.get('/api/users/validate/:id', authenticateToken, async (req: any, res: any)
   }
 });
 
-app.get('/api/get-livekit-token', async (req, res) => {
+app.get('/api/get-livekit-token', authenticateToken, async (req: any, res: any) => {
   const { roomName, participantName } = req.query;
   if (!roomName || !participantName) {
     return res.status(400).json({ error: 'Faltan parámetros roomName o participantName' });
@@ -1154,6 +1144,17 @@ app.get('/api/get-livekit-token', async (req, res) => {
   } catch (error) {
     console.error('LiveKit token error:', error);
     res.status(500).json({ error: 'Error al generar token de LiveKit' });
+  }
+});
+
+app.post('/api/users/remove-push-token', authenticateToken, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+    await db.update(users).set({ pushToken: null }).where(eq(users.id, userId));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing push token:', error);
+    res.status(500).json({ error: 'Error del servidor' });
   }
 });
 
@@ -1505,9 +1506,34 @@ app.post('/api/conversations/:id/participants', async (req, res) => {
 app.delete('/api/conversations/:id/participants/:userId', async (req, res) => {
   const { id, userId } = req.params;
   try {
+    const participant = await db.query.conversationParticipants.findFirst({
+      where: and(eq(conversationParticipants.conversationId, id), eq(conversationParticipants.userId, userId))
+    });
+
+    if (!participant) return res.status(404).json({ error: 'Participante no encontrado' });
+
     await db.delete(conversationParticipants).where(
       and(eq(conversationParticipants.conversationId, id), eq(conversationParticipants.userId, userId))
     );
+
+    if (participant.role === 'admin') {
+      const remainingAdmins = await db.query.conversationParticipants.findMany({
+        where: and(eq(conversationParticipants.conversationId, id), eq(conversationParticipants.role, 'admin'))
+      });
+
+      if (remainingAdmins.length === 0) {
+        const anyParticipant = await db.query.conversationParticipants.findFirst({
+          where: eq(conversationParticipants.conversationId, id)
+        });
+        
+        if (anyParticipant) {
+          await db.update(conversationParticipants)
+            .set({ role: 'admin' })
+            .where(eq(conversationParticipants.id, anyParticipant.id));
+        }
+      }
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error removing participant:', error);

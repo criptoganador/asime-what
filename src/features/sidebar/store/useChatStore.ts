@@ -708,7 +708,16 @@ export const useChatStore = create<ChatState>()(
   },
   logout: () => {
     const { currentUser } = get();
+    const token = localStorage.getItem('asicme_token');
+
     if (currentUser?.id) {
+      if (token) {
+        // Eliminar push token del servidor para evitar recibir notificaciones tras cerrar sesión
+        fetch(`${API_URL}/api/users/remove-push-token`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(e => console.error('Error al remover push token en logout:', e));
+      }
       socket.emit('user_disconnected', currentUser.id);
     }
     localStorage.removeItem('asicme_user');

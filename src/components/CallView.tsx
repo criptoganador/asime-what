@@ -139,8 +139,14 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         setStatus('Conectando...');
 
         const safeParticipantName = participantName.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const authToken = localStorage.getItem('asicme_token');
         const resp = await fetch(
-          `${API_URL}/api/get-livekit-token?roomName=${roomName}&participantName=${encodeURIComponent(safeParticipantName)}`
+          `${API_URL}/api/get-livekit-token?roomName=${roomName}&participantName=${encodeURIComponent(safeParticipantName)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`
+            }
+          }
         );
         const data = await resp.json();
         setToken(data.token);
