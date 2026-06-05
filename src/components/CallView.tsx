@@ -7,7 +7,8 @@ import {
   useConnectionState,
   useLocalParticipant,
   useTracks,
-  ParticipantTile
+  ParticipantTile,
+  useDataChannel
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2, Mic, MicOff, Video as VideoIcon, VideoOff, MessageSquare, Smile, Hand, Sparkles, MoreVertical, CircleDot, MonitorUp, Users } from 'lucide-react';
@@ -73,6 +74,22 @@ const ParticipantMonitor = ({ onCallEmpty, onParticipantsChange }: { onCallEmpty
   return null;
 };
 
+const HandRaiseManager = ({ setRaisedHands }: { setRaisedHands: React.Dispatch<React.SetStateAction<Record<string, boolean>>> }) => {
+  const { message } = useDataChannel('hand-raise');
+  
+  useEffect(() => {
+    if (message && message.payload) {
+      const pIdentity = message.from?.identity;
+      const data = new TextDecoder().decode(message.payload);
+      if (pIdentity && data === 'toggle') {
+        setRaisedHands(prev => ({ ...prev, [pIdentity]: !prev[pIdentity] }));
+      }
+    }
+  }, [message, setRaisedHands]);
+
+  return null;
+};
+
 const ConnectionStatusIndicator = () => {
   const connectionState = useConnectionState();
 
@@ -90,7 +107,7 @@ const ConnectionStatusIndicator = () => {
   return null;
 };
 
-const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
+const CustomVideoLayout = ({ isMinimized, raisedHands }: { isMinimized: boolean, raisedHands: Record<string, boolean> }) => {
   const tracks = useTracks([
     { source: Track.Source.Camera, withPlaceholder: true },
     { source: Track.Source.ScreenShare, withPlaceholder: false },
@@ -104,17 +121,31 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
     );
   }
 
-  // Priorizar un participante remoto como foco
+  // Priorizar Screen Share si existe
+  const screenShareTrack = tracks.find(t => t.source === Track.Source.ScreenShare);
   const remoteTracks = tracks.filter(t => !t.participant.isLocal);
   const localTracks = tracks.filter(t => t.participant.isLocal);
-  const focusTrack = remoteTracks.length > 0 ? remoteTracks[0] : localTracks[0];
-  const sidebarTracks = tracks.filter(t => t.participant.identity !== focusTrack?.participant.identity);
+  
+  const focusTrack = screenShareTrack || (remoteTracks.length > 0 ? remoteTracks[0] : localTracks[0]);
+  const sidebarTracks = tracks.filter(t => t.participant.identity !== focusTrack?.participant.identity || t.source !== focusTrack?.source);
 
   return (
     <div className={`w-full h-full flex flex-col md:flex-row ${isMinimized ? 'p-0 gap-0 bg-transparent' : 'p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4 bg-black'} ${isMinimized ? 'pointer-events-none' : ''}`}>
       {/* Main Focus Video */}
       <div className={`flex-1 overflow-hidden relative ${isMinimized ? 'rounded-none bg-transparent' : 'rounded-[24px] shadow-lg bg-[#1c1c1e]'}`}>
-        {focusTrack && <ParticipantTile trackRef={focusTrack} className={`w-full h-full object-cover ${isMinimized ? '!bg-transparent' : ''}`} />}
+        {focusTrack && (
+          <div className="w-full h-full relative">
+            <ParticipantTile trackRef={focusTrack} className={`w-full h-full object-cover ${isMinimized ? '!bg-transparent' : ''}`} />
+            {raisedHands[focusTrack.participant.identity] && (
+              <motion.div 
+                initial={{ scale: 0 }} animate={{ scale: 1 }} 
+                className="absolute top-4 left-4 bg-orange-500 p-2 rounded-full shadow-lg z-10"
+              >
+                <Hand className="text-white" size={20} />
+              </motion.div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Sidebar Carousel */}
@@ -123,6 +154,14 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
           {sidebarTracks.map(t => (
             <div key={t.participant.identity + t.source} className="w-[110px] md:w-full h-full md:h-[180px] shrink-0 rounded-[20px] overflow-hidden relative shadow-md bg-[#1c1c1e] border-2 border-transparent focus-within:border-wa-teal">
               <ParticipantTile trackRef={t} className="w-full h-full object-cover" />
+              {raisedHands[t.participant.identity] && (
+                <motion.div 
+                  initial={{ scale: 0 }} animate={{ scale: 1 }} 
+                  className="absolute top-2 left-2 bg-orange-500 p-1.5 rounded-full shadow-lg z-10"
+                >
+                  <Hand className="text-white" size={14} />
+                </motion.div>
+              )}
             </div>
           ))}
         </div>
@@ -134,12 +173,37 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
 const PremiumControlBar = ({ 
   isMinimized, setIsMinimized, video, showInviteMenu, setShowInviteMenu, 
   availableContacts, inviteToCall, roomName, isDisconnecting, setIsDisconnecting, 
-  setDisconnectAction, activeParticipantNames, chatName, setActiveChat
+  setDisconnectAction, activeParticipantNames, chatName, setActiveChat, setRaisedHands
 }: any) => {
-  const { localParticipant } = useLocalParticipant();
+  const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
+  const { send } = useDataChannel('hand-raise');
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [isCameraEnabled, setIsCameraEnabled] = useState(video);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
+
+  const toggleHand = () => {
+    if (!localParticipant) return;
+    const newState = !isHandRaised;
+    setIsHandRaised(newState);
+    
+    // Update global state for local
+    setRaisedHands((prev: any) => ({ ...prev, [localParticipant.identity]: newState }));
+
+    // Send to others
+    const encoder = new TextEncoder();
+    send(encoder.encode('toggle'), { reliable: true });
+  };
+
+  const toggleScreenShare = async () => {
+    if (!localParticipant) return;
+    try {
+      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+    } catch (e) {
+      console.error('Error sharing screen', e);
+      alert('No se pudo compartir la pantalla. Verifica los permisos.');
+    }
+  };
 
   const toggleMic = () => {
     if (localParticipant) {
@@ -251,7 +315,10 @@ const PremiumControlBar = ({
             <button className="p-2 md:p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
               <Smile size={20} />
             </button>
-            <button className="p-2 md:p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center hidden sm:flex">
+            <button 
+              onClick={toggleHand}
+              className={`p-2 md:p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center hidden sm:flex ${isHandRaised ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-transparent hover:bg-white/20 text-white/90'}`}
+            >
               <Hand size={20} />
             </button>
             
@@ -277,13 +344,19 @@ const PremiumControlBar = ({
                       <CircleDot size={16} className="text-[#ea4335] animate-pulse" />
                       <span>00:32</span>
                     </div>
-                    <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/20 transition-colors text-white text-left">
-                      <Hand size={18} />
-                      <span>Levantar Mano</span>
+                    <button 
+                      onClick={toggleHand}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/20 transition-colors text-white text-left"
+                    >
+                      <Hand size={18} className={isHandRaised ? 'text-orange-400' : ''} />
+                      <span className={isHandRaised ? 'text-orange-400 font-semibold' : ''}>Levantar Mano</span>
                     </button>
-                    <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/20 transition-colors text-white text-left">
-                      <MonitorUp size={18} />
-                      <span>Compartir Pantalla</span>
+                    <button 
+                      onClick={toggleScreenShare}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/20 transition-colors text-white text-left"
+                    >
+                      <MonitorUp size={18} className={isScreenShareEnabled ? 'text-green-400' : ''} />
+                      <span className={isScreenShareEnabled ? 'text-green-400 font-semibold' : ''}>Compartir Pantalla</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -306,7 +379,10 @@ const PremiumControlBar = ({
 
           {/* Grupo 3: Extras y Cuelgue (Solo visible en Desktop) */}
           <div className="hidden md:flex items-center gap-3">
-            <button className="p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+            <button 
+              onClick={toggleScreenShare}
+              className={`p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center ${isScreenShareEnabled ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-transparent hover:bg-white/20 text-white/90'}`}
+            >
               <MonitorUp size={20} />
             </button>
             
@@ -342,6 +418,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const [hardwareOk, setHardwareOk] = useState(false);
   const [showInviteMenu, setShowInviteMenu] = useState(false);
   const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
+  const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
   const { currentUser, contacts, inviteToCall, setActiveChat } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
 
@@ -521,10 +598,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         className={isMinimized ? '!bg-transparent' : ''}
       >
         <ConnectionStatusIndicator />
+        <HandRaiseManager setRaisedHands={setRaisedHands} />
         <ParticipantMonitor onCallEmpty={handleCallEmptyGraceful} onParticipantsChange={setActiveParticipantNames} />
         {video ? (
           <div className={`lk-video-wrapper w-full h-full absolute inset-0`}>
-            <CustomVideoLayout isMinimized={isMinimized} />
+            <CustomVideoLayout isMinimized={isMinimized} raisedHands={raisedHands} />
           </div>
         ) : (
           <div className={`w-full h-full flex flex-col items-center justify-center ${isMinimized ? 'bg-transparent' : 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a2d37] via-[#0b141a] to-black'} ${isMinimized ? 'pointer-events-none' : ''}`}>
@@ -601,6 +679,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             activeParticipantNames={activeParticipantNames} 
             chatName={chatName} 
             setActiveChat={setActiveChat}
+            setRaisedHands={setRaisedHands}
           />
         )}
 
