@@ -111,17 +111,17 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
   const sidebarTracks = tracks.filter(t => t.participant.identity !== focusTrack?.participant.identity);
 
   return (
-    <div className={`w-full h-full flex p-4 gap-4 bg-[#eef0f4] ${isMinimized ? 'pointer-events-none' : ''}`}>
+    <div className={`w-full h-full flex flex-col md:flex-row p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4 bg-[#eef0f4] ${isMinimized ? 'pointer-events-none' : ''}`}>
       {/* Main Focus Video */}
-      <div className="flex-1 rounded-[24px] overflow-hidden relative shadow-sm bg-[#1c1c1e]">
+      <div className="flex-1 rounded-[24px] overflow-hidden relative shadow-lg bg-[#1c1c1e]">
         {focusTrack && <ParticipantTile trackRef={focusTrack} className="w-full h-full object-cover" />}
       </div>
 
       {/* Sidebar Carousel */}
       {sidebarTracks.length > 0 && (
-        <div className="w-[280px] flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar pr-1">
+        <div className="w-full md:w-[280px] flex flex-row md:flex-col gap-3 md:gap-4 h-[140px] md:h-full overflow-x-auto md:overflow-y-auto custom-scrollbar md:pr-1 shrink-0">
           {sidebarTracks.map(t => (
-            <div key={t.participant.identity + t.source} className="h-[180px] shrink-0 rounded-[20px] overflow-hidden relative shadow-sm bg-[#1c1c1e] border-2 border-transparent focus-within:border-blue-500">
+            <div key={t.participant.identity + t.source} className="w-[110px] md:w-full h-full md:h-[180px] shrink-0 rounded-[20px] overflow-hidden relative shadow-md bg-[#1c1c1e] border-2 border-transparent focus-within:border-wa-teal">
               <ParticipantTile trackRef={t} className="w-full h-full object-cover" />
             </div>
           ))}
