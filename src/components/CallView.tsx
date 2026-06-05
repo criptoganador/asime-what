@@ -173,7 +173,8 @@ const CustomVideoLayout = ({ isMinimized, raisedHands }: { isMinimized: boolean,
 const PremiumControlBar = ({ 
   isMinimized, setIsMinimized, video, showInviteMenu, setShowInviteMenu, 
   availableContacts, inviteToCall, roomName, isDisconnecting, setIsDisconnecting, 
-  setDisconnectAction, activeParticipantNames, chatName, setActiveChat, setRaisedHands
+  setDisconnectAction, activeParticipantNames, chatName, setActiveChat, setRaisedHands,
+  setInvitedContactIds
 }: any) => {
   const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
   const { send } = useDataChannel('hand-raise');
@@ -287,6 +288,7 @@ const PremiumControlBar = ({
                             key={contact.id}
                             onClick={() => {
                               inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
+                              setInvitedContactIds((prev: string[]) => [...prev, contact.user.id]);
                               setShowInviteMenu(false);
                             }}
                             className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors text-left"
@@ -426,6 +428,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const [hardwareOk, setHardwareOk] = useState(false);
   const [showInviteMenu, setShowInviteMenu] = useState(false);
   const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
+  const [invitedContactIds, setInvitedContactIds] = useState<string[]>([]);
   const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
   const { currentUser, contacts, inviteToCall, setActiveChat } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
@@ -446,7 +449,9 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
 
   const availableContacts = contacts.filter(contact => {
     if (!contact.user?.id) return false;
-    return !activeParticipantNames.some(identity => identity.startsWith(contact.user.id));
+    if (activeParticipantNames.some(identity => identity.startsWith(contact.user.id))) return false;
+    if (invitedContactIds.includes(contact.user.id)) return false;
+    return true;
   });
 
   useEffect(() => {
@@ -692,6 +697,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             chatName={chatName} 
             setActiveChat={setActiveChat}
             setRaisedHands={setRaisedHands}
+            setInvitedContactIds={setInvitedContactIds}
           />
         )}
 
