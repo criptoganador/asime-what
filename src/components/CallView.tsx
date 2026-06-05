@@ -114,7 +114,7 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
     <div className={`w-full h-full flex p-4 gap-4 bg-[#eef0f4] ${isMinimized ? 'pointer-events-none' : ''}`}>
       {/* Main Focus Video */}
       <div className="flex-1 rounded-[24px] overflow-hidden relative shadow-sm bg-[#1c1c1e]">
-        {focusTrack && <ParticipantTile {...focusTrack} className="w-full h-full object-cover" />}
+        {focusTrack && <ParticipantTile trackRef={focusTrack} className="w-full h-full object-cover" />}
       </div>
 
       {/* Sidebar Carousel */}
@@ -122,7 +122,7 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
         <div className="w-[280px] flex flex-col gap-4 h-full overflow-y-auto custom-scrollbar pr-1">
           {sidebarTracks.map(t => (
             <div key={t.participant.identity + t.source} className="h-[180px] shrink-0 rounded-[20px] overflow-hidden relative shadow-sm bg-[#1c1c1e] border-2 border-transparent focus-within:border-blue-500">
-              <ParticipantTile {...t} className="w-full h-full object-cover" />
+              <ParticipantTile trackRef={t} className="w-full h-full object-cover" />
             </div>
           ))}
         </div>
