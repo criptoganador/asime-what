@@ -97,7 +97,7 @@ const ChatItem = ({ index, style, items, ariaAttributes }: RowComponentProps<Row
                   exit={{ scale: 0, opacity: 0 }}
                   key={chat.unreadCount}
                   transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  className="bg-wa-green text-white text-[12px] font-semibold min-w-[20px] h-5 flex items-center justify-center rounded-full px-1 shadow-sm"
+                  className="bg-[#00a884] text-white text-[12px] font-semibold min-w-[20px] h-5 flex items-center justify-center rounded-full px-1 shadow-sm"
                 >
                   {chat.unreadCount}
                 </motion.span>
@@ -287,7 +287,7 @@ export const Sidebar = () => {
                       {isUnreadTab && unreadTotal > 0 && (
                         <span className={cn(
                           "text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1.5 shadow-sm transition-colors",
-                          activeFilter === f ? "bg-white text-wa-teal" : "bg-wa-green text-white"
+                          activeFilter === f ? "bg-white text-wa-teal" : "bg-[#00a884] text-white"
                         )}>{unreadTotal}</span>
                       )}
                       {f === 'favorites' && favoritesTotal > 0 && (

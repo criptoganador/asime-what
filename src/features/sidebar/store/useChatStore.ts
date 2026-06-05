@@ -501,6 +501,12 @@ export const useChatStore = create<ChatState>()(
 
   endCall: (chatId) => {
     socket.emit('end_call', { chatId });
+    
+    // Generar mensaje de sistema en el chat
+    const { sendMessage, activeCall } = get();
+    const isVideo = activeCall?.type === 'video';
+    sendMessage(chatId, `Llamada finalizada ${isVideo ? '🎥' : '📞'}`, 'system');
+
     set({ activeCall: null, incomingCall: null, outgoingCall: null });
   },
 
