@@ -223,12 +223,15 @@ export const ChatArea = () => {
       
       await loadMoreMessages(activeChatId);
       
-      // Restaurar la posición del scroll para que no salte al principio
-      requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight - previousScrollHeight;
-        }
-      });
+      // Restaurar la posición del scroll. Usamos setTimeout + rAF para garantizar
+      // que React haya terminado su ciclo de render completo antes de medir el DOM.
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight - previousScrollHeight;
+          }
+        });
+      }, 0);
       setIsLoadingMore(false);
     }
   };
@@ -1351,27 +1354,29 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
   const avatar = isMe ? currentUser?.avatar : chat?.avatar || 'https://i.pravatar.cc/150?u=voice';
 
   useEffect(() => {
-    if (waveformRef.current) {
-      wavesurfer.current = WaveSurfer.create({
-        container: waveformRef.current,
-        waveColor: isMe ? '#a7f3d0' : '#c7d2fe', // light emerald vs light indigo
-        progressColor: isMe ? '#047857' : '#4f46e5', // dark emerald vs dark indigo
-        barWidth: 2,
-        barGap: 2,
-        height: 30,
-        url: msg.fileUrl
-      });
+    if (!waveformRef.current) return;
+    // Capturar la instancia localmente para que el cleanup siempre destruya
+    // su propia versión, evitando que destruya una instancia más nueva.
+    const ws = WaveSurfer.create({
+      container: waveformRef.current,
+      waveColor: isMe ? '#a7f3d0' : '#c7d2fe',
+      progressColor: isMe ? '#047857' : '#4f46e5',
+      barWidth: 2,
+      barGap: 2,
+      height: 30,
+      url: msg.fileUrl
+    });
+    wavesurfer.current = ws;
 
-      wavesurfer.current.on('play', () => setIsPlaying(true));
-      wavesurfer.current.on('pause', () => setIsPlaying(false));
-      wavesurfer.current.on('finish', () => setIsPlaying(false));
-      wavesurfer.current.on('timeupdate', (time) => setCurrentTime(time));
-      wavesurfer.current.on('ready', (dur) => setDuration(dur));
+    ws.on('play', () => setIsPlaying(true));
+    ws.on('pause', () => setIsPlaying(false));
+    ws.on('finish', () => setIsPlaying(false));
+    ws.on('timeupdate', (time) => setCurrentTime(time));
+    ws.on('ready', (dur) => setDuration(dur));
 
-      return () => {
-        wavesurfer.current?.destroy();
-      };
-    }
+    return () => {
+      ws.destroy(); // ✅ Destruye su propia instancia capturada, no la global
+    };
   }, [msg.fileUrl, isMe]);
 
   const togglePlay = () => wavesurfer.current?.playPause();
@@ -1477,7 +1482,8 @@ const ImageModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
 
 const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
   const [hasError, setHasError] = useState(false);
-  const isValidUrl = url && url.startsWith('data:');
+  // ✅ URL válida si tiene cualquier protocolo reproducible por el navegador
+  const isValidUrl = url && (url.startsWith('http') || url.startsWith('https') || url.startsWith('blob:') || url.startsWith('data:'));
   return (
     <motion.div 
       initial={{ opacity: 0 }}
