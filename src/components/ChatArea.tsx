@@ -479,6 +479,9 @@ export const ChatArea = () => {
           } catch (error) {
             console.error('Audio upload error:', error);
             updateMessageStatus(activeChatId, messageId, 'failed');
+          } finally {
+            // ✅ Liberar memoria RAM: destruir el enlace virtual del audio local
+            URL.revokeObjectURL(localUrl);
           }
         }
         
@@ -1280,8 +1283,8 @@ async function handleNativeDownload(url: string, fileName: string, mimeType?: st
     if (url.startsWith('data:')) {
       base64Data = url.split(',')[1];
       base64Data = base64Data.replace(/[^a-zA-Z0-9+/=]/g, ''); // Limpiar caracteres no válidos
-    } else if (url.startsWith('http')) {
-      // alert("Descargando desde URL externa...");
+    } else if (url.startsWith('http') || url.startsWith('blob:')) {
+      // Soporta URLs remotas (http) y URLs locales temporales (blob:) para mensajes pendientes/offline
       const response = await fetch(url);
       const blob = await response.blob();
       const reader = new FileReader();
