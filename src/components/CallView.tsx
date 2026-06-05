@@ -517,7 +517,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         onDisconnected={handleDisconnected}
         onError={handleMediaError}
         data-lk-theme="default"
-        style={{ height: '100vh', backgroundColor: isMinimized ? 'transparent' : 'black' }}
+        style={{ height: '100%', backgroundColor: isMinimized ? 'transparent' : 'black' }}
         className={isMinimized ? '!bg-transparent' : ''}
       >
         <ConnectionStatusIndicator />
