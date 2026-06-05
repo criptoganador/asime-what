@@ -212,19 +212,11 @@ const PremiumControlBar = ({
   };
 
   const toggleMic = () => {
-    if (localParticipant) {
-      const newState = !isMicEnabled;
-      localParticipant.setMicrophoneEnabled(newState);
-      setIsMicEnabled(newState);
-    }
+    setIsMicEnabled(!isMicEnabled);
   };
 
   const toggleCamera = () => {
-    if (localParticipant) {
-      const newState = !isCameraEnabled;
-      localParticipant.setCameraEnabled(newState);
-      setIsCameraEnabled(newState);
-    }
+    setIsCameraEnabled(!isCameraEnabled);
   };
 
   return (
@@ -620,8 +612,8 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       }
     >
       <LiveKitRoom
-        video={video}
-        audio={true}
+        video={isCameraEnabled}
+        audio={isMicEnabled}
         token={token}
         serverUrl={serverUrl}
         options={roomOptions}
