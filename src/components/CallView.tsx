@@ -359,6 +359,16 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   }, [roomName, participantName, video]);
 
 
+  const handleCallEmptyGraceful = useCallback(() => {
+    if (isDisconnecting) return;
+    setIsDisconnecting(true);
+    setDisconnectAction('empty');
+  }, [isDisconnecting]);
+
+  const handleDisconnected = useCallback(() => {
+    if (disconnectAction === 'empty') onCallEmpty();
+    else onClose();
+  }, [disconnectAction, onCallEmpty, onClose]);
 
   const handleMediaError = (err: Error) => {
     // Secondary catch for runtime errors
@@ -437,17 +447,6 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       </motion.div>
     );
   }
-
-  const handleCallEmptyGraceful = useCallback(() => {
-    if (isDisconnecting) return;
-    setIsDisconnecting(true);
-    setDisconnectAction('empty');
-  }, [isDisconnecting]);
-
-  const handleDisconnected = useCallback(() => {
-    if (disconnectAction === 'empty') onCallEmpty();
-    else onClose();
-  }, [disconnectAction, onCallEmpty, onClose]);
 
   return (
     <motion.div 
