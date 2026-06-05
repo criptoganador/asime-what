@@ -111,14 +111,14 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
   const sidebarTracks = tracks.filter(t => t.participant.identity !== focusTrack?.participant.identity);
 
   return (
-    <div className={`w-full h-full flex flex-col md:flex-row p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4 bg-[#eef0f4] ${isMinimized ? 'pointer-events-none' : ''}`}>
+    <div className={`w-full h-full flex flex-col md:flex-row ${isMinimized ? 'p-0 gap-0' : 'p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4'} bg-black ${isMinimized ? 'pointer-events-none' : ''}`}>
       {/* Main Focus Video */}
-      <div className="flex-1 rounded-[24px] overflow-hidden relative shadow-lg bg-[#1c1c1e]">
+      <div className={`flex-1 overflow-hidden relative bg-[#1c1c1e] ${isMinimized ? 'rounded-none' : 'rounded-[24px] shadow-lg'}`}>
         {focusTrack && <ParticipantTile trackRef={focusTrack} className="w-full h-full object-cover" />}
       </div>
 
       {/* Sidebar Carousel */}
-      {sidebarTracks.length > 0 && (
+      {!isMinimized && sidebarTracks.length > 0 && (
         <div className="w-full md:w-[280px] flex flex-row md:flex-col gap-3 md:gap-4 h-[140px] md:h-full overflow-x-auto md:overflow-y-auto custom-scrollbar md:pr-1 shrink-0">
           {sidebarTracks.map(t => (
             <div key={t.participant.identity + t.source} className="w-[110px] md:w-full h-full md:h-[180px] shrink-0 rounded-[20px] overflow-hidden relative shadow-md bg-[#1c1c1e] border-2 border-transparent focus-within:border-wa-teal">
@@ -462,7 +462,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       initial={{ opacity: 0, scale: 1.1 }}
       animate={isMinimized ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
       className={isMinimized
-        ? "fixed top-20 right-4 w-[120px] h-[160px] md:w-80 md:h-48 z-[400] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/20 cursor-move pointer-events-auto"
+        ? "fixed top-20 right-4 w-[140px] h-[200px] md:w-80 md:h-48 z-[400] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/20 cursor-move pointer-events-auto"
         : "fixed inset-0 z-[400] bg-black flex flex-col pointer-events-auto"
       }
     >
@@ -563,13 +563,13 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         )}
 
         {isMinimized && (
-          <div className="absolute top-2 right-2 z-[110] flex items-center gap-2">
+          <div className="absolute top-2 right-2 z-[110] flex items-center gap-1.5">
             <button 
               onClick={() => setIsMinimized(false)}
-              className="p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
+              className="p-1.5 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
               title="Volver a llamada"
             >
-              <Maximize2 size={16} />
+              <Maximize2 size={14} />
             </button>
             <button 
               onClick={() => {
@@ -577,10 +577,10 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
                 setIsDisconnecting(true);
                 setDisconnectAction('leave');
               }}
-              className="p-2 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
+              className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
               title="Colgar"
             >
-              <PhoneOff size={16} />
+              <PhoneOff size={14} />
             </button>
           </div>
         )}
