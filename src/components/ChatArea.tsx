@@ -1106,12 +1106,13 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
           </div>
         );
       case 'video':
-        const isUrlValid = msg.fileUrl && (msg.fileUrl.startsWith('http') || msg.fileUrl.startsWith('data:') || msg.fileUrl.startsWith('blob:'));
+        const actualUrl = msg.fileUrl || msg.imageUrl;
+        const isUrlValid = actualUrl && (actualUrl.startsWith('http') || actualUrl.startsWith('data:') || actualUrl.startsWith('blob:'));
         return (
           <div className="space-y-1 relative">
             <div
               className={cn("relative group/vid cursor-pointer overflow-hidden rounded-lg bg-black/80 flex items-center justify-center min-h-[150px] min-w-[200px]")}
-              onClick={() => !isSending && onVideoClick(msg.fileUrl || null)}
+              onClick={() => !isSending && onVideoClick(actualUrl || null)}
             >
               {sendingOverlay}
               {isSending ? (
@@ -1122,7 +1123,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
               ) : isUrlValid ? (
                 <>
                   <video
-                    src={`${msg.fileUrl}#t=0.001`}
+                    src={`${actualUrl}#t=0.001`}
                     preload="metadata"
                     className="w-full h-auto max-h-[200px] object-cover"
                     onError={(e) => {
