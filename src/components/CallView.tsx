@@ -574,10 +574,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             onClick={() => {
               if (isDisconnecting) return;
               setIsDisconnecting(true);
+              // Como LiveKitRoom no está montado aún, forzamos la salida directa
               if (activeParticipantNames.length <= 1) {
-                setDisconnectAction('empty');
+                onCallEmpty();
               } else {
-                setDisconnectAction('leave');
+                onClose();
               }
             }}
             className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-all hover:scale-110 active:scale-95 shadow-lg shadow-red-500/20"

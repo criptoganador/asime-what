@@ -197,6 +197,7 @@ app.get('/health', (req, res) => {
 // Multer eliminado por seguridad (Archivos se guardan en BD como Base64 E2EE)
 
 const activeUsers = new Map<string, string>();
+const activeCallInvites = new Map<string, Set<string>>(); // chatId -> Set de userIds invitados
 
 // Anti-Spam Nivel Enterprise: Token Bucket para WebSockets
 const socketRateLimits = new Map<string, { count: number, resetAt: number }>();
@@ -484,6 +485,10 @@ io.on('connection', (socket) => {
 
   socket.on('invite_to_call', ({ chatId, inviterId, inviterName, inviterAvatar, receiverId, type }) => {
     try {
+      const invites = activeCallInvites.get(chatId) || new Set<string>();
+      invites.add(receiverId);
+      activeCallInvites.set(chatId, invites);
+
       io.to(receiverId).emit('incoming_call', { 
         chatId, 
         callerId: inviterId, 
@@ -513,12 +518,24 @@ io.on('connection', (socket) => {
 
   socket.on('end_call', async ({ chatId }) => {
     try {
+      // 1. Notificar a los dueños originales de la sala
       const participants = await db.query.conversationParticipants.findMany({ 
         where: eq(conversationParticipants.conversationId, chatId) 
       });
       participants.forEach(p => {
         io.to(p.userId).emit('call_ended', { chatId });
       });
+
+      // 2. Notificar a los terceros invitados
+      const invites = activeCallInvites.get(chatId);
+      if (invites) {
+        invites.forEach(userId => {
+          if (!participants.some(p => p.userId === userId)) {
+            io.to(userId).emit('call_ended', { chatId });
+          }
+        });
+        activeCallInvites.delete(chatId); // Limpiar memoria
+      }
     } catch (error) {
       console.error('Error in end_call:', error);
     }
