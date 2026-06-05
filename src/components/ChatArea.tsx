@@ -759,6 +759,16 @@ export const ChatArea = () => {
             </div>
           )}
           
+          {filteredMessages.length === 0 && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-8 z-0">
+              <div className="bg-[#1e2a30]/80 backdrop-blur-sm px-6 py-4 rounded-2xl flex flex-col items-center gap-3 shadow-lg border border-white/5">
+                <Trash2 size={32} className="text-wa-teal/70" />
+                <p className="text-[#8696a0] text-[13.5px] font-medium text-center">Chat limpio, mensajes eliminados</p>
+              </div>
+            </div>
+          )}
+
+          
           <Virtuoso
             ref={virtuosoRef}
             atBottomStateChange={(atBottom) => { isAtBottomRef.current = atBottom; }}
@@ -1205,7 +1215,18 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
   };
 
   return (
-    <div className={cn("flex w-full mb-1 group relative", msg.type === 'system' ? "justify-center my-3" : (isMe ? "justify-end" : "justify-start"))} onMouseEnter={() => setShowActions(true)} onMouseLeave={() => { setShowActions(false); setShowReactions(false); setShowDeleteMenu(false); }}>
+    <div 
+      className={cn("flex w-full mb-1 group relative", msg.type === 'system' ? "justify-center my-3" : (isMe ? "justify-end" : "justify-start"))} 
+      onMouseEnter={() => setShowActions(true)} 
+      onMouseLeave={() => { setShowActions(false); setShowReactions(false); setShowDeleteMenu(false); }}
+      onClick={() => {
+        if (window.innerWidth <= 768 && msg.type !== 'system') {
+          setShowActions(!showActions);
+          setShowReactions(false);
+          setShowDeleteMenu(false);
+        }
+      }}
+    >
       <motion.div 
         drag={msg.type !== 'system' && !msg.isDeleted ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
@@ -1221,7 +1242,28 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
             ? "bg-wa-sidebar/95 px-4 py-1.5 rounded-xl border border-wa-border/50 text-wa-text-secondary shadow-sm mx-auto max-w-[90%]" 
             : cn("relative max-w-[85%] md:max-w-[65%] px-2.5 py-1.5 rounded-xl shadow-sm min-w-[80px] cursor-grab active:cursor-grabbing", isMe ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none" : "bg-white text-[#111b21] rounded-tl-none", !showTail && (isMe ? "rounded-tr-xl" : "rounded-tl-xl"), msg.isDeleted && "bg-transparent border border-wa-border shadow-none text-wa-text-secondary")
         )}>
-        {msg.type !== 'system' && !msg.isDeleted && <AnimatePresence>{showActions && ( <motion.div key="msg-actions" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className={cn("absolute top-0 z-20 flex gap-1", isMe ? "right-full mr-2" : "left-full ml-2")}> <button onClick={() => setShowReactions(!showReactions)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={16} /></button> <button onClick={onReply} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={16} /></button> <div className="relative"><button onClick={() => setShowDeleteMenu(!showDeleteMenu)} className="p-1.5 bg-white/90 rounded-full shadow-md text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={16} /></button>{showDeleteMenu && (<div className="absolute top-full mt-1 right-0 bg-white rounded-lg shadow-xl border border-wa-border overflow-hidden z-50 w-40 flex flex-col"><button onClick={() => { onDelete(false); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full">Eliminar para mí</button>{isMe && <button onClick={() => { onDelete(true); setShowDeleteMenu(false); }} className="px-4 py-2 text-left text-[13px] hover:bg-wa-bg w-full text-red-500">Eliminar para todos</button>}</div>)}</div> </motion.div> )}</AnimatePresence>}
+        {msg.type !== 'system' && !msg.isDeleted && <AnimatePresence>{showActions && ( 
+          <motion.div 
+            key="msg-actions" 
+            initial={{ opacity: 0, scale: 0.8 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            exit={{ opacity: 0, scale: 0.8 }} 
+            className={cn("absolute z-[60] flex gap-1 bg-white/95 p-1 rounded-full shadow-lg border border-black/5 backdrop-blur-sm", isMe ? "top-0 right-full mr-2 max-md:right-0 max-md:bottom-full max-md:top-auto max-md:mb-2 max-md:mr-4" : "top-0 left-full ml-2 max-md:left-0 max-md:bottom-full max-md:top-auto max-md:mb-2 max-md:ml-4")}
+            onClick={(e) => e.stopPropagation()}
+          > 
+            <button onClick={(e) => { e.stopPropagation(); setShowReactions(!showReactions); }} className="p-2 hover:bg-black/5 rounded-full text-wa-text-secondary hover:text-wa-teal transition-colors"><Smile size={18} /></button> 
+            <button onClick={(e) => { e.stopPropagation(); onReply(); setShowActions(false); }} className="p-2 hover:bg-black/5 rounded-full text-wa-text-secondary hover:text-wa-teal transition-colors"><Reply size={18} /></button> 
+            <div className="relative">
+              <button onClick={(e) => { e.stopPropagation(); setShowDeleteMenu(!showDeleteMenu); }} className="p-2 hover:bg-black/5 rounded-full text-wa-text-secondary hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+              {showDeleteMenu && (
+                <div className="absolute top-full mt-2 right-0 bg-white rounded-xl shadow-2xl border border-wa-border overflow-hidden z-[70] w-48 flex flex-col origin-top-right">
+                  <button onClick={(e) => { e.stopPropagation(); onDelete(false); setShowDeleteMenu(false); setShowActions(false); }} className="px-4 py-3 text-left text-[14px] font-medium hover:bg-wa-bg w-full">Eliminar para mí</button>
+                  {isMe && <button onClick={(e) => { e.stopPropagation(); onDelete(true); setShowDeleteMenu(false); setShowActions(false); }} className="px-4 py-3 text-left text-[14px] font-medium hover:bg-red-50 w-full text-red-500 border-t border-black/5">Eliminar para todos</button>}
+                </div>
+              )}
+            </div> 
+          </motion.div> 
+        )}</AnimatePresence>}
         {msg.type !== 'system' && <AnimatePresence>{showReactions && ( <motion.div key="msg-reactions" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={cn("absolute bottom-full mb-2 bg-white rounded-full shadow-xl p-1 flex gap-1 z-30 border border-wa-border", isMe ? "right-0" : "left-0")}> {REACTIONS.map(emoji => <button key={emoji} onClick={() => { onReact(emoji); setShowReactions(false); }} className="hover:scale-125 transition-transform p-1 text-xl">{emoji}</button>)} </motion.div> )}</AnimatePresence>}
         {isGroup && !isMe && senderName && msg.type !== 'system' && showTail && (
           <div className="text-[12.5px] font-bold mb-0.5" style={{ color: stringToColor(senderName) }}>
@@ -1417,9 +1459,9 @@ const AudioPlayer = ({ msg }: { msg: any }) => {
         {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
       </button>
 
-      <div className="flex-1 flex flex-col justify-center gap-1 mt-0.5 min-w-[120px]">
+      <div className="flex-1 flex flex-col justify-center gap-1 mt-0.5 min-w-[120px] max-w-[200px] overflow-hidden">
         {/* Waveform Container */}
-        <div ref={waveformRef} className="w-full h-[30px] cursor-pointer" />
+        <div ref={waveformRef} className="w-full h-[30px] cursor-pointer overflow-hidden relative" />
         
         <div className="flex justify-between items-center px-0.5">
           <span className="text-[11px] font-semibold text-black/50 tabular-nums">
