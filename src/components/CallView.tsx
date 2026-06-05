@@ -182,6 +182,18 @@ const PremiumControlBar = ({
   const [isCameraEnabled, setIsCameraEnabled] = useState(video);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCallDuration(prev => prev + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatDuration = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const toggleHand = () => {
     if (!localParticipant) return;
@@ -344,7 +356,7 @@ const PremiumControlBar = ({
                   >
                     <div className="flex items-center gap-3 p-3 text-white font-medium border-b border-white/10 mb-1">
                       <CircleDot size={16} className="text-[#ea4335] animate-pulse" />
-                      <span>00:32</span>
+                      <span className="tabular-nums font-mono">{formatDuration(callDuration)}</span>
                     </div>
                     <button 
                       onClick={toggleHand}
@@ -394,7 +406,7 @@ const PremiumControlBar = ({
             
             <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-[12px] text-white font-medium border border-white/20">
               <CircleDot size={14} className="text-[#ea4335] animate-pulse" />
-              <span>00:32</span>
+              <span className="tabular-nums font-mono">{formatDuration(callDuration)}</span>
             </div>
 
             <button 
@@ -595,6 +607,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       layout
       drag={isMinimized}
       dragMomentum={false}
+      dragConstraints={{ left: typeof window !== 'undefined' ? -window.innerWidth + 200 : -500, right: 0, top: -40, bottom: typeof window !== 'undefined' ? window.innerHeight - 300 : 500 }}
       initial={{ opacity: 0, scale: 1.1 }}
       animate={isMinimized ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
       className={isMinimized

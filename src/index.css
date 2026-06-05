@@ -100,6 +100,11 @@
   background-color: #111b21 !important;
 }
 
+/* Forzar que el video no deje bordes negros (Letterboxing) en modo PiP */
+.lk-participant-tile video {
+  object-fit: cover !important;
+}
+
 /* Brillo esmeralda cuando alguien habla */
 .lk-participant-tile[data-lk-speaking="true"] {
   border-color: var(--color-wa-green) !important;

@@ -1511,6 +1511,7 @@ const VideoModal = ({ url, onClose }: { url: string; onClose: () => void }) => {
           <video 
             src={url} 
             controls 
+            playsInline
             autoPlay 
             onError={() => setHasError(true)}
             className="w-full h-full max-h-[80vh] outline-none"
