@@ -48,6 +48,7 @@ export const CallOverlay = () => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.currentTime = 0;
       }
     };
   }, [incomingCall, outgoingCall]);
@@ -61,12 +62,17 @@ export const CallOverlay = () => {
         console.log('Call timeout reached (45s)');
         endCall(outgoingCall.chatId);
       }, 45000);
+    } else if (incomingCall) {
+      timeout = setTimeout(() => {
+        console.log('Incoming call timeout reached (45s)');
+        answerCall(incomingCall.chatId, false);
+      }, 45000);
     }
 
     return () => {
       if (timeout) clearTimeout(timeout);
     };
-  }, [outgoingCall, endCall]);
+  }, [outgoingCall, endCall, incomingCall, answerCall]);
 
   const activeChat = activeCall 
     ? chats.find(c => c.id === activeCall.chatId) 

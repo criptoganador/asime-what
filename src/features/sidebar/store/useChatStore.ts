@@ -1471,8 +1471,8 @@ socket.on('chat_cleared', ({ chatId }) => {
 
 socket.on('incoming_call', (call) => {
   const state = useChatStore.getState();
-  if (state.activeCall) {
-    // Si ya está en llamada, rechazar automáticamente con razón "busy"
+  if (state.activeCall || state.incomingCall || state.outgoingCall) {
+    // Si ya está ocupado en otra llamada (entrante, saliente o activa), rechazar automáticamente con razón "busy"
     socket.emit('answer_call', { chatId: call.chatId, answererId: state.currentUser?.id, accept: false, reason: 'busy' });
     return;
   }
@@ -1507,9 +1507,14 @@ socket.on('call_answered', ({ chatId, answererId, accept, reason }) => {
       }
     }
   } else if (state.activeCall?.chatId === chatId && !accept) {
+    // Estás en llamada activa, y alguien que invitaste rechazó la llamada.
+    // Solo mostramos alerta, NO te sacamos de la llamada activa.
     if (!isGroup) {
-      useChatStore.setState({ activeCall: null });
-      alert('Llamada terminada');
+      if (reason === 'busy') {
+        alert('El contacto está ocupado en otra llamada');
+      } else {
+        alert('Invitación rechazada');
+      }
     }
   }
 });
