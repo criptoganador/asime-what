@@ -7,7 +7,7 @@ import {
   useConnectionState,
   useLocalParticipant
 } from '@livekit/components-react';
-import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2 } from 'lucide-react';
+import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2, Mic, MicOff, Video as VideoIcon, VideoOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
@@ -111,6 +111,26 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
     },
     publishDefaults: {
       simulcast: true, // Envía múltiples resoluciones de video
+    }
+  };
+
+  const { localParticipant } = useLocalParticipant();
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isCameraEnabled, setIsCameraEnabled] = useState(video);
+
+  const toggleMic = () => {
+    if (localParticipant) {
+      const newState = !isMicEnabled;
+      localParticipant.setMicrophoneEnabled(newState);
+      setIsMicEnabled(newState);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (localParticipant) {
+      const newState = !isCameraEnabled;
+      localParticipant.setCameraEnabled(newState);
+      setIsCameraEnabled(newState);
     }
   };
 
@@ -341,97 +361,114 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         <RoomAudioRenderer />
         
         {!isMinimized && (
-          <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-0 right-0 z-[110] px-4 sm:px-6 flex items-center justify-between pointer-events-none">
-            
-            {/* Header Izquierdo - Info */}
-            <div className="flex items-center gap-3 bg-black/40 backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
-              <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.8)]" />
-              <div className="flex flex-col">
-                <span className="text-[15px] font-semibold text-white/95 leading-tight">{chatName}</span>
-                <span className="text-xs font-medium text-wa-teal leading-tight">
-                  {activeParticipantNames.length > 1 ? `${activeParticipantNames.length} en llamada` : 'Llamada activa'}
-                </span>
+          <>
+            {/* Superior: Header Flotante Premium */}
+            <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-0 right-0 z-[110] px-6 flex items-center justify-between pointer-events-none">
+              <div className="flex items-center gap-4 bg-black/30 backdrop-blur-2xl px-5 py-3 rounded-2xl border border-white/10 shadow-2xl pointer-events-auto">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[16px] font-semibold text-white tracking-wide">{chatName}</span>
+                  <span className="text-[12px] font-medium text-gray-300">
+                    {activeParticipantNames.length > 1 ? `${activeParticipantNames.length} participantes` : 'Llamada segura'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pointer-events-auto">
+                <button 
+                  onClick={() => setIsMinimized(true)}
+                  className="p-3 bg-black/30 backdrop-blur-2xl hover:bg-white/10 text-white/90 rounded-2xl border border-white/10 shadow-xl transition-all"
+                  title="Minimizar a chat"
+                >
+                  <MessageCircle size={22} />
+                </button>
               </div>
             </div>
 
-            {/* Header Derecho - Acciones */}
-            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
-              <button 
-                onClick={() => setIsMinimized(true)}
-                className="p-2.5 bg-transparent hover:bg-white/10 text-white/90 rounded-full transition-all flex items-center justify-center"
-                title="Minimizar a chat"
-              >
-                <MessageCircle size={22} />
-              </button>
-
-              <div className="relative">
+            {/* Inferior: Barra de Controles Estilo Dribbble */}
+            <div className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-0 right-0 z-[110] flex justify-center pointer-events-none">
+              <div className="flex items-center gap-4 bg-black/40 backdrop-blur-3xl px-6 py-4 rounded-full border border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.4)] pointer-events-auto">
+                
                 <button 
-                  onClick={() => setShowInviteMenu(!showInviteMenu)}
-                  className="p-2.5 bg-transparent hover:bg-white/10 text-white/90 rounded-full transition-all flex items-center justify-center"
-                  title="Añadir participante"
+                  onClick={toggleMic}
+                  className={`p-4 rounded-full transition-all duration-300 flex items-center justify-center ${isMicEnabled ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/30'}`}
                 >
-                  <UserPlus size={22} />
+                  {isMicEnabled ? <Mic size={24} /> : <MicOff size={24} />}
                 </button>
 
-                <AnimatePresence>
-                  {showInviteMenu && (
-                    <motion.div 
-                      key="invite-menu-backdrop"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowInviteMenu(false)} 
-                    />
-                  )}
-                  {showInviteMenu && (
-                    <motion.div 
-                      key="invite-menu-dropdown"
-                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                      className="absolute top-14 right-0 w-72 bg-[#111b21]/95 backdrop-blur-xl rounded-2xl shadow-2xl z-50 border border-white/10 overflow-hidden"
-                    >
-                      <div className="p-4 border-b border-white/10 bg-white/5">
-                        <h3 className="text-white text-sm font-semibold">Añadir participante</h3>
-                      </div>
-                      <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                        {availableContacts.length === 0 ? (
-                          <div className="p-6 text-center text-gray-400 text-sm">No hay contactos disponibles para invitar</div>
-                        ) : (
-                          availableContacts.map(contact => (
-                            <button
-                              key={contact.id}
-                              onClick={() => {
-                                inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
-                                setShowInviteMenu(false);
-                              }}
-                              className="w-full flex items-center gap-3 p-3 hover:bg-white/10 transition-colors text-left"
-                            >
-                              <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt={contact.nickname || contact.user?.name} className="w-10 h-10 rounded-full object-cover border border-white/10" />
-                              <span className="text-white text-[15px] font-medium truncate flex-1">{contact.nickname || contact.user?.name}</span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {video && (
+                  <button 
+                    onClick={toggleCamera}
+                    className={`p-4 rounded-full transition-all duration-300 flex items-center justify-center ${isCameraEnabled ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-red-500/20 hover:bg-red-500/30 text-red-500 border border-red-500/30'}`}
+                  >
+                    {isCameraEnabled ? <VideoIcon size={24} /> : <VideoOff size={24} />}
+                  </button>
+                )}
+
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowInviteMenu(!showInviteMenu)}
+                    className="p-4 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all duration-300 flex items-center justify-center"
+                    title="Añadir participante"
+                  >
+                    <UserPlus size={24} />
+                  </button>
+
+                  <AnimatePresence>
+                    {showInviteMenu && (
+                      <motion.div 
+                        key="invite-menu-dropdown"
+                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                        className="absolute bottom-[calc(100%+1.5rem)] left-1/2 -translate-x-1/2 w-72 bg-[#1c1c1e]/95 backdrop-blur-2xl rounded-3xl shadow-2xl z-50 border border-white/10 overflow-hidden"
+                      >
+                        <div className="p-5 border-b border-white/5">
+                          <h3 className="text-white text-[15px] font-semibold">Añadir a la llamada</h3>
+                        </div>
+                        <div className="max-h-64 overflow-y-auto custom-scrollbar p-2">
+                          {availableContacts.length === 0 ? (
+                            <div className="p-4 text-center text-gray-500 text-sm">No hay contactos disponibles</div>
+                          ) : (
+                            availableContacts.map(contact => (
+                              <button
+                                key={contact.id}
+                                onClick={() => {
+                                  inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
+                                  setShowInviteMenu(false);
+                                }}
+                                className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors text-left"
+                              >
+                                <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm" />
+                                <span className="text-white text-[15px] font-medium truncate flex-1">{contact.nickname || contact.user?.name}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <div className="w-px h-8 bg-white/10 mx-2" />
+
+                <button 
+                  onClick={() => {
+                    if (isDisconnecting) return;
+                    setIsDisconnecting(true);
+                    setDisconnectAction('leave');
+                  }}
+                  className="px-8 py-4 bg-red-500 hover:bg-red-600 text-white rounded-full font-semibold transition-all duration-300 shadow-[0_0_30px_rgba(239,68,68,0.4)] flex items-center gap-2 ml-2"
+                >
+                  <PhoneOff size={24} />
+                  <span>Finalizar</span>
+                </button>
               </div>
-              
-              <button 
-                onClick={() => {
-                  if (isDisconnecting) return;
-                  setIsDisconnecting(true);
-                  setDisconnectAction('leave');
-                }}
-                className="p-2.5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] flex items-center justify-center ml-1"
-                title="Colgar llamada"
-              >
-                <PhoneOff size={22} />
-              </button>
             </div>
-          </div>
+          </>
         )}
 
         {isMinimized && (
