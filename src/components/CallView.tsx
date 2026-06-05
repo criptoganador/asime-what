@@ -121,6 +121,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
+      AudioRouting.requestPermissions().catch(e => console.error('Perm error:', e));
       AudioRouting.requestAudioFocus().catch(e => console.error('Audio Focus Error:', e));
       AudioRouting.startBluetoothSco().catch(e => console.error('SCO start error:', e));
     }

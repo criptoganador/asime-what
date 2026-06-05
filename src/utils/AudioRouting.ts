@@ -13,6 +13,7 @@ export interface AudioRoutingPlugin {
     eventName: 'onAudioFocusChange',
     listenerFunc: (info: { event: 'loss' | 'gain' }) => void
   ): Promise<PluginListenerHandle> & PluginListenerHandle;
+  requestPermissions(): Promise<void>;
 }
 
 const AudioRouting = registerPlugin<AudioRoutingPlugin>('AudioRouting');

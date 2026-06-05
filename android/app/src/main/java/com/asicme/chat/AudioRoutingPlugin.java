@@ -145,4 +145,15 @@ public class AudioRoutingPlugin extends Plugin {
             call.reject("Error: " + e.getMessage());
         }
     }
+    @PluginMethod
+    public void requestPermissions(PluginCall call) {
+        String[] permissions = {
+            android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO
+        };
+        if (!hasRequiredPermissions()) {
+            pluginRequestPermissions(permissions, 1);
+        }
+        call.resolve();
+    }
 }
