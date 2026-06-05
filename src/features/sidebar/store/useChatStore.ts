@@ -44,20 +44,6 @@ const decryptSmartMessage = async (encryptedText: string, chatId: string, chatIn
   return decryptMessage(encryptedText, chatId);
 };
 
-const fetchIfR2Url = async (content: string | undefined): Promise<string | undefined> => {
-  if (content && content.startsWith('http') && content.includes('.r2.dev')) {
-    try {
-      // Usar proxy del backend para evitar problemas de CORS en Capacitor
-      const res = await fetch(`${API_URL}/api/proxy?url=${encodeURIComponent(content)}`);
-      if (res.ok) {
-        return await res.text();
-      }
-    } catch (e) {
-      console.error('Error fetching R2 content via proxy', e);
-    }
-  }
-  return content;
-};
 
 const encryptSmartMessage = async (plaintext: string | undefined, chatId: string, chatInfo: Chat | undefined, privateKeyJWK: string | null) => {
   if (!plaintext) return plaintext;
@@ -440,9 +426,9 @@ export const useChatStore = create<ChatState>()(
             newData
               .filter((m: Message) => !mergedIds.has(m.id))
               .map(async (msg: Message) => {
-                const rawText = await fetchIfR2Url(msg.text);
-                const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
-                const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
+                const rawText = msg.text;
+                const rawImageUrl = msg.imageUrl;
+                const rawFileUrl = msg.fileUrl;
                 return {
                   ...msg,
                   text: await decryptSmartMessage(rawText || '', activeChatId, chatInfo, privateKeyJWK),
@@ -906,9 +892,9 @@ export const useChatStore = create<ChatState>()(
 
       // Descifrar solo los mensajes nuevos (no re-descifrar el caché)
       newData = await Promise.all(newData.map(async (msg: Message) => {
-        const rawText = await fetchIfR2Url(msg.text);
-        const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
-        const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
+        const rawText = msg.text;
+        const rawImageUrl = msg.imageUrl;
+        const rawFileUrl = msg.fileUrl;
 
         return { 
           ...msg, 
@@ -948,9 +934,9 @@ export const useChatStore = create<ChatState>()(
       
       const chatInfo = state.chats.find(c => c.id === chatId);
       data = await Promise.all(data.map(async (msg: Message) => {
-        const rawText = await fetchIfR2Url(msg.text);
-        const rawImageUrl = await fetchIfR2Url(msg.imageUrl);
-        const rawFileUrl = await fetchIfR2Url(msg.fileUrl);
+        const rawText = msg.text;
+        const rawImageUrl = msg.imageUrl;
+        const rawFileUrl = msg.fileUrl;
 
         return { 
           ...msg, 
@@ -1298,9 +1284,9 @@ socket.on('receive_message', async (message: Message) => {
     chatInfo = state.chats.find(c => c.id === message.conversationId);
   }
 
-  const rawText = await fetchIfR2Url(message.text);
-  const rawImageUrl = await fetchIfR2Url(message.imageUrl);
-  const rawFileUrl = await fetchIfR2Url(message.fileUrl);
+  const rawText = message.text;
+  const rawImageUrl = message.imageUrl;
+  const rawFileUrl = message.fileUrl;
 
   const decryptedText = await decryptSmartMessage(rawText || '', message.conversationId, chatInfo, state.privateKeyJWK);
   const decryptedImageUrl = await decryptSmartMessage(rawImageUrl || '', message.conversationId, chatInfo, state.privateKeyJWK);

@@ -18,6 +18,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
+import multer from 'multer';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -71,17 +72,21 @@ const s3Client = new S3Client({
   },
 });
 
-const uploadToR2 = async (base64OrString: string): Promise<string> => {
-  const fileName = `${uuidv4()}.txt`;
-  
-  // Si recibimos E2EE, es simplemente un string.
-  const buffer = Buffer.from(base64OrString, 'utf-8');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
+
+const uploadToR2 = async (buffer: Buffer, mimeType: string, originalName: string): Promise<string> => {
+  // Extraer extensión del nombre original
+  const extension = originalName.split('.').pop() || 'bin';
+  const fileName = `${uuidv4()}.${extension}`;
 
   const command = new PutObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
     Key: fileName,
     Body: buffer,
-    ContentType: 'text/plain',
+    ContentType: mimeType,
   });
 
   await s3Client.send(command);
@@ -155,6 +160,20 @@ app.get('/api/proxy', async (req: any, res: any) => {
   } catch (err) {
     console.error('Proxy fetch error:', err);
     res.status(500).json({ error: 'Error interno del proxy' });
+  }
+});
+
+// Endpoint nativo para subida de archivos directos a R2
+app.post('/api/upload', upload.single('file'), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    const url = await uploadToR2(req.file.buffer, req.file.mimetype, req.file.originalname);
+    res.json({ url });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 

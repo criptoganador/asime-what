@@ -1,24 +1,33 @@
+import { API_URL } from '../config';
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const MAX_VIDEO_SIZE = 10 * 1024 * 1024; // 10 MB limit in server (maxHttpBufferSize)
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // Aumentado a 50MB para videos gracias a R2
 
-const fileToBase64 = (file: File, maxSize: number = MAX_FILE_SIZE): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    if (file.size > maxSize) {
-      const mbSize = maxSize / (1024 * 1024);
-      reject(new Error(`El archivo excede el tamaño máximo permitido de ${mbSize}MB.`));
-      return;
-    }
+const uploadFileToServer = async (file: File | Blob, originalName: string, maxSize: number = MAX_FILE_SIZE): Promise<string> => {
+  if (file.size > maxSize) {
+    const mbSize = maxSize / (1024 * 1024);
+    throw new Error(`El archivo excede el tamaño máximo permitido de ${mbSize}MB.`);
+  }
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
+  const formData = new FormData();
+  formData.append('file', file, originalName);
+
+  const response = await fetch(`${API_URL}/api/upload`, {
+    method: 'POST',
+    body: formData,
   });
+
+  if (!response.ok) {
+    throw new Error('Error al subir el archivo al servidor');
+  }
+
+  const data = await response.json();
+  return data.url;
 };
 
 export const uploadImage = async (file: File): Promise<string> => {
   try {
-    return await fileToBase64(file);
+    return await uploadFileToServer(file, file.name);
   } catch (error) {
     console.error('Error in uploadImage:', error);
     throw error;
@@ -54,7 +63,15 @@ export const compressAvatar = (file: File): Promise<string> => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
+        canvas.toBlob(async (blob) => {
+          if (!blob) return reject(new Error('Error al comprimir'));
+          try {
+            const url = await uploadFileToServer(blob, file.name || 'avatar.jpg');
+            resolve(url);
+          } catch (e) {
+            reject(e);
+          }
+        }, 'image/jpeg', 0.8);
       };
       img.onerror = () => reject(new Error('Error al cargar la imagen'));
     };
@@ -64,7 +81,7 @@ export const compressAvatar = (file: File): Promise<string> => {
 
 export const uploadFile = async (file: File): Promise<string> => {
   try {
-    return await fileToBase64(file);
+    return await uploadFileToServer(file, file.name);
   } catch (error) {
     console.error('Error in uploadFile:', error);
     throw error;
@@ -73,7 +90,7 @@ export const uploadFile = async (file: File): Promise<string> => {
 
 export const uploadVideo = async (file: File): Promise<string> => {
   try {
-    return await fileToBase64(file, MAX_VIDEO_SIZE);
+    return await uploadFileToServer(file, file.name, MAX_VIDEO_SIZE);
   } catch (error) {
     console.error('Error in uploadVideo:', error);
     throw error;
@@ -82,7 +99,7 @@ export const uploadVideo = async (file: File): Promise<string> => {
 
 export const uploadAudio = async (file: File): Promise<string> => {
   try {
-    return await fileToBase64(file, MAX_VIDEO_SIZE);
+    return await uploadFileToServer(file, file.name || 'audio.webm', MAX_VIDEO_SIZE);
   } catch (error) {
     console.error('Error in uploadAudio:', error);
     throw error;
