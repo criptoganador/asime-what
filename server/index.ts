@@ -261,34 +261,14 @@ io.on('connection', (socket) => {
       const otherParticipants = participants.filter(p => p.userId !== senderId);
       const isRecipientOnline = otherParticipants.some(p => activeUsers.has(p.userId));
       
-      let finalImageUrl = imageUrl;
-      let finalFileUrl = fileUrl;
-
-      // Upload to R2 if content is provided
-      if (imageUrl && imageUrl.length > 500) {
-        try {
-          finalImageUrl = await uploadToR2(imageUrl);
-        } catch (e) {
-          console.error('Error uploading image to R2:', e);
-        }
-      }
-
-      if (fileUrl && fileUrl.length > 500) {
-        try {
-          finalFileUrl = await uploadToR2(fileUrl);
-        } catch (e) {
-          console.error('Error uploading file to R2:', e);
-        }
-      }
-
       const [newMsg] = await db.insert(messages).values({
         id: id || undefined, // Uses client-provided ID if available, else DB generates
         conversationId: chatId,
         senderId,
         text,
         type: type || 'text',
-        imageUrl: finalImageUrl,
-        fileUrl: finalFileUrl,
+        imageUrl: imageUrl,
+        fileUrl: fileUrl,
         fileName,
         fileType,
         duration,
