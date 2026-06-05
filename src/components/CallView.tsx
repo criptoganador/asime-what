@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   LiveKitRoom,
   VideoConference,
@@ -438,16 +438,16 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
     );
   }
 
-  const handleCallEmptyGraceful = () => {
+  const handleCallEmptyGraceful = useCallback(() => {
     if (isDisconnecting) return;
     setIsDisconnecting(true);
     setDisconnectAction('empty');
-  };
+  }, [isDisconnecting]);
 
-  const handleDisconnected = () => {
+  const handleDisconnected = useCallback(() => {
     if (disconnectAction === 'empty') onCallEmpty();
     else onClose();
-  };
+  }, [disconnectAction, onCallEmpty, onClose]);
 
   return (
     <motion.div 
