@@ -1306,6 +1306,13 @@ socket.on('receive_message', async (message: Message) => {
   };
   state.addMessage(message.conversationId, decryptedMessage);
 
+  // Trigger sound if enabled and not sent by current user
+  if (state.soundsEnabled && message.senderId !== state.currentUser?.id) {
+    import('../../../utils/notifications').then(({ playNotificationSound }) => {
+      playNotificationSound();
+    });
+  }
+
   // Trigger notification if not currently viewing this chat or app is backgrounded
   if (state.notificationsEnabled && message.senderId !== state.currentUser?.id) {
     if (state.activeChatId !== message.conversationId || !state.isOnline) {

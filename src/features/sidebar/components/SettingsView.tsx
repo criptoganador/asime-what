@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, Shield, LogOut } from 'lucide-react';
+import { ArrowLeft, Shield, LogOut, Volume2, VolumeX } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -9,7 +9,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export const SettingsView = () => {
-  const { setView, logout, currentUser } = useChatStore();
+  const { setView, logout, currentUser, soundsEnabled, setSoundsEnabled } = useChatStore();
 
   const handleLogout = () => {
     if (window.confirm('¿Estás seguro de que quieres cerrar sesión?')) {
@@ -52,6 +52,12 @@ export const SettingsView = () => {
         {/* Opciones */}
         <div className="bg-white shadow-sm mb-2">
           <SettingsItem icon={<Shield size={20} />} label="Seguridad" onClick={() => setView('security')} />
+          <SettingsItem 
+            icon={soundsEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />} 
+            label="Sonidos de notificación" 
+            subLabel={soundsEnabled ? "Activados" : "Silenciados"}
+            onClick={() => setSoundsEnabled(!soundsEnabled)} 
+          />
         </div>
 
         <div className="bg-white shadow-sm mb-6">
@@ -72,7 +78,7 @@ export const SettingsView = () => {
   );
 };
 
-const SettingsItem = ({ icon, label, onClick, textColor = "text-wa-text-primary" }: any) => (
+const SettingsItem = ({ icon, label, subLabel, onClick, textColor = "text-wa-text-primary" }: any) => (
   <div 
     onClick={onClick}
     className="flex items-center px-6 py-4 hover:bg-wa-hover cursor-pointer transition-colors border-b border-wa-border last:border-none"
@@ -81,7 +87,8 @@ const SettingsItem = ({ icon, label, onClick, textColor = "text-wa-text-primary"
       {icon}
     </div>
     <div className="flex-1">
-      <span className={cn("text-[16px]", textColor)}>{label}</span>
+      <span className={cn("text-[16px]", textColor, "block")}>{label}</span>
+      {subLabel && <span className="text-[13px] text-wa-text-secondary mt-0.5 block">{subLabel}</span>}
     </div>
   </div>
 );
