@@ -134,7 +134,7 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
 const PremiumControlBar = ({ 
   isMinimized, setIsMinimized, video, showInviteMenu, setShowInviteMenu, 
   availableContacts, inviteToCall, roomName, isDisconnecting, setIsDisconnecting, 
-  setDisconnectAction, activeParticipantNames, chatName
+  setDisconnectAction, activeParticipantNames, chatName, setActiveChat
 }: any) => {
   const { localParticipant } = useLocalParticipant();
   const [isMicEnabled, setIsMicEnabled] = useState(true);
@@ -237,7 +237,13 @@ const PremiumControlBar = ({
               </AnimatePresence>
             </div>
 
-            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center relative">
+            <button 
+              onClick={() => {
+                setActiveChat(roomName);
+                setIsMinimized(true);
+              }}
+              className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center relative"
+            >
               <MessageSquare size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-[#f28b3f] rounded-full" />
             </button>
@@ -295,7 +301,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const [hardwareOk, setHardwareOk] = useState(false);
   const [showInviteMenu, setShowInviteMenu] = useState(false);
   const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
-  const { currentUser, contacts, inviteToCall } = useChatStore();
+  const { currentUser, contacts, inviteToCall, setActiveChat } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
 
   const roomOptions = {
@@ -456,8 +462,8 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       initial={{ opacity: 0, scale: 1.1 }}
       animate={isMinimized ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
       className={isMinimized
-        ? "fixed bottom-6 right-6 w-80 h-48 z-[100] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/20 cursor-move"
-        : "fixed inset-0 z-[100] bg-black flex flex-col"
+        ? "fixed top-20 right-4 w-[120px] h-[160px] md:w-80 md:h-48 z-[400] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/20 cursor-move pointer-events-auto"
+        : "fixed inset-0 z-[400] bg-black flex flex-col pointer-events-auto"
       }
     >
       <LiveKitRoom
@@ -552,6 +558,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             setDisconnectAction={setDisconnectAction} 
             activeParticipantNames={activeParticipantNames} 
             chatName={chatName} 
+            setActiveChat={setActiveChat}
           />
         )}
 

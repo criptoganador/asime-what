@@ -144,17 +144,15 @@ export const CallOverlay = () => {
             <Loader2 className="animate-spin text-wa-teal" size={48} />
           </div>
         }>
-          <div className="fixed inset-0 z-[400]">
-            <CallView 
-              roomName={activeCall.chatId}
-              participantName={currentUser?.name || 'Usuario'}
-              chatName={activeChat?.isGroup ? activeChat.name : activeChat?.name || 'Usuario'}
-              chatAvatar={activeChat?.isGroup ? activeChat.avatar || '' : activeChat?.avatar || 'https://i.pravatar.cc/150'}
-              onClose={() => leaveCall()}
-              onCallEmpty={() => endCall(activeCall.chatId)}
-              video={activeCall.type === 'video'}
-            />
-          </div>
+          <CallView 
+            roomName={activeCall.chatId}
+            participantName={currentUser?.name || 'Usuario'}
+            chatName={activeChat?.isGroup ? activeChat.name : activeChat?.name || 'Usuario'}
+            chatAvatar={activeChat?.isGroup ? activeChat.avatar || '' : activeChat?.avatar || 'https://i.pravatar.cc/150'}
+            onClose={() => leaveCall()}
+            onCallEmpty={() => endCall(activeCall.chatId)}
+            video={activeCall.type === 'video'}
+          />
         </Suspense>
       )}
     </>
