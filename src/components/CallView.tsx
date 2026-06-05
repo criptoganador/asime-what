@@ -631,8 +631,12 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       dragConstraints={{ left: typeof window !== 'undefined' ? -window.innerWidth + 200 : -500, right: 0, top: -40, bottom: typeof window !== 'undefined' ? window.innerHeight - 300 : 500 }}
       initial={{ opacity: 0, scale: 1.1 }}
       animate={isMinimized ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
+      onClick={() => {
+        // Restaurar la llamada a pantalla completa si el usuario hace clic en la miniatura
+        if (isMinimized) setIsMinimized(false);
+      }}
       className={isMinimized
-        ? "fixed top-20 right-4 w-[140px] h-[200px] md:w-80 md:h-48 z-[400] bg-white/20 backdrop-blur-3xl rounded-[24px] overflow-hidden shadow-2xl border border-white/40 cursor-move pointer-events-auto"
+        ? "fixed top-20 right-4 w-[140px] h-[200px] md:w-80 md:h-48 z-[400] bg-white/20 backdrop-blur-3xl rounded-[24px] overflow-hidden shadow-2xl border border-white/40 cursor-pointer pointer-events-auto group"
         : "fixed inset-0 z-[400] bg-black flex flex-col pointer-events-auto"
       }
     >
@@ -655,6 +659,13 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         {video ? (
           <div className={`lk-video-wrapper w-full h-full absolute inset-0`}>
             <CustomVideoLayout isMinimized={isMinimized} raisedHands={raisedHands} />
+            {isMinimized && (
+              <div className="absolute inset-0 z-[50] flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300">
+                <div className="bg-black/50 p-3 rounded-full backdrop-blur-sm border border-white/20">
+                  <Maximize2 className="text-white" size={24} />
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className={`w-full h-full flex flex-col items-center justify-center ${isMinimized ? 'bg-transparent' : 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a2d37] via-[#0b141a] to-black'} ${isMinimized ? 'pointer-events-none' : ''}`}>
@@ -708,6 +719,13 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
                       })}
                     </div>
                   )}
+                </div>
+              )}
+              {isMinimized && (
+                <div className="absolute inset-0 z-[50] flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300 rounded-[24px]">
+                  <div className="bg-black/50 p-3 rounded-full backdrop-blur-sm border border-white/20">
+                    <Maximize2 className="text-white" size={24} />
+                  </div>
                 </div>
               )}
             </div>
