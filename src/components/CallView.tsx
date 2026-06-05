@@ -114,7 +114,7 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
     <div className={`w-full h-full flex flex-col md:flex-row ${isMinimized ? 'p-0 gap-0 bg-transparent' : 'p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4 bg-black'} ${isMinimized ? 'pointer-events-none' : ''}`}>
       {/* Main Focus Video */}
       <div className={`flex-1 overflow-hidden relative ${isMinimized ? 'rounded-none bg-transparent' : 'rounded-[24px] shadow-lg bg-[#1c1c1e]'}`}>
-        {focusTrack && <ParticipantTile trackRef={focusTrack} className="w-full h-full object-cover" />}
+        {focusTrack && <ParticipantTile trackRef={focusTrack} className={`w-full h-full object-cover ${isMinimized ? '!bg-transparent' : ''}`} />}
       </div>
 
       {/* Sidebar Carousel */}
@@ -517,7 +517,8 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         onDisconnected={handleDisconnected}
         onError={handleMediaError}
         data-lk-theme="default"
-        style={{ height: '100vh' }}
+        style={{ height: '100vh', backgroundColor: isMinimized ? 'transparent' : 'black' }}
+        className={isMinimized ? '!bg-transparent' : ''}
       >
         <ConnectionStatusIndicator />
         <ParticipantMonitor onCallEmpty={handleCallEmptyGraceful} onParticipantsChange={setActiveParticipantNames} />
