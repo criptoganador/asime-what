@@ -111,9 +111,9 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
   const sidebarTracks = tracks.filter(t => t.participant.identity !== focusTrack?.participant.identity);
 
   return (
-    <div className={`w-full h-full flex flex-col md:flex-row ${isMinimized ? 'p-0 gap-0' : 'p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4'} bg-black ${isMinimized ? 'pointer-events-none' : ''}`}>
+    <div className={`w-full h-full flex flex-col md:flex-row ${isMinimized ? 'p-0 gap-0 bg-transparent' : 'p-3 md:p-4 pb-[110px] md:pb-4 gap-3 md:gap-4 bg-black'} ${isMinimized ? 'pointer-events-none' : ''}`}>
       {/* Main Focus Video */}
-      <div className={`flex-1 overflow-hidden relative bg-[#1c1c1e] ${isMinimized ? 'rounded-none' : 'rounded-[24px] shadow-lg'}`}>
+      <div className={`flex-1 overflow-hidden relative ${isMinimized ? 'rounded-none bg-transparent' : 'rounded-[24px] shadow-lg bg-[#1c1c1e]'}`}>
         {focusTrack && <ParticipantTile trackRef={focusTrack} className="w-full h-full object-cover" />}
       </div>
 
@@ -503,7 +503,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       initial={{ opacity: 0, scale: 1.1 }}
       animate={isMinimized ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, x: 0, y: 0 }}
       className={isMinimized
-        ? "fixed top-20 right-4 w-[140px] h-[200px] md:w-80 md:h-48 z-[400] bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/20 cursor-move pointer-events-auto"
+        ? "fixed top-20 right-4 w-[140px] h-[200px] md:w-80 md:h-48 z-[400] bg-white/20 backdrop-blur-3xl rounded-[24px] overflow-hidden shadow-2xl border border-white/40 cursor-move pointer-events-auto"
         : "fixed inset-0 z-[400] bg-black flex flex-col pointer-events-auto"
       }
     >
@@ -526,7 +526,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             <CustomVideoLayout isMinimized={isMinimized} />
           </div>
         ) : (
-          <div className={`w-full h-full flex flex-col items-center justify-center bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a2d37] via-[#0b141a] to-black ${isMinimized ? 'pointer-events-none' : ''}`}>
+          <div className={`w-full h-full flex flex-col items-center justify-center ${isMinimized ? 'bg-transparent' : 'bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#1a2d37] via-[#0b141a] to-black'} ${isMinimized ? 'pointer-events-none' : ''}`}>
             <div className="relative flex flex-col items-center">
               {/* Ondas expansivas premium para voz */}
               <motion.div 
