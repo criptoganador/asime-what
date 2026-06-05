@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Send, Palette } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useChatStore } from '../../sidebar/store/useChatStore';
+import toast from 'react-hot-toast';
 
 const BACKGROUND_COLORS = [
   '#6b21a8', // Purple
@@ -34,7 +35,7 @@ export const TextStatusEditor = ({ onClose }: TextStatusEditorProps) => {
       });
       onClose();
     } catch (error) {
-      alert('Error al publicar el estado');
+      toast.error('Error al publicar el estado');
     } finally {
       setIsSubmitting(false);
     }

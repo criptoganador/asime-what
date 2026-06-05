@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Search, UserPlus, Loader2, User, Check } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
 import { API_URL } from '../../../config';
+import toast from 'react-hot-toast';
 
 export const AddContactView = ({ onBack }: { onBack: () => void }) => {
   const { currentUser, fetchContacts, contacts } = useChatStore();
@@ -40,7 +41,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
     // Verificar si ya es contacto de forma segura
     const safeContacts = Array.isArray(contacts) ? contacts : [];
     if (safeContacts.some(c => c.contactId === contactUser.id)) {
-      alert('Este usuario ya está en tus contactos.');
+      toast('Este usuario ya está en tus contactos.', { icon: 'ℹ️' });
       return;
     }
 
@@ -67,7 +68,7 @@ export const AddContactView = ({ onBack }: { onBack: () => void }) => {
       
       // onBack(); // Removemos auto-cierre para mejor UX
     } catch (err: any) {
-      alert(err.message || 'Error al agregar contacto.');
+      toast.error(err.message || 'Error al agregar contacto.');
     } finally {
       setAddingId(null);
     }

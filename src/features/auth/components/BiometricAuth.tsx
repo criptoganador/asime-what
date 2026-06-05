@@ -13,6 +13,7 @@ import { Capacitor } from '@capacitor/core';
 import { BiometricAuth as NativeBiometric } from '@aparajita/capacitor-biometric-auth';
 import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
 import { Device } from '@capacitor/device';
+import toast from 'react-hot-toast';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -97,7 +98,7 @@ export const BiometricAuth: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('¡Ups! Esta foto pesa más de 2MB. Por favor elige una más ligera.');
+        toast.error('¡Ups! Esta foto pesa más de 2MB. Por favor elige una más ligera.');
         return;
       }
       setIsUploadingAvatar(true);
@@ -105,7 +106,7 @@ export const BiometricAuth: React.FC = () => {
         const imageUrl = await uploadImage(file);
         setAvatar(imageUrl);
       } catch (error: any) {
-        alert(error.message || 'Error al subir la foto.');
+        toast.error(error.message || 'Error al subir la foto.');
       } finally {
         setIsUploadingAvatar(false);
       }

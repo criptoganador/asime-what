@@ -8,6 +8,7 @@ import { Network } from '@capacitor/network';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { notifyMessage, notifyCall } from '../../../utils/notifications';
+import toast from 'react-hot-toast';
 
 const idbStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -815,7 +816,7 @@ export const useChatStore = create<ChatState>()(
       setView('chats');
     } catch (error: any) {
       console.error('Error starting chat:', error);
-      alert(error.message || 'Error al iniciar chat con el contacto.');
+      toast.error(error.message || 'Error al iniciar chat con el contacto.');
     }
   },
   fetchChats: async (userId: string) => {
@@ -1149,7 +1150,7 @@ export const useChatStore = create<ChatState>()(
       setView('chats');
     } catch (error: any) {
       console.error('Error creating group:', error);
-      alert(error.message || 'Error al crear el grupo. Es posible que la foto sea demasiado grande o haya un problema de conexión.');
+      toast.error(error.message || 'Error al crear el grupo. Es posible que la foto sea demasiado grande o haya un problema de conexión.');
     }
   },
   deleteChat: async (chatId) => {
@@ -1317,13 +1318,17 @@ socket.on('receive_message', async (message: Message) => {
   if (state.notificationsEnabled && message.senderId !== state.currentUser?.id) {
     if (state.activeChatId !== message.conversationId || !state.isOnline) {
       const senderName = chatInfo?.isGroup ? `${chatInfo.name}` : chatInfo?.name || 'Usuario';
+      // Para grupos, mostrar quién envió el mensaje
+      const displaySender = chatInfo?.isGroup
+        ? `${chatInfo.name}: ${chatInfo.participants?.find((p: any) => p.id === message.senderId)?.name || 'Alguien'}`
+        : senderName;
       let bodyText = decryptedText;
       if (message.type === 'image') bodyText = '📷 Foto';
       if (message.type === 'video') bodyText = '🎥 Video';
       if (message.type === 'audio') bodyText = '🎤 Nota de voz';
       if (message.type === 'file') bodyText = '📎 Documento';
       
-      notifyMessage(`Mensaje de ${senderName}`, bodyText || 'Nuevo mensaje');
+      notifyMessage(`Mensaje de ${displaySender}`, bodyText || 'Nuevo mensaje');
     }
   }
 });
@@ -1417,18 +1422,6 @@ socket.on('message_reaction', ({ chatId, messageId, emoji, userId }) => {
   }));
 });
 
-socket.on('messages_read', ({ chatId, readBy }) => {
-  const state = useChatStore.getState();
-  const currentMessages = state.messages[chatId] || [];
-  const updatedMessages = currentMessages.map(msg => 
-    msg.senderId !== readBy ? { ...msg, status: 'read' as const } : msg
-  );
-  
-  useChatStore.setState((state) => ({
-    messages: { ...state.messages, [chatId]: updatedMessages }
-  }));
-});
-
 socket.on('user_status_change', ({ userId, status, lastSeen }) => {
   const state = useChatStore.getState();
   const updatedChats = state.chats.map(chat => {
@@ -1500,9 +1493,9 @@ socket.on('call_answered', ({ chatId, answererId, accept, reason }) => {
       if (!isGroup) {
         useChatStore.setState({ outgoingCall: null });
         if (reason === 'busy') {
-          alert('El usuario está en otra llamada 📵');
+          toast.error('El usuario está en otra llamada 📵');
         } else {
-          alert('Llamada rechazada');
+          toast.error('Llamada rechazada');
         }
       }
     }
@@ -1511,9 +1504,9 @@ socket.on('call_answered', ({ chatId, answererId, accept, reason }) => {
     // Solo mostramos alerta, NO te sacamos de la llamada activa.
     if (!isGroup) {
       if (reason === 'busy') {
-        alert('El contacto está ocupado en otra llamada');
+        toast('El contacto está ocupado en otra llamada', { icon: '📵' });
       } else {
-        alert('Invitación rechazada');
+        toast.error('Invitación rechazada');
       }
     }
   }
@@ -1526,32 +1519,8 @@ socket.on('call_ended', ({ chatId }) => {
   }
 });
 
-socket.on('user_uploading_media', ({ chatId, userId, mediaType }) => {
-  const state = useChatStore.getState();
-  const currentUploads = state.uploadingUsers[chatId] || [];
-  if (!currentUploads.find(u => u.userId === userId)) {
-    useChatStore.setState({
-      uploadingUsers: {
-        ...state.uploadingUsers,
-        [chatId]: [...currentUploads, { userId, type: mediaType || 'file' }]
-      }
-    });
-  }
-});
-
-socket.on('user_stop_uploading_media', ({ chatId, userId }) => {
-  const state = useChatStore.getState();
-  const currentUploads = state.uploadingUsers[chatId] || [];
-  useChatStore.setState({
-    uploadingUsers: {
-      ...state.uploadingUsers,
-      [chatId]: currentUploads.filter(u => u.userId !== userId)
-    }
-  });
-});
-
 socket.on('spam_warning', ({ message }) => {
-  alert('⚠️ Anti-Spam: ' + message);
+  toast.error('⚠️ Anti-Spam: ' + message);
 });
 
 if (restoredUser && restoredUser.id) {

@@ -12,6 +12,7 @@ import {
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2, Mic, MicOff, Video as VideoIcon, VideoOff, MessageSquare, Smile, Hand, Sparkles, MoreVertical, CircleDot, MonitorUp, Users, SwitchCamera } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
@@ -208,7 +209,7 @@ const PremiumControlBar = ({
       await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
     } catch (e) {
       console.error('Error sharing screen', e);
-      alert('No se pudo compartir la pantalla. Verifica los permisos.');
+      toast.error('No se pudo compartir la pantalla. Verifica los permisos.');
     }
   };
 

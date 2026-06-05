@@ -8,6 +8,7 @@ import { TextStatusEditor } from './TextStatusEditor';
 import { StatusViewer } from './StatusViewer';
 import { AnimatePresence } from 'framer-motion';
 import { GroupedStatus } from '../../sidebar/store/useChatStore';
+import toast from 'react-hot-toast';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -46,7 +47,7 @@ export const StatusSidebar = () => {
         const imageUrl = await uploadImage(file);
         await updateProfile({ avatar: imageUrl });
       } catch (error) {
-        alert('Error al subir el avatar');
+        toast.error('Error al subir el avatar');
       } finally {
         setIsUploading(false);
       }
@@ -64,7 +65,7 @@ export const StatusSidebar = () => {
           content: imageUrl
         });
       } catch (error) {
-        alert('Error al publicar el estado');
+        toast.error('Error al publicar el estado');
       } finally {
         setIsUploading(false);
       }

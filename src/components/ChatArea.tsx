@@ -22,6 +22,7 @@ import { Theme, EmojiClickData } from 'emoji-picker-react';
 import { Virtuoso } from 'react-virtuoso';
 import AudioRouting from '../utils/AudioRouting';
 import { MediaPreviewModal, PendingMedia } from './MediaPreviewModal';
+import toast from 'react-hot-toast';
 
 const EmojiPicker = lazy(() => import('emoji-picker-react'));
 
@@ -292,7 +293,7 @@ export const ChatArea = () => {
       const validFiles = files.filter(f => f.size <= MAX_SIZE);
       
       if (validFiles.length < files.length) {
-        alert(`Algunos archivos superan el límite de 10MB y no fueron seleccionados.`);
+        toast.error('Algunos archivos superan el límite de 10MB y no fueron seleccionados.');
       }
 
       if (validFiles.length === 0) {
@@ -498,11 +499,11 @@ export const ChatArea = () => {
       }, 1000);
     } catch (err: any) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        alert('Para enviar notas de voz, permite el acceso al micrófono en la configuración de tu navegador.');
+        toast.error('Para enviar notas de voz, permite el acceso al micrófono en la configuración de tu navegador.');
       } else if (err.name === 'NotFoundError') {
-        alert('No se encontró un micrófono en tu dispositivo.');
+        toast.error('No se encontró un micrófono en tu dispositivo.');
       } else {
-        alert('Error al acceder al micrófono. Verifica los permisos de tu navegador.');
+        toast.error('Error al acceder al micrófono. Verifica los permisos de tu navegador.');
       }
     }
   };
@@ -1324,13 +1325,13 @@ async function handleNativeDownload(url: string, fileName: string, mimeType?: st
           dialogTitle: 'Abrir archivo'
         });
       } catch (shareError) {
-        alert(`Tu dispositivo no tiene ninguna aplicación instalada capaz de abrir el archivo ${safeFileName} (Ej: instala Excel o un visor de PDF).`);
+        toast.error(`Sin app para abrir ${safeFileName}. Instala un visor de PDF o Excel.`);
       }
     }
 
   } catch (error: any) {
     console.error('Error downloading file:', error);
-    alert('Error en descarga: ' + error.message);
+    toast.error('Error en descarga: ' + error.message);
   }
 };
 

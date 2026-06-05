@@ -5,6 +5,7 @@ import { useChatStore, socket } from './features/sidebar/store/useChatStore'
 import { requestNotificationPermissions } from './utils/notifications'
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
+import { Toaster } from 'react-hot-toast'
 
 function App() {
   const { isAuthenticated, isValidatingSession, currentUser } = useChatStore();
@@ -100,6 +101,24 @@ function App() {
 
   return (
     <>
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3500,
+          style: {
+            background: '#1c1c1e',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: '500',
+            borderRadius: '12px',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            maxWidth: '90vw'
+          },
+          success: { iconTheme: { primary: '#00a884', secondary: '#fff' } },
+          error:   { iconTheme: { primary: '#ea4335', secondary: '#fff' } },
+        }}
+      />
       {!isAuthenticated ? <AuthScreen /> : <Layout />}
     </>
   )

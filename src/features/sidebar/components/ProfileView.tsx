@@ -6,6 +6,7 @@ import { uploadImage } from '../../../utils/upload';
 import EmojiPicker from 'emoji-picker-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import toast from 'react-hot-toast';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,7 +28,7 @@ export const ProfileView = () => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('¡Ups! Esta foto pesa más de 2MB. Por favor, elige una más ligera para mantener el chat rápido. 🚀');
+        toast.error('¡Ups! Esta foto pesa más de 2MB. Por favor, elige una más ligera para mantener el chat rápido. 🚀');
         return;
       }
       setIsUploading(true);
@@ -35,7 +36,7 @@ export const ProfileView = () => {
         const imageUrl = await uploadImage(file);
         await updateProfile({ avatar: imageUrl });
       } catch (error: any) {
-        alert(error.message || 'Error al subir la imagen');
+        toast.error(error.message || 'Error al subir la imagen');
       } finally {
         setIsUploading(false);
       }
@@ -207,7 +208,7 @@ export const ProfileView = () => {
               className="text-wa-text-secondary cursor-pointer hover:text-[#6366f1] transition-colors p-1 rounded-full hover:bg-slate-50" 
               onClick={() => {
                 navigator.clipboard.writeText(`@${currentUser.username}`);
-                alert('¡Nombre de usuario copiado!');
+                toast.success('¡Nombre de usuario copiado!');
               }}
               title="Copiar usuario"
             >

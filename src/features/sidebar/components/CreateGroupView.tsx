@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Camera, User, Check, Loader2 } from 'lucide-react';
 import { useChatStore } from '../store/useChatStore';
+import toast from 'react-hot-toast';
 
 export const CreateGroupView = ({ onBack }: { onBack: () => void }) => {
   const { contacts, createGroup, fetchContacts, currentUser } = useChatStore();
@@ -45,7 +46,7 @@ export const CreateGroupView = ({ onBack }: { onBack: () => void }) => {
       );
       onBack();
     } catch (error) {
-      alert('Error al crear el grupo');
+      toast.error('Error al crear el grupo');
     } finally {
       setIsCreating(false);
     }

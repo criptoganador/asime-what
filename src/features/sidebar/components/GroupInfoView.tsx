@@ -6,6 +6,7 @@ import { API_URL } from '../../../config';
 import { compressAvatar } from '../../../utils/upload';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import toast from 'react-hot-toast';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -61,7 +62,7 @@ export const GroupInfoView = () => {
     if (!file || !currentGroup?.id) return;
 
     if (file.size > 10 * 1024 * 1024) {
-      alert('La imagen es demasiado grande. Selecciona una menor a 10MB.');
+      toast.error('La imagen es demasiado grande. Selecciona una menor a 10MB.');
       return;
     }
 
@@ -71,7 +72,7 @@ export const GroupInfoView = () => {
       await updateGroup(currentGroup.id, { avatar: base64Avatar });
     } catch (error) {
       console.error('Error uploading group avatar:', error);
-      alert('El archivo es demasiado grande o hubo un error.');
+      toast.error('El archivo es demasiado grande o hubo un error.');
     } finally {
       setIsUploading(false);
     }
