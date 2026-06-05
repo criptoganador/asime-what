@@ -1135,7 +1135,8 @@ app.get('/api/get-livekit-token', authenticateToken, async (req: any, res: any) 
 
   try {
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: participantName as string,
+      identity: `${req.userId}-${Math.random().toString(36).substring(7)}`,
+      name: participantName as string,
     });
     at.addGrant({ roomJoin: true, room: roomName as string, canPublish: true, canSubscribe: true });
 
