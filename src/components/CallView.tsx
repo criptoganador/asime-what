@@ -362,7 +362,11 @@ const PremiumControlBar = ({
                       onClick={() => {
                         if (isDisconnecting) return;
                         setIsDisconnecting(true);
-                        setDisconnectAction('leave');
+                        if (activeParticipantNames.length <= 1) {
+                          setDisconnectAction('empty');
+                        } else {
+                          setDisconnectAction('leave');
+                        }
                       }}
                       className="w-full flex items-center gap-3 p-3 mt-1 rounded-xl bg-[#ea4335] hover:bg-[#d93025] transition-colors text-white text-left font-semibold"
                     >
@@ -395,7 +399,11 @@ const PremiumControlBar = ({
               onClick={() => {
                 if (isDisconnecting) return;
                 setIsDisconnecting(true);
-                setDisconnectAction('leave');
+                if (activeParticipantNames.length <= 1) {
+                  setDisconnectAction('empty');
+                } else {
+                  setDisconnectAction('leave');
+                }
               }}
               className="p-3 bg-[#ea4335] hover:bg-[#d93025] text-white rounded-[14px] transition-all duration-300 flex items-center justify-center shadow-lg"
             >
@@ -437,8 +445,8 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   };
 
   const availableContacts = contacts.filter(contact => {
-    const safeContactName = (contact.user?.name || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    return !activeParticipantNames.includes(safeContactName);
+    if (!contact.user?.id) return false;
+    return !activeParticipantNames.some(identity => identity.startsWith(contact.user.id));
   });
 
   useEffect(() => {
@@ -561,7 +569,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             onClick={() => {
               if (isDisconnecting) return;
               setIsDisconnecting(true);
-              setDisconnectAction('leave');
+              if (activeParticipantNames.length <= 1) {
+                setDisconnectAction('empty');
+              } else {
+                setDisconnectAction('leave');
+              }
             }}
             className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600 transition-all hover:scale-110 active:scale-95 shadow-lg shadow-red-500/20"
           >
@@ -696,7 +708,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
               onClick={() => {
                 if (isDisconnecting) return;
                 setIsDisconnecting(true);
-                setDisconnectAction('leave');
+                if (activeParticipantNames.length <= 1) {
+                  setDisconnectAction('empty');
+                } else {
+                  setDisconnectAction('leave');
+                }
               }}
               className="p-1.5 bg-red-500/80 hover:bg-red-500 text-white rounded-full transition-all backdrop-blur-sm cursor-pointer"
               title="Colgar"
