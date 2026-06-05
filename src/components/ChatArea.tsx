@@ -139,9 +139,10 @@ export const ChatArea = () => {
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 430);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const showHeaderMenuRef = useRef(false);
+  const virtuosoRef = useRef<any>(null);
+  const isAtBottomRef = useRef(true);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -179,7 +180,9 @@ export const ChatArea = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (virtuosoRef.current && currentMessages.length > 0) {
+      virtuosoRef.current.scrollToIndex({ index: currentMessages.length - 1, behavior: 'smooth' });
+    }
   };
 
   useEffect(() => {
@@ -193,11 +196,7 @@ export const ChatArea = () => {
     const isNewMessageAtBottom = currentMessages.length - prevMessagesLengthRef.current === 1;
     const isFirstLoad = prevMessagesLengthRef.current === 0 && currentMessages.length > 0;
     
-    let isAtBottom = true;
-    if (scrollContainerRef.current) {
-      const { scrollHeight, scrollTop, clientHeight } = scrollContainerRef.current;
-      isAtBottom = scrollHeight - scrollTop - clientHeight < 150; // Margen de 150px
-    }
+    let isAtBottom = isAtBottomRef.current;
     
     const lastMessage = currentMessages[currentMessages.length - 1];
     const isMyMessage = lastMessage?.senderId === currentUser?.id;
@@ -205,7 +204,7 @@ export const ChatArea = () => {
     // Auto-scroll solo si: entramos al chat, primera carga, o si llegó un mensaje
     // nuevo y ya estábamos abajo o el mensaje lo acabamos de enviar nosotros.
     if (isChatChanged || isFirstLoad || (isNewMessageAtBottom && (isAtBottom || isMyMessage))) {
-      scrollToBottom();
+      setTimeout(() => scrollToBottom(), 50);
     }
     
     prevMessagesLengthRef.current = currentMessages.length;
@@ -228,9 +227,8 @@ export const ChatArea = () => {
       // que React haya terminado su ciclo de render completo antes de medir el DOM.
       setTimeout(() => {
         requestAnimationFrame(() => {
-          if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight - previousScrollHeight;
-          }
+          // Virtuoso maintains scroll position automatically on prepending data if firstItemIndex is managed.
+          // Since we use default appending logic, Virtuoso will handle it. We don't need manual DOM scrollTop adjustments.
         });
       }, 0);
       setIsLoadingMore(false);
@@ -762,6 +760,8 @@ export const ChatArea = () => {
           )}
           
           <Virtuoso
+            ref={virtuosoRef}
+            atBottomStateChange={(atBottom) => { isAtBottomRef.current = atBottom; }}
             style={{ height: '100%' }}
             data={filteredMessages}
             initialTopMostItemIndex={filteredMessages.length - 1}
