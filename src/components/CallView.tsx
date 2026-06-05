@@ -131,6 +131,160 @@ const CustomVideoLayout = ({ isMinimized }: { isMinimized: boolean }) => {
   );
 };
 
+const PremiumControlBar = ({ 
+  isMinimized, setIsMinimized, video, showInviteMenu, setShowInviteMenu, 
+  availableContacts, inviteToCall, roomName, isDisconnecting, setIsDisconnecting, 
+  setDisconnectAction, activeParticipantNames, chatName
+}: any) => {
+  const { localParticipant } = useLocalParticipant();
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isCameraEnabled, setIsCameraEnabled] = useState(video);
+
+  const toggleMic = () => {
+    if (localParticipant) {
+      const newState = !isMicEnabled;
+      localParticipant.setMicrophoneEnabled(newState);
+      setIsMicEnabled(newState);
+    }
+  };
+
+  const toggleCamera = () => {
+    if (localParticipant) {
+      const newState = !isCameraEnabled;
+      localParticipant.setCameraEnabled(newState);
+      setIsCameraEnabled(newState);
+    }
+  };
+
+  return (
+    <>
+      {/* Superior: Header Flotante Premium */}
+      <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-0 right-0 z-[110] px-8 flex items-center justify-between pointer-events-none">
+        <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 shadow-lg pointer-events-auto">
+          <Users size={18} className="text-white/80" />
+          <span className="text-white font-medium text-sm">{activeParticipantNames.length} participants</span>
+        </div>
+      </div>
+
+      {/* Inferior: Barra de Controles Estilo Dribbble */}
+      <div className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-0 right-0 z-[110] flex justify-center pointer-events-none">
+        <div className="flex items-center gap-2 bg-[#202124]/95 backdrop-blur-2xl px-4 py-3 rounded-[24px] shadow-[0_20px_40px_rgba(0,0,0,0.3)] pointer-events-auto border border-white/5">
+          
+          {/* Grupo 1: Medios */}
+          <div className="flex items-center gap-1 bg-white/5 p-1 rounded-[18px]">
+            <button 
+              onClick={toggleMic}
+              className={`p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center ${isMicEnabled ? 'bg-transparent hover:bg-white/10 text-white' : 'bg-[#ea4335] text-white'}`}
+            >
+              {isMicEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+            </button>
+            {video && (
+              <button 
+                onClick={toggleCamera}
+                className={`p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center ${isCameraEnabled ? 'bg-transparent hover:bg-white/10 text-white' : 'bg-[#ea4335] text-white'}`}
+              >
+                {isCameraEnabled ? <VideoIcon size={20} /> : <VideoOff size={20} />}
+              </button>
+            )}
+          </div>
+
+          <div className="w-px h-8 bg-white/10 mx-2" />
+
+          {/* Grupo 2: Herramientas Dribbble */}
+          <div className="flex items-center gap-1">
+            <div className="relative">
+              <button 
+                onClick={() => setShowInviteMenu(!showInviteMenu)}
+                className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center"
+                title="Participantes"
+              >
+                <Users size={20} />
+              </button>
+
+              <AnimatePresence>
+                {showInviteMenu && (
+                  <motion.div 
+                    key="invite-menu-dropdown"
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="absolute bottom-[calc(100%+1rem)] left-1/2 -translate-x-1/2 w-72 bg-[#202124] rounded-[24px] shadow-2xl z-50 border border-white/10 overflow-hidden"
+                  >
+                    <div className="p-5 border-b border-white/5">
+                      <h3 className="text-white text-[15px] font-semibold">Añadir a la llamada</h3>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto custom-scrollbar p-2">
+                      {availableContacts.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500 text-sm">No hay contactos disponibles</div>
+                      ) : (
+                        availableContacts.map((contact: any) => (
+                          <button
+                            key={contact.id}
+                            onClick={() => {
+                              inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
+                              setShowInviteMenu(false);
+                            }}
+                            className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors text-left"
+                          >
+                            <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm" />
+                            <span className="text-white text-[15px] font-medium truncate flex-1">{contact.nickname || contact.user?.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center relative">
+              <MessageSquare size={20} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-[#f28b3f] rounded-full" />
+            </button>
+            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+              <Smile size={20} />
+            </button>
+            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+              <Hand size={20} />
+            </button>
+            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+              <Sparkles size={20} />
+            </button>
+            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+              <MoreVertical size={20} />
+            </button>
+          </div>
+
+          <div className="w-px h-8 bg-white/10 mx-2" />
+
+          {/* Grupo 3: Extras y Cuelgue */}
+          <div className="flex items-center gap-3">
+            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+              <MonitorUp size={20} />
+            </button>
+            
+            <div className="flex items-center gap-2 bg-[#2d2e30] px-3 py-1.5 rounded-[12px] text-white/90 text-sm font-medium border border-white/5">
+              <CircleDot size={14} className="text-[#ea4335] animate-pulse" />
+              <span>00:32</span>
+            </div>
+
+            <button 
+              onClick={() => {
+                if (isDisconnecting) return;
+                setIsDisconnecting(true);
+                setDisconnectAction('leave');
+              }}
+              className="p-3 bg-[#ea4335] hover:bg-[#d93025] text-white rounded-[14px] transition-all duration-300 flex items-center justify-center shadow-lg"
+            >
+              <PhoneOff size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 export const CallView = ({ roomName, participantName, chatName, chatAvatar, onClose, onCallEmpty, video }: CallViewProps) => {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -155,26 +309,6 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
     },
     publishDefaults: {
       simulcast: true, // Envía múltiples resoluciones de video
-    }
-  };
-
-  const { localParticipant } = useLocalParticipant();
-  const [isMicEnabled, setIsMicEnabled] = useState(true);
-  const [isCameraEnabled, setIsCameraEnabled] = useState(video);
-
-  const toggleMic = () => {
-    if (localParticipant) {
-      const newState = !isMicEnabled;
-      localParticipant.setMicrophoneEnabled(newState);
-      setIsMicEnabled(newState);
-    }
-  };
-
-  const toggleCamera = () => {
-    if (localParticipant) {
-      const newState = !isCameraEnabled;
-      localParticipant.setCameraEnabled(newState);
-      setIsCameraEnabled(newState);
     }
   };
 
@@ -405,131 +539,21 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
         <RoomAudioRenderer />
         
         {!isMinimized && (
-          <>
-            {/* Superior: Header Flotante Premium */}
-            <div className="absolute top-[max(1.5rem,env(safe-area-inset-top))] left-0 right-0 z-[110] px-8 flex items-center justify-between pointer-events-none">
-              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-xl border border-white/10 shadow-lg pointer-events-auto">
-                <Users size={18} className="text-white/80" />
-                <span className="text-white font-medium text-sm">{activeParticipantNames.length} participants</span>
-              </div>
-            </div>
-
-            {/* Inferior: Barra de Controles Estilo Dribbble */}
-            <div className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-0 right-0 z-[110] flex justify-center pointer-events-none">
-              <div className="flex items-center gap-2 bg-[#202124]/95 backdrop-blur-2xl px-4 py-3 rounded-[24px] shadow-[0_20px_40px_rgba(0,0,0,0.3)] pointer-events-auto border border-white/5">
-                
-                {/* Grupo 1: Medios */}
-                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-[18px]">
-                  <button 
-                    onClick={toggleMic}
-                    className={`p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center ${isMicEnabled ? 'bg-transparent hover:bg-white/10 text-white' : 'bg-[#ea4335] text-white'}`}
-                  >
-                    {isMicEnabled ? <Mic size={20} /> : <MicOff size={20} />}
-                  </button>
-                  {video && (
-                    <button 
-                      onClick={toggleCamera}
-                      className={`p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center ${isCameraEnabled ? 'bg-transparent hover:bg-white/10 text-white' : 'bg-[#ea4335] text-white'}`}
-                    >
-                      {isCameraEnabled ? <VideoIcon size={20} /> : <VideoOff size={20} />}
-                    </button>
-                  )}
-                </div>
-
-                <div className="w-px h-8 bg-white/10 mx-2" />
-
-                {/* Grupo 2: Herramientas Dribbble */}
-                <div className="flex items-center gap-1">
-                  <div className="relative">
-                    <button 
-                      onClick={() => setShowInviteMenu(!showInviteMenu)}
-                      className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center"
-                      title="Participantes"
-                    >
-                      <Users size={20} />
-                    </button>
-
-                    <AnimatePresence>
-                      {showInviteMenu && (
-                        <motion.div 
-                          key="invite-menu-dropdown"
-                          initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                          className="absolute bottom-[calc(100%+1rem)] left-1/2 -translate-x-1/2 w-72 bg-[#202124] rounded-[24px] shadow-2xl z-50 border border-white/10 overflow-hidden"
-                        >
-                          <div className="p-5 border-b border-white/5">
-                            <h3 className="text-white text-[15px] font-semibold">Añadir a la llamada</h3>
-                          </div>
-                          <div className="max-h-64 overflow-y-auto custom-scrollbar p-2">
-                            {availableContacts.length === 0 ? (
-                              <div className="p-4 text-center text-gray-500 text-sm">No hay contactos disponibles</div>
-                            ) : (
-                              availableContacts.map(contact => (
-                                <button
-                                  key={contact.id}
-                                  onClick={() => {
-                                    inviteToCall(roomName, contact.user.id, video ? 'video' : 'voice');
-                                    setShowInviteMenu(false);
-                                  }}
-                                  className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/5 transition-colors text-left"
-                                >
-                                  <img src={contact.user?.avatar || 'https://i.pravatar.cc/150'} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm" />
-                                  <span className="text-white text-[15px] font-medium truncate flex-1">{contact.nickname || contact.user?.name}</span>
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center relative">
-                    <MessageSquare size={20} />
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-[#f28b3f] rounded-full" />
-                  </button>
-                  <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-                    <Smile size={20} />
-                  </button>
-                  <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-                    <Hand size={20} />
-                  </button>
-                  <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-                    <Sparkles size={20} />
-                  </button>
-                  <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-                    <MoreVertical size={20} />
-                  </button>
-                </div>
-
-                <div className="w-px h-8 bg-white/10 mx-2" />
-
-                {/* Grupo 3: Extras y Cuelgue */}
-                <div className="flex items-center gap-3">
-                  <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-                    <MonitorUp size={20} />
-                  </button>
-                  
-                  <div className="flex items-center gap-2 bg-[#2d2e30] px-3 py-1.5 rounded-[12px] text-white/90 text-sm font-medium border border-white/5">
-                    <CircleDot size={14} className="text-[#ea4335] animate-pulse" />
-                    <span>00:32</span>
-                  </div>
-
-                  <button 
-                    onClick={() => {
-                      if (isDisconnecting) return;
-                      setIsDisconnecting(true);
-                      setDisconnectAction('leave');
-                    }}
-                    className="p-3 bg-[#ea4335] hover:bg-[#d93025] text-white rounded-[14px] transition-all duration-300 flex items-center justify-center shadow-lg"
-                  >
-                    <PhoneOff size={20} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>
+          <PremiumControlBar 
+            isMinimized={isMinimized} 
+            setIsMinimized={setIsMinimized} 
+            video={video} 
+            showInviteMenu={showInviteMenu} 
+            setShowInviteMenu={setShowInviteMenu} 
+            availableContacts={availableContacts} 
+            inviteToCall={inviteToCall} 
+            roomName={roomName} 
+            isDisconnecting={isDisconnecting} 
+            setIsDisconnecting={setIsDisconnecting} 
+            setDisconnectAction={setDisconnectAction} 
+            activeParticipantNames={activeParticipantNames} 
+            chatName={chatName} 
+          />
         )}
 
         {isMinimized && (
