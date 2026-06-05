@@ -27,7 +27,7 @@ const scheduleNativeNotification = async (title: string, body: string) => {
           {
             title,
             body,
-            id: new Date().getTime(),
+            id: Math.floor(Math.random() * 2147483647), // Must be a valid 32-bit Java int
             schedule: { at: new Date(Date.now() + 100) },
             actionTypeId: '',
           }
