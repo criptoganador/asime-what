@@ -1106,7 +1106,7 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
           </div>
         );
       case 'video':
-        const isUrlValid = msg.fileUrl && msg.fileUrl.startsWith('data:') || msg.fileUrl?.startsWith('blob:');
+        const isUrlValid = msg.fileUrl && (msg.fileUrl.startsWith('http') || msg.fileUrl.startsWith('data:') || msg.fileUrl.startsWith('blob:'));
         return (
           <div className="space-y-1 relative">
             <div
