@@ -174,20 +174,13 @@ const PremiumControlBar = ({
   isMinimized, setIsMinimized, video, showInviteMenu, setShowInviteMenu, 
   availableContacts, inviteToCall, roomName, isDisconnecting, setIsDisconnecting, 
   setDisconnectAction, activeParticipantNames, chatName, setActiveChat, setRaisedHands,
-  setInvitedContactIds
+  setInvitedContactIds,
+  callDuration, isMicEnabled, setIsMicEnabled, isCameraEnabled, setIsCameraEnabled
 }: any) => {
   const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
   const { send } = useDataChannel('hand-raise');
-  const [isMicEnabled, setIsMicEnabled] = useState(true);
-  const [isCameraEnabled, setIsCameraEnabled] = useState(video);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCallDuration(prev => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -442,6 +435,17 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   const [activeParticipantNames, setActiveParticipantNames] = useState<string[]>([]);
   const [invitedContactIds, setInvitedContactIds] = useState<string[]>([]);
   const [raisedHands, setRaisedHands] = useState<Record<string, boolean>>({});
+  
+  // Estado Inmortal (Sobrevive a la ventana flotante)
+  const [isMicEnabled, setIsMicEnabled] = useState(true);
+  const [isCameraEnabled, setIsCameraEnabled] = useState(video);
+  const [callDuration, setCallDuration] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCallDuration(prev => prev + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const { currentUser, contacts, inviteToCall, setActiveChat } = useChatStore();
   const serverUrl = 'wss://asicme-whatsap-5gb7mv88.livekit.cloud';
 
@@ -712,6 +716,11 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             setActiveChat={setActiveChat}
             setRaisedHands={setRaisedHands}
             setInvitedContactIds={setInvitedContactIds}
+            callDuration={callDuration}
+            isMicEnabled={isMicEnabled}
+            setIsMicEnabled={setIsMicEnabled}
+            isCameraEnabled={isCameraEnabled}
+            setIsCameraEnabled={setIsCameraEnabled}
           />
         )}
 
