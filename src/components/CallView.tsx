@@ -139,6 +139,7 @@ const PremiumControlBar = ({
   const { localParticipant } = useLocalParticipant();
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [isCameraEnabled, setIsCameraEnabled] = useState(video);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const toggleMic = () => {
     if (localParticipant) {
@@ -167,8 +168,8 @@ const PremiumControlBar = ({
       </div>
 
       {/* Inferior: Barra de Controles Estilo Dribbble */}
-      <div className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-0 right-0 z-[110] flex justify-center pointer-events-none">
-        <div className="flex items-center gap-2 bg-[#202124]/95 backdrop-blur-2xl px-4 py-3 rounded-[24px] shadow-[0_20px_40px_rgba(0,0,0,0.3)] pointer-events-auto border border-white/5">
+      <div className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] left-0 right-0 z-[110] flex justify-center pointer-events-none px-4">
+        <div className="flex items-center gap-1 md:gap-2 bg-white/20 backdrop-blur-3xl px-3 md:px-4 py-2 md:py-3 rounded-[30px] shadow-[0_8px_32px_0_rgba(0,0,0,0.2)] pointer-events-auto border border-white/30">
           
           {/* Grupo 1: Medios */}
           <div className="flex items-center gap-1 bg-white/5 p-1 rounded-[18px]">
@@ -242,34 +243,74 @@ const PremiumControlBar = ({
                 setActiveChat(roomName);
                 setIsMinimized(true);
               }}
-              className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center relative"
+              className="p-2 md:p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center relative"
             >
               <MessageSquare size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-[#f28b3f] rounded-full" />
+              <span className="absolute top-1.5 right-1.5 md:top-2 md:right-2 w-2 h-2 bg-[#f28b3f] rounded-full" />
             </button>
-            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+            <button className="p-2 md:p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
               <Smile size={20} />
             </button>
-            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+            <button className="p-2 md:p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center hidden sm:flex">
               <Hand size={20} />
             </button>
-            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-              <Sparkles size={20} />
-            </button>
-            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
-              <MoreVertical size={20} />
-            </button>
+            
+            {/* Menú Tres Puntos (Mobile) */}
+            <div className="relative md:hidden flex items-center justify-center">
+              <button 
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="p-2 md:p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center"
+              >
+                <MoreVertical size={20} />
+              </button>
+
+              <AnimatePresence>
+                {showMoreMenu && (
+                  <motion.div 
+                    key="more-menu"
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="absolute bottom-[calc(100%+1rem)] right-0 w-48 bg-white/20 backdrop-blur-3xl rounded-[24px] shadow-2xl z-50 border border-white/30 overflow-hidden flex flex-col p-2"
+                  >
+                    <div className="flex items-center gap-3 p-3 text-white font-medium border-b border-white/10 mb-1">
+                      <CircleDot size={16} className="text-[#ea4335] animate-pulse" />
+                      <span>00:32</span>
+                    </div>
+                    <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/20 transition-colors text-white text-left">
+                      <Hand size={18} />
+                      <span>Levantar Mano</span>
+                    </button>
+                    <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/20 transition-colors text-white text-left">
+                      <MonitorUp size={18} />
+                      <span>Compartir Pantalla</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (isDisconnecting) return;
+                        setIsDisconnecting(true);
+                        setDisconnectAction('leave');
+                      }}
+                      className="w-full flex items-center gap-3 p-3 mt-1 rounded-xl bg-[#ea4335] hover:bg-[#d93025] transition-colors text-white text-left font-semibold"
+                    >
+                      <PhoneOff size={18} />
+                      <span>Finalizar</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
-          <div className="w-px h-8 bg-white/10 mx-2" />
+          <div className="hidden md:block w-px h-8 bg-white/20 mx-2" />
 
-          {/* Grupo 3: Extras y Cuelgue */}
-          <div className="flex items-center gap-3">
-            <button className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
+          {/* Grupo 3: Extras y Cuelgue (Solo visible en Desktop) */}
+          <div className="hidden md:flex items-center gap-3">
+            <button className="p-3 bg-transparent hover:bg-white/20 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center">
               <MonitorUp size={20} />
             </button>
             
-            <div className="flex items-center gap-2 bg-[#2d2e30] px-3 py-1.5 rounded-[12px] text-white/90 text-sm font-medium border border-white/5">
+            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-[12px] text-white font-medium border border-white/20">
               <CircleDot size={14} className="text-[#ea4335] animate-pulse" />
               <span>00:32</span>
             </div>
