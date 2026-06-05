@@ -1053,11 +1053,11 @@ export const useChatStore = create<ChatState>()(
         });
       }
       
-      if (notificationsEnabled && Notification.permission === 'granted') {
-        new Notification(`Nuevo mensaje`, {
-          body: message.text || (message.type === 'image' ? '📷 Imagen' : message.type === 'video' ? '🎥 Video' : message.type === 'audio' ? '🎤 Nota de voz' : '📄 Archivo'),
-          icon: '/favicon.png'
-        });
+      if (notificationsEnabled) {
+        notifyMessage(
+          'Nuevo mensaje',
+          message.text || (message.type === 'image' ? '📷 Imagen' : message.type === 'video' ? '🎥 Video' : message.type === 'audio' ? '🎤 Nota de voz' : '📄 Archivo')
+        ).catch(err => console.log('Notification error:', err));
       }
     }
 
