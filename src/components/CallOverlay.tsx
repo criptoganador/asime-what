@@ -23,35 +23,40 @@ export const CallOverlay = () => {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Reproducción de Ringtone
+  // Reproducción de Ringtone (Refactorizado para evitar stutter)
   useEffect(() => {
     if (incomingCall || outgoingCall) {
       const audioUrl = incomingCall ? INCOMING_RINGTONE : OUTGOING_RINGTONE;
       if (!audioRef.current) {
-        audioRef.current = new Audio(audioUrl);
+        audioRef.current = new Audio();
         audioRef.current.loop = true;
-      } else {
-        audioRef.current.src = audioUrl;
       }
       
-      // Manejar política del navegador de autoplay
-      audioRef.current.play().catch((e) => {
-        console.warn('Ringtone autoplay blocked by browser:', e);
-      });
+      // Solo reasignar y dar play si la URL cambió para evitar que se reinicie el audio
+      if (!audioRef.current.src.endsWith(audioUrl)) {
+        audioRef.current.src = audioUrl;
+        audioRef.current.play().catch((e) => {
+          console.warn('Ringtone autoplay blocked by browser:', e);
+        });
+      }
     } else {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
+        audioRef.current.src = ''; // Limpiar src para que la próxima vez pase la validación
       }
     }
+  }, [incomingCall, outgoingCall]);
 
+  // Cleanup de desmontaje (Unmount) real
+  useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
     };
-  }, [incomingCall, outgoingCall]);
+  }, []);
 
   // Timeout de 45 segundos para llamadas fantasma
   useEffect(() => {

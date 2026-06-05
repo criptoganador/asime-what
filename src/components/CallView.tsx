@@ -11,7 +11,7 @@ import {
   useDataChannel
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
-import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2, Mic, MicOff, Video as VideoIcon, VideoOff, MessageSquare, Smile, Hand, Sparkles, MoreVertical, CircleDot, MonitorUp, Users } from 'lucide-react';
+import { X, Shield, PhoneOff, AlertCircle, UserPlus, MessageCircle, Maximize2, Mic, MicOff, Video as VideoIcon, VideoOff, MessageSquare, Smile, Hand, Sparkles, MoreVertical, CircleDot, MonitorUp, Users, SwitchCamera } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_URL } from '../config';
 import { useChatStore } from '../features/sidebar/store/useChatStore';
@@ -175,7 +175,8 @@ const PremiumControlBar = ({
   availableContacts, inviteToCall, roomName, isDisconnecting, setIsDisconnecting, 
   setDisconnectAction, activeParticipantNames, chatName, setActiveChat, setRaisedHands,
   setInvitedContactIds,
-  callDuration, isMicEnabled, setIsMicEnabled, isCameraEnabled, setIsCameraEnabled
+  callDuration, isMicEnabled, setIsMicEnabled, isCameraEnabled, setIsCameraEnabled,
+  facingMode, setFacingMode
 }: any) => {
   const { localParticipant, isScreenShareEnabled } = useLocalParticipant();
   const { send } = useDataChannel('hand-raise');
@@ -219,6 +220,20 @@ const PremiumControlBar = ({
     setIsCameraEnabled(!isCameraEnabled);
   };
 
+  const toggleCameraFacingMode = async () => {
+    if (!localParticipant) return;
+    try {
+      const newMode = facingMode === 'user' ? 'environment' : 'user';
+      setFacingMode(newMode);
+      // Forzar re-publicación con el nuevo lente
+      await localParticipant.setCameraEnabled(true, { facingMode: newMode });
+    } catch (error) {
+      console.error('Error flipping camera', error);
+      // Revertir en caso de error o si el dispositivo no tiene cámara trasera
+      setFacingMode(facingMode);
+    }
+  };
+
   return (
     <>
       {/* Superior: Header Flotante Premium */}
@@ -247,6 +262,15 @@ const PremiumControlBar = ({
                 className={`p-3 rounded-[14px] transition-all duration-300 flex items-center justify-center ${isCameraEnabled ? 'bg-transparent hover:bg-white/10 text-white' : 'bg-[#ea4335] text-white'}`}
               >
                 {isCameraEnabled ? <VideoIcon size={20} /> : <VideoOff size={20} />}
+              </button>
+            )}
+            {video && isCameraEnabled && (
+              <button 
+                onClick={toggleCameraFacingMode}
+                className="p-3 bg-transparent hover:bg-white/10 text-white/90 rounded-[14px] transition-all duration-300 flex items-center justify-center"
+                title="Girar Cámara"
+              >
+                <SwitchCamera size={20} />
               </button>
             )}
           </div>
@@ -431,6 +455,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
   // Estado Inmortal (Sobrevive a la ventana flotante)
   const [isMicEnabled, setIsMicEnabled] = useState(true);
   const [isCameraEnabled, setIsCameraEnabled] = useState(video);
+  const [facingMode, setFacingMode] = useState<'user'|'environment'>('user');
   const [callDuration, setCallDuration] = useState(0);
 
   useEffect(() => {
@@ -612,7 +637,7 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
       }
     >
       <LiveKitRoom
-        video={isCameraEnabled}
+        video={isCameraEnabled ? { facingMode } : false}
         audio={isMicEnabled}
         token={token}
         serverUrl={serverUrl}
@@ -713,6 +738,8 @@ export const CallView = ({ roomName, participantName, chatName, chatAvatar, onCl
             setIsMicEnabled={setIsMicEnabled}
             isCameraEnabled={isCameraEnabled}
             setIsCameraEnabled={setIsCameraEnabled}
+            facingMode={facingMode}
+            setFacingMode={setFacingMode}
           />
         )}
 
