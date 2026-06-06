@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Fingerprint, LogIn, Camera, User, Loader2 } from 'lucide-react';
+import { Fingerprint, LogIn, Camera, User, Loader2, ScanFace } from 'lucide-react';
 import { API_URL } from '../../../config';
 import { useChatStore, socket } from '../../sidebar/store/useChatStore';
 import { generateECDHKeyPair, encryptPrivateKeyWithPIN, encryptPrivateKeyWithPhrase, decryptPrivateKeyWithPIN, hashRecoveryPhrase, decryptPrivateKeyWithPhrase } from '../../../utils/crypto';
@@ -470,7 +470,12 @@ export const BiometricAuth: React.FC = () => {
                 <Loader2 className="w-6 h-6 animate-spin" />
               ) : (
                 <>
-                  <LogIn className="w-5 h-5" /> Iniciar Sesión con Huella
+                  <div className="flex items-center gap-1.5">
+                    <Fingerprint className="w-5 h-5" />
+                    <span className="text-[10px] opacity-60">/</span>
+                    <ScanFace className="w-5 h-5" />
+                  </div>
+                  Iniciar Sesión (Huella o Rostro)
                 </>
               )}
             </button>
@@ -490,7 +495,12 @@ export const BiometricAuth: React.FC = () => {
                  <Loader2 className="w-6 h-6 animate-spin" />
               ) : (
                 <>
-                  <Fingerprint className="w-5 h-5" /> Registrar Dispositivo
+                  <div className="flex items-center gap-1.5">
+                    <Fingerprint className="w-5 h-5" />
+                    <span className="text-[10px] opacity-60">/</span>
+                    <ScanFace className="w-5 h-5" />
+                  </div>
+                  Registrar Dispositivo
                 </>
               )}
             </button>
