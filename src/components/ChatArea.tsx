@@ -1002,7 +1002,7 @@ const stringToColor = (str: string) => {
   return color;
 };
 
-const DateSeparator = ({ date }: { date: Date }) => {
+const DateSeparator = React.memo(({ date }: { date: Date }) => {
   const isToday = new Date().toDateString() === date.toDateString();
   const isYesterday = new Date(Date.now() - 86400000).toDateString() === date.toDateString();
   const dateStr = isToday ? 'Hoy' : isYesterday ? 'Ayer' : date.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
@@ -1014,9 +1014,11 @@ const DateSeparator = ({ date }: { date: Date }) => {
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  return prevProps.date.getTime() === nextProps.date.getTime();
+});
 
-const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onDeleteLocal, onImageClick, onVideoClick, searchQuery, isGroup, senderName }: any) => {
+const MessageBubble = React.memo(({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDelete, onDeleteLocal, onImageClick, onVideoClick, searchQuery, isGroup, senderName }: any) => {
   const [showActions, setShowActions] = useState(false);
   const [showReactions, setShowReactions] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
@@ -1313,7 +1315,20 @@ const MessageBubble = ({ msg, isMe, showTail, repliedMsg, onReply, onReact, onDe
       </motion.div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.msg.id === nextProps.msg.id &&
+    prevProps.msg.status === nextProps.msg.status &&
+    prevProps.msg.isDeleted === nextProps.msg.isDeleted &&
+    prevProps.msg.reactions === nextProps.msg.reactions &&
+    prevProps.isMe === nextProps.isMe &&
+    prevProps.showTail === nextProps.showTail &&
+    prevProps.searchQuery === nextProps.searchQuery &&
+    prevProps.isGroup === nextProps.isGroup &&
+    prevProps.senderName === nextProps.senderName &&
+    prevProps.repliedMsg?.id === nextProps.repliedMsg?.id
+  );
+});
 
 async function handleNativeDownload(url: string, fileName: string, mimeType?: string) {
   if (!Capacitor.isNativePlatform()) {
