@@ -35,7 +35,7 @@ jobs:
         run: |
           cd ios/App
           # Construimos la app forzando a que no requiera firma (CODE_SIGNING_ALLOWED=NO)
-          xcodebuild -workspace App.xcworkspace \
+          xcodebuild -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
