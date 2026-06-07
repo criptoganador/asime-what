@@ -1,0 +1,63 @@
+name: iOS Unsigned Build
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  workflow_dispatch: # Permite ejecutar el workflow manualmente
+
+jobs:
+  build-ios:
+    name: Build Unsigned iOS App
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Sync Capacitor for iOS
+        run: npx cap sync ios
+
+      - name: Build iOS App (Unsigned)
+        run: |
+          cd ios/App
+          # Construimos la app forzando a que no requiera firma (CODE_SIGNING_ALLOWED=NO)
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ./DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package into .ipa
+        run: |
+          cd ios/App
+          # Creamos la carpeta Payload (requerida para el formato .ipa)
+          mkdir -p Payload
+          # Copiamos la app construida
+          cp -R ./DerivedData/Build/Products/Release-iphoneos/App.app Payload/
+          # Comprimimos la carpeta en un archivo .ipa
+          zip -r ../../asicme-chat-unsigned.ipa Payload
+
+      - name: Upload .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asicme-chat-ios-unsigned
+          path: asicme-chat-unsigned.ipa
+          retention-days: 7
